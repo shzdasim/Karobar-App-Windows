@@ -7,30 +7,48 @@ Write-Host "==========================================================" -Foregro
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
+$LocalDotNetDir = Join-Path $env:LOCALAPPDATA "Microsoft\dotnet"
+$ProgFilesDotNetDir = Join-Path $env:ProgramFiles "dotnet"
 
-# 1. Verify .NET 9 SDK is installed on Windows VM (auto-install via winget if missing)
-$HasDotNet9Sdk = $false
-if (Get-Command dotnet -ErrorAction SilentlyContinue) {
-    $Sdks = & dotnet --list-sdks 2>$null
-    if ($Sdks -match "^9\.") {
-        $HasDotNet9Sdk = $true
-    }
-}
-
-if (-not $HasDotNet9Sdk) {
-    Write-Host "[1/4] .NET 9 SDK not found. Installing Microsoft.DotNet.SDK.9 via winget..." -ForegroundColor Yellow
-    winget install Microsoft.DotNet.SDK.9 --accept-package-agreements --accept-source-agreements
-    $MachinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
-    $UserPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-    $env:Path = "$MachinePath;$UserPath"
+if (Test-Path $LocalDotNetDir) {
+    $env:Path = "$LocalDotNetDir;$env:Path"
+    $env:DOTNET_ROOT = $LocalDotNetDir
+} elseif (Test-Path $ProgFilesDotNetDir) {
+    $env:Path = "$ProgFilesDotNetDir;$env:Path"
 }
 
 Push-Location $RepoRoot
 try {
-    # 2. Pull latest changes from GitHub if inside a git repo
+    # 1. Pull latest changes from GitHub if inside a git repo
     if (Test-Path (Join-Path $RepoRoot ".git")) {
         Write-Host "[1/4] Pulling latest commits from GitHub (Karobar-App-Windows)..." -ForegroundColor Green
         git pull
+    }
+
+    # 2. Verify .NET 9 SDK is installed (auto-install via official Microsoft dotnet-install.ps1 if missing)
+    $HasDotNet9Sdk = $false
+    if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+        $Sdks = & dotnet --list-sdks 2>$null
+        if ($Sdks -match "^9\.") {
+            $HasDotNet9Sdk = $true
+        }
+    }
+
+    if (-not $HasDotNet9Sdk) {
+        Write-Host "[2/4] .NET 9 SDK not found. Downloading and installing via official Microsoft installer..." -ForegroundColor Yellow
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $InstallerScript = Join-Path $env:TEMP "dotnet-install.ps1"
+        Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile $InstallerScript -UseBasicParsing
+        & $InstallerScript -Channel 9.0 -InstallDir $LocalDotNetDir
+        $env:Path = "$LocalDotNetDir;$env:Path"
+        $env:DOTNET_ROOT = $LocalDotNetDir
+
+        $CurrentUserPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+        if ($CurrentUserPath -notlike "*$LocalDotNetDir*") {
+            [System.Environment]::SetEnvironmentVariable("Path", "$LocalDotNetDir;$CurrentUserPath", "User")
+            [System.Environment]::SetEnvironmentVariable("DOTNET_ROOT", $LocalDotNetDir, "User")
+        }
+        Write-Host ".NET 9 SDK installed successfully to $LocalDotNetDir" -ForegroundColor Green
     }
 
     Write-Host "[2/4] Restoring and Building Karobar.Native.sln..." -ForegroundColor Green
