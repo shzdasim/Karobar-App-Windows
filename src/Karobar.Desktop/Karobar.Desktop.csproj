@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Karobar.Desktop</RootNamespace>
+    <AssemblyName>Karobar</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Karobar.Domain\Karobar.Domain.csproj" />
+    <ProjectReference Include="..\Karobar.Application\Karobar.Application.csproj" />
+    <ProjectReference Include="..\Karobar.Infrastructure\Karobar.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.2" />
+    <PackageReference Include="WPF-UI" Version="4.0.2" />
+  </ItemGroup>
+</Project>
