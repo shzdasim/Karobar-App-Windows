@@ -1,0 +1,1541 @@
+<UserControl x:Class="Karobar.Desktop.Views.ProductBatchesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:Karobar.Desktop.Controls"
+             mc:Ignorable="d"
+             d:DesignHeight="980" d:DesignWidth="1440"
+             Background="#F8FAFC"
+             PreviewKeyDown="ProductBatchesView_OnPreviewKeyDown">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E2E8F0" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+        </Style>
+
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#334155" />
+            <Setter Property="Margin" Value="0,0,0,5" />
+        </Style>
+
+        <Style x:Key="ModernTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="#0F172A" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#2563EB" />
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1.5" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#F1F5F9" />
+                                <Setter Property="Foreground" Value="#94A3B8" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#2563EB" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1D4ED8" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#94A3B8" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="#334155" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#F1F5F9" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="QuickPillButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#EFF6FF" />
+            <Setter Property="Foreground" Value="#1D4ED8" />
+            <Setter Property="BorderBrush" Value="#BFDBFE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="Margin" Value="4,0,0,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#DBEAFE" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ShortcutKeycapBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="#F8FAFC" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="5,1" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- =================================================================== -->
+        <!-- MAIN WORKBENCH SCROLLABLE VIEW                                      -->
+        <!-- =================================================================== -->
+        <ScrollViewer x:Name="MainWorkbenchScrollViewer"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="20,16,20,28">
+
+                <!-- =========================================================== -->
+                <!-- TOP HEADER BAR + KEYBOARD SHORTCUT BAR                      -->
+                <!-- =========================================================== -->
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Title & Subtitle -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="40" Height="40" CornerRadius="10" Background="#2563EB" Margin="0,0,12,0">
+                            <TextBlock Text="🧪" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#FFFFFF" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Product Batches" FontSize="20" FontWeight="Bold" Foreground="#0F172A" />
+                            <TextBlock Text="Manage product batch numbers, expiry dates, and stock locations."
+                                       FontSize="12" Foreground="#64748B" Margin="0,1,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Keyboard Shortcut Keycaps + Locations Button -->
+                    <WrapPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <!-- Ctrl+F / F2 Search Product -->
+                        <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="8,5" Margin="0,0,6,0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Style="{StaticResource ShortcutKeycapBorderStyle}">
+                                    <TextBlock Text="Ctrl+F / F2" FontFamily="Consolas" FontSize="10.5" FontWeight="Bold" Foreground="#334155" />
+                                </Border>
+                                <TextBlock Text="Search Product" FontSize="11" FontWeight="Medium" Foreground="#64748B" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Alt+B Batch # -->
+                        <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="8,5" Margin="0,0,6,0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Style="{StaticResource ShortcutKeycapBorderStyle}">
+                                    <TextBlock Text="Alt+B" FontFamily="Consolas" FontSize="10.5" FontWeight="Bold" Foreground="#334155" />
+                                </Border>
+                                <TextBlock Text="Batch #" FontSize="11" FontWeight="Medium" Foreground="#64748B" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Enter Next Field -->
+                        <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="8,5" Margin="0,0,6,0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Style="{StaticResource ShortcutKeycapBorderStyle}">
+                                    <TextBlock Text="Enter ↵" FontFamily="Consolas" FontSize="10.5" FontWeight="Bold" Foreground="#334155" />
+                                </Border>
+                                <TextBlock Text="Next Field" FontSize="11" FontWeight="Medium" Foreground="#64748B" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Ctrl+S Save Batch -->
+                        <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="8,5" Margin="0,0,6,0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Style="{StaticResource ShortcutKeycapBorderStyle}">
+                                    <TextBlock Text="Ctrl+S" FontFamily="Consolas" FontSize="10.5" FontWeight="Bold" Foreground="#334155" />
+                                </Border>
+                                <TextBlock Text="Save Batch" FontSize="11" FontWeight="Medium" Foreground="#64748B" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Ctrl+N Clear / New -->
+                        <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="8,5" Margin="0,0,6,0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Style="{StaticResource ShortcutKeycapBorderStyle}">
+                                    <TextBlock Text="Ctrl+N" FontFamily="Consolas" FontSize="10.5" FontWeight="Bold" Foreground="#334155" />
+                                </Border>
+                                <TextBlock Text="Clear / New" FontSize="11" FontWeight="Medium" Foreground="#64748B" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Locations Button -->
+                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding OpenLocationsModalCommand}"
+                                Content="🏪 Locations"
+                                ToolTip="Manage Storage Locations (Shop, Godown, Cold Storage, Quarantine)"
+                                Margin="2,0,6,0" />
+
+                        <!-- Refresh Button -->
+                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding RefreshWorkbenchCommand}"
+                                Content="↻ Refresh"
+                                ToolTip="Refresh Product Batches (F5 / Ctrl+R)" />
+                    </WrapPanel>
+                </Grid>
+
+                <!-- =========================================================== -->
+                <!-- MAIN 2-COLUMN SPLIT WORKBENCH (LEFT 7* / RIGHT 5*)          -->
+                <!-- =========================================================== -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="7*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="5*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ======================================================= -->
+                    <!-- LEFT COLUMN: STEP 1 PRODUCT PICKER + STEP 2 BATCH FORM   -->
+                    <!-- ======================================================= -->
+                    <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="18,16">
+                        <StackPanel>
+
+                            <!-- STEP 1 HEADER -->
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="22" Height="22" CornerRadius="6" Background="#DBEAFE" Margin="0,0,8,0">
+                                        <TextBlock Text="1" FontSize="11.5" FontWeight="Bold" Foreground="#1D4ED8"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="SELECT PRODUCT (CTRL+F / ALT+F / F2)"
+                                               FontSize="11.5" FontWeight="Bold" Foreground="#334155" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <Button Grid.Column="1"
+                                        Visibility="{Binding HasActiveProduct, Converter={StaticResource BoolToVis}}"
+                                        Command="{Binding OpenActiveProductInEditCommand}"
+                                        Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                        ToolTip="Open selected product in Product Edit view">
+                                    <TextBlock Text="✎ Open Product Edit →" FontSize="11.5" FontWeight="SemiBold" Foreground="#2563EB" />
+                                </Button>
+                            </Grid>
+
+                            <!-- STEP 1 SEARCH INPUT BOX -->
+                            <Grid>
+                                <TextBox x:Name="ProductSearchTextBox"
+                                         Style="{StaticResource ModernTextBoxStyle}"
+                                         Height="40"
+                                         Padding="34,8,34,8"
+                                         Text="{Binding ProductSearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                         GotKeyboardFocus="ProductSearchTextBox_OnGotKeyboardFocus"
+                                         PreviewKeyDown="ProductSearchTextBox_OnPreviewKeyDown" />
+                                <TextBlock Text="🔍" FontSize="13" Foreground="#94A3B8"
+                                           VerticalAlignment="Center" HorizontalAlignment="Left" Margin="12,0,0,0"
+                                           IsHitTestVisible="False" />
+                                <TextBlock Text="Type product name, code, or scan barcode and press Enter ↵..."
+                                           FontSize="12.5" Foreground="#94A3B8"
+                                           VerticalAlignment="Center" HorizontalAlignment="Left" Margin="36,0,34,0"
+                                           IsHitTestVisible="False">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasProductSearchQuery}" Value="False">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <Button Visibility="{Binding HasProductSearchQuery, Converter={StaticResource BoolToVis}}"
+                                        Command="{Binding ClearProductSearchCommand}"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
+                                        Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                        ToolTip="Clear product search">
+                                    <TextBlock Text="✕" FontSize="12" FontWeight="Bold" Foreground="#94A3B8" Padding="4,2" />
+                                </Button>
+                            </Grid>
+
+                            <!-- STEP 1 INLINE KEYBOARD-NAVIGABLE DROPDOWN RESULTS -->
+                            <Border Visibility="{Binding IsProductDropdownOpen, Converter={StaticResource BoolToVis}}"
+                                    Background="#FFFFFF" BorderBrush="#93C5FD" BorderThickness="1.5" CornerRadius="10"
+                                    Margin="0,6,0,0" MaxHeight="280">
+                                <Grid>
+                                    <ListBox x:Name="ProductSearchResultsListBox"
+                                             ItemsSource="{Binding ProductSearchResults}"
+                                             SelectedItem="{Binding HighlightedProductResult, Mode=TwoWay}"
+                                             BorderThickness="0" Background="Transparent"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                             PreviewMouseLeftButtonUp="ProductSearchResultsListBox_OnPreviewMouseLeftButtonUp">
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                                <Setter Property="Padding" Value="12,8" />
+                                                <Setter Property="Cursor" Value="Hand" />
+                                                <Setter Property="BorderBrush" Value="#F1F5F9" />
+                                                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Product Info -->
+                                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                                        <WrapPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,8,0" />
+                                                            <Border Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="0,0,6,0">
+                                                                <TextBlock Text="{Binding ProductCode}" FontFamily="Consolas" FontSize="10.5" Foreground="#475569" />
+                                                            </Border>
+                                                            <Border Visibility="{Binding HasRack, Converter={StaticResource BoolToVis}}"
+                                                                    Background="#FEF3C7" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="4" Padding="5,1">
+                                                                <TextBlock Text="{Binding Rack, StringFormat=Rack: {0}}" FontSize="10" FontWeight="SemiBold" Foreground="#B45309" />
+                                                            </Border>
+                                                        </WrapPanel>
+                                                        <TextBlock Margin="0,3,0,0" FontSize="11" Foreground="#64748B">
+                                                            <Run Text="Pack Size:" />
+                                                            <Run Text="{Binding PackSize, Mode=OneWay}" FontWeight="SemiBold" Foreground="#334155" />
+                                                            <Run Text="  •  Unit Cost:" />
+                                                            <Run Text="{Binding UnitPurchasePrice, StringFormat=N2, Mode=OneWay}" FontWeight="SemiBold" Foreground="#334155" />
+                                                            <Run Text="  •  Unit MRP:" />
+                                                            <Run Text="{Binding UnitSalePrice, StringFormat=N2, Mode=OneWay}" FontWeight="SemiBold" Foreground="#334155" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+
+                                                    <!-- Right Stock Badges -->
+                                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                            <Border Background="#F1F5F9" CornerRadius="4" Padding="6,2" Margin="0,0,4,0">
+                                                                <TextBlock Text="{Binding Quantity, StringFormat=Total: {0}}" FontSize="10.5" FontWeight="SemiBold" Foreground="#334155" />
+                                                            </Border>
+                                                            <Border CornerRadius="4" Padding="6,2">
+                                                                <Border.Style>
+                                                                    <Style TargetType="Border">
+                                                                        <Setter Property="Background" Value="#FEF3C7" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding HasUnassigned}" Value="True">
+                                                                                <Setter Property="Background" Value="#DCFCE7" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
+                                                                <TextBlock Text="{Binding UnassignedQuantity, StringFormat=Unassigned: {0}}" FontSize="10.5" FontWeight="Bold">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="#B45309" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding HasUnassigned}" Value="True">
+                                                                                    <Setter Property="Foreground" Value="#15803D" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <TextBlock Text="Press Enter ↵ to select" FontSize="10" FontWeight="SemiBold"
+                                                                   Foreground="#2563EB" HorizontalAlignment="Right" Margin="0,3,0,0" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <TextBlock Visibility="{Binding ShowNoProductSearchResults, Converter={StaticResource BoolToVis}}"
+                                               Text="No matching products found."
+                                               FontSize="12" Foreground="#64748B" HorizontalAlignment="Center" Margin="16" />
+                                </Grid>
+                            </Border>
+
+                            <!-- ACTIVE PRODUCT SUMMARY BANNER -->
+                            <Border Visibility="{Binding HasActiveProduct, Converter={StaticResource BoolToVis}}"
+                                    Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10"
+                                    Padding="14,10" Margin="0,12,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <WrapPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding ActiveProduct.Name}" FontSize="14.5" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,8,0" />
+                                            <Border Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Padding="6,1" Margin="0,0,6,0">
+                                                <TextBlock Text="{Binding ActiveProduct.ProductCode}" FontFamily="Consolas" FontSize="11" Foreground="#475569" />
+                                            </Border>
+                                            <Border Background="#DBEAFE" CornerRadius="4" Padding="6,1">
+                                                <TextBlock Text="{Binding ActiveProductPackSize, StringFormat=Pack: {0}}" FontSize="11" FontWeight="Bold" Foreground="#1D4ED8" />
+                                            </Border>
+                                        </WrapPanel>
+                                        <TextBlock Margin="0,4,0,0" FontSize="11.5" Foreground="#64748B">
+                                            <Run Text="Default Cost:" />
+                                            <Run Text="{Binding CurrencySymbol, Mode=OneWay}" FontWeight="SemiBold" Foreground="#334155" />
+                                            <Run Text="{Binding ActiveProduct.UnitPurchasePrice, StringFormat=N2, Mode=OneWay}" FontWeight="SemiBold" Foreground="#334155" />
+                                            <Run Text="   •   Default MRP:" />
+                                            <Run Text="{Binding CurrencySymbol, Mode=OneWay}" FontWeight="SemiBold" Foreground="#334155" />
+                                            <Run Text="{Binding ActiveProduct.UnitSalePrice, StringFormat=N2, Mode=OneWay}" FontWeight="SemiBold" Foreground="#334155" />
+                                            <Run Text="   •   Default Rack:" />
+                                            <Run Text="{Binding ActiveProductRackDisplay, Mode=OneWay}" FontWeight="SemiBold" Foreground="#334155" />
+                                        </TextBlock>
+                                    </StackPanel>
+
+                                    <!-- 3 Stock Counter Pills -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,6,0">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="TOTAL STOCK" FontSize="9.5" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Center" />
+                                                <TextBlock Text="{Binding TotalStock}" FontSize="14" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,0,6,0">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="BATCHED" FontSize="9.5" FontWeight="Bold" Foreground="#2563EB" HorizontalAlignment="Center" />
+                                                <TextBlock Text="{Binding BatchedStock}" FontSize="14" FontWeight="Bold" Foreground="#1D4ED8" HorizontalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                        <Border CornerRadius="8" Padding="10,6" BorderThickness="1">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#FFFBEB" />
+                                                    <Setter Property="BorderBrush" Value="#FDE68A" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasUnassignedStock}" Value="True">
+                                                            <Setter Property="Background" Value="#F0FDF4" />
+                                                            <Setter Property="BorderBrush" Value="#BBF7D0" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="UNASSIGNED" FontSize="9.5" FontWeight="Bold" Foreground="#15803D" HorizontalAlignment="Center" />
+                                                <TextBlock Text="{Binding UnassignedStock}" FontSize="14" FontWeight="Bold" Foreground="#15803D" HorizontalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- NO ACTIVE PRODUCT CALLOUT -->
+                            <Border Visibility="{Binding HasNoActiveProduct, Converter={StaticResource BoolToVis}}"
+                                    Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="10"
+                                    Padding="12,10" Margin="0,12,0,0">
+                                <TextBlock Text="💡 Search and select a product above (or click any row in the directory below) to immediately focus the Batch Number field."
+                                           FontSize="12" FontWeight="Medium" Foreground="#1D4ED8" TextWrapping="Wrap" />
+                            </Border>
+
+                            <!-- DIVIDER -->
+                            <Border Height="1" Background="#E2E8F0" Margin="0,14,0,14" />
+
+                            <!-- =============================================== -->
+                            <!-- STEP 2: KEYBOARD-DRIVEN ADD / EDIT BATCH FORM    -->
+                            <!-- =============================================== -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <WrapPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <Border Width="22" Height="22" CornerRadius="6" Margin="0,0,8,0">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="#DCFCE7" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsEditingBatch}" Value="True">
+                                                        <Setter Property="Background" Value="#FEF3C7" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="2" FontSize="11.5" FontWeight="Bold" Foreground="#15803D"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Step2HeaderTitle}"
+                                               FontSize="11.5" FontWeight="Bold" Foreground="#334155" VerticalAlignment="Center" Margin="0,0,8,0" />
+
+                                    <Border Visibility="{Binding IsEditingBatch, Converter={StaticResource BoolToVis}}"
+                                            Background="#FEF3C7" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="6" Padding="7,2" Margin="0,0,6,0">
+                                        <TextBlock Text="Edit Mode (Esc to Cancel)" FontSize="10.5" FontWeight="Bold" Foreground="#B45309" />
+                                    </Border>
+
+                                    <Button Visibility="{Binding HasMatchingExistingBatch, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding LoadMatchingExistingBatchCommand}"
+                                            Style="{StaticResource QuickPillButtonStyle}"
+                                            Content="{Binding MatchingExistingBatchBadgeText}"
+                                            ToolTip="Click to switch into editing this existing batch" />
+                                </WrapPanel>
+
+                                <!-- Max Assignable Badge -->
+                                <Border Grid.Column="1"
+                                        Visibility="{Binding HasActiveProduct, Converter={StaticResource BoolToVis}}"
+                                        CornerRadius="6" Padding="8,3" BorderThickness="1">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#FEF3C7" />
+                                            <Setter Property="BorderBrush" Value="#FDE68A" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasAssignableStock}" Value="True">
+                                                    <Setter Property="Background" Value="#DCFCE7" />
+                                                    <Setter Property="BorderBrush" Value="#BBF7D0" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding MaxAssignableBadgeText}" FontSize="11" FontWeight="Bold" Foreground="#15803D" />
+                                </Border>
+                            </Grid>
+
+                            <!-- 0 UNASSIGNED STOCK WARNING BANNER -->
+                            <Border Visibility="{Binding IsNewBatchBlockedByZeroUnassigned, Converter={StaticResource BoolToVis}}"
+                                    Background="#FFFBEB" BorderBrush="#FCD34D" BorderThickness="1" CornerRadius="10"
+                                    Padding="12,9" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock FontSize="12" FontWeight="Bold" Foreground="#92400E">
+                                        <Run Text="⚠ All" />
+                                        <Run Text="{Binding TotalStock, Mode=OneWay}" />
+                                        <Run Text="on-hand units are already assigned to batches (0 unassigned units remaining)." />
+                                    </TextBlock>
+                                    <TextBlock Text="Click ✎ Edit on an existing batch on the right to adjust its quantity, or increase stock via Purchase Invoice / Stock Adjustment."
+                                               FontSize="11" Foreground="#B45309" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- FORM ROW 1: BATCH NUMBER | EXPIRY DATE (+6M/+1Y/+2Y) | QUANTITY (+1P/Max) -->
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="4*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="4*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="4*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- 1. Batch Number * -->
+                                <StackPanel Grid.Column="0">
+                                    <Grid Margin="0,0,0,5">
+                                        <TextBlock Text="Batch Number *" FontSize="11.5" FontWeight="SemiBold" Foreground="#334155" />
+                                        <TextBlock Text="Alt+B" FontFamily="Consolas" FontSize="10" Foreground="#94A3B8" HorizontalAlignment="Right" />
+                                    </Grid>
+                                    <TextBox x:Name="BatchNumberTextBox"
+                                             Style="{StaticResource ModernTextBoxStyle}"
+                                             FontFamily="Consolas" FontWeight="SemiBold"
+                                             IsEnabled="{Binding HasActiveProduct}"
+                                             Text="{Binding FormBatchNumber, UpdateSourceTrigger=PropertyChanged}"
+                                             PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
+                                </StackPanel>
+
+                                <!-- 2. Expiry Date * + Quick Pills (+6M, +1Y, +2Y) -->
+                                <StackPanel Grid.Column="2">
+                                    <Grid Margin="0,0,0,5">
+                                        <TextBlock Text="Expiry Date *" FontSize="11.5" FontWeight="SemiBold" Foreground="#334155" VerticalAlignment="Center" />
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Style="{StaticResource QuickPillButtonStyle}" Content="+6M"
+                                                    Command="{Binding ApplyQuickExpiryMonthsCommand}" CommandParameter="6"
+                                                    IsEnabled="{Binding HasActiveProduct}" ToolTip="Set expiry to 6 months from today" />
+                                            <Button Style="{StaticResource QuickPillButtonStyle}" Content="+1Y"
+                                                    Command="{Binding ApplyQuickExpiryMonthsCommand}" CommandParameter="12"
+                                                    IsEnabled="{Binding HasActiveProduct}" ToolTip="Set expiry to 1 year from today" />
+                                            <Button Style="{StaticResource QuickPillButtonStyle}" Content="+2Y"
+                                                    Command="{Binding ApplyQuickExpiryMonthsCommand}" CommandParameter="24"
+                                                    IsEnabled="{Binding HasActiveProduct}" ToolTip="Set expiry to 2 years from today" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBox x:Name="ExpiryDateTextBox"
+                                             Style="{StaticResource ModernTextBoxStyle}"
+                                             IsEnabled="{Binding HasActiveProduct}"
+                                             Text="{Binding FormExpiryDate, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="Format: YYYY-MM-DD"
+                                             PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
+                                </StackPanel>
+
+                                <!-- 3. Quantity * + Quick Pills (+1P, Max) -->
+                                <StackPanel Grid.Column="4">
+                                    <Grid Margin="0,0,0,5">
+                                        <TextBlock Text="{Binding QuantityFieldLabel}" FontSize="11.5" FontWeight="SemiBold" Foreground="#334155" VerticalAlignment="Center" />
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Visibility="{Binding HasMultiUnitPack, Converter={StaticResource BoolToVis}}"
+                                                    Style="{StaticResource QuickPillButtonStyle}"
+                                                    Content="{Binding PlusOnePackButtonLabel}"
+                                                    Command="{Binding AddOnePackQuantityCommand}"
+                                                    IsEnabled="{Binding HasActiveProduct}"
+                                                    ToolTip="Add 1 pack in units (or type '2p' in the box)" />
+                                            <Button Style="{StaticResource QuickPillButtonStyle}"
+                                                    Background="#DCFCE7" BorderBrush="#BBF7D0" Foreground="#15803D"
+                                                    Content="{Binding MaxQuantityButtonLabel}"
+                                                    Command="{Binding FillMaxQuantityCommand}"
+                                                    IsEnabled="{Binding HasActiveProduct}"
+                                                    ToolTip="Fill all remaining unassigned units" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBox x:Name="QuantityTextBox"
+                                             Style="{StaticResource ModernTextBoxStyle}"
+                                             FontWeight="SemiBold"
+                                             IsEnabled="{Binding HasActiveProduct}"
+                                             Text="{Binding FormQuantity, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="Enter units or type '2p' to convert packs to units"
+                                             PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- FORM ROW 2: UNIT COST | UNIT MRP | STORAGE LOCATION | RACK / SHELF -->
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="3*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="3.5*" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="2.5*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- 4. Unit Cost (Purchase) -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Unit Cost (Purchase)" />
+                                    <TextBox x:Name="UnitCostTextBox"
+                                             Style="{StaticResource ModernTextBoxStyle}"
+                                             IsEnabled="{Binding HasActiveProduct}"
+                                             Text="{Binding FormUnitPurchasePrice, UpdateSourceTrigger=PropertyChanged}"
+                                             PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
+                                </StackPanel>
+
+                                <!-- 5. Unit MRP (Sale Price) -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Unit MRP (Sale Price)" />
+                                    <TextBox x:Name="UnitMrpTextBox"
+                                             Style="{StaticResource ModernTextBoxStyle}"
+                                             IsEnabled="{Binding HasActiveProduct}"
+                                             Text="{Binding FormUnitSalePrice, UpdateSourceTrigger=PropertyChanged}"
+                                             PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
+                                </StackPanel>
+
+                                <!-- 6. Storage Location (SearchableSelect) -->
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Storage Location" />
+                                    <local:SearchableSelect x:Name="BatchLocationSelect"
+                                                            ItemsSource="{Binding ActiveStorageLocations}"
+                                                            SelectedItem="{Binding FormSelectedLocation, Mode=TwoWay}"
+                                                            DisplayMemberPath="DisplayLabel"
+                                                            Placeholder="Select Location..."
+                                                            IsEnabled="{Binding HasActiveProduct}"
+                                                            EnterCommitted="BatchLocationSelect_OnEnterCommitted" />
+                                </StackPanel>
+
+                                <!-- 7. Rack / Shelf (Enter Saves!) -->
+                                <StackPanel Grid.Column="6">
+                                    <Grid Margin="0,0,0,5">
+                                        <TextBlock Text="Rack / Shelf" FontSize="11.5" FontWeight="SemiBold" Foreground="#334155" />
+                                        <TextBlock Text="Enter ↵ Saves" FontSize="9.5" FontWeight="Bold" Foreground="#2563EB" HorizontalAlignment="Right" />
+                                    </Grid>
+                                    <TextBox x:Name="RackTextBox"
+                                             Style="{StaticResource ModernTextBoxStyle}"
+                                             IsEnabled="{Binding HasActiveProduct}"
+                                             Text="{Binding FormRack, UpdateSourceTrigger=PropertyChanged}"
+                                             PreviewKeyDown="RackTextBox_OnPreviewKeyDown" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- FORM FOOTER -->
+                            <Border BorderBrush="#F1F5F9" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="11.5" Foreground="#64748B" TextWrapping="Wrap" Margin="0,0,12,0">
+                                        <Run Text="Tip: Press" />
+                                        <Run Text="Enter ↵" FontWeight="Bold" Foreground="#334155" />
+                                        <Run Text="in any field to move forward, or" />
+                                        <Run Text="Ctrl+S" FontWeight="Bold" Foreground="#334155" />
+                                        <Run Text="from anywhere to save." />
+                                    </TextBlock>
+
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                Command="{Binding ResetBatchFormCommand}"
+                                                IsEnabled="{Binding HasActiveProduct}"
+                                                Content="{Binding ResetBatchButtonText}"
+                                                Margin="0,0,8,0" />
+                                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                                Command="{Binding SaveBatchCommand}"
+                                                IsEnabled="{Binding CanSaveBatch}"
+                                                Content="{Binding SaveBatchButtonText}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ======================================================= -->
+                    <!-- RIGHT COLUMN: SELECTED PRODUCT'S BATCHES (FEFO QUEUE)   -->
+                    <!-- ======================================================= -->
+                    <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Right Card Header -->
+                            <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1"
+                                    CornerRadius="12,12,0,0" Padding="16,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding ActiveProductRightHeaderTitle}"
+                                                   FontSize="13.5" FontWeight="Bold" Foreground="#0F172A" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="FEFO Queue • Click any batch row or ✎ to load into editor"
+                                                   FontSize="11" Foreground="#64748B" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <Border Grid.Column="1" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1"
+                                            CornerRadius="6" Padding="8,4" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding ActiveProductBatchesCountText}" FontSize="11" FontWeight="Bold" Foreground="#334155" />
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                            <!-- Right Card Body -->
+                            <Grid Grid.Row="1">
+                                <!-- Empty State when no product selected -->
+                                <StackPanel Visibility="{Binding HasNoActiveProduct, Converter={StaticResource BoolToVis}}"
+                                            VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
+                                    <TextBlock Text="📦" FontSize="28" HorizontalAlignment="Center" Margin="0,0,0,8" />
+                                    <TextBlock Text="No product selected yet." FontSize="13" FontWeight="SemiBold" Foreground="#475569" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Press Ctrl+F to search and select a product." FontSize="11.5" Foreground="#94A3B8" HorizontalAlignment="Center" Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <!-- Empty State when product has 0 batches -->
+                                <StackPanel Visibility="{Binding ShowEmptyActiveProductBatches, Converter={StaticResource BoolToVis}}"
+                                            VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
+                                    <TextBlock Text="🧪" FontSize="26" HorizontalAlignment="Center" Margin="0,0,0,8" />
+                                    <TextBlock Text="No batches recorded for this product yet." FontSize="13" FontWeight="SemiBold" Foreground="#475569" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Use the form on the left to add the first batch." FontSize="11.5" Foreground="#94A3B8" HorizontalAlignment="Center" Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <!-- FEFO Batches Table -->
+                                <Grid Visibility="{Binding HasActiveProductBatches, Converter={StaticResource BoolToVis}}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Table Header -->
+                                    <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="2.1*" />
+                                                <ColumnDefinition Width="1.9*" />
+                                                <ColumnDefinition Width="0.9*" />
+                                                <ColumnDefinition Width="1.4*" />
+                                                <ColumnDefinition Width="106" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="BATCH &amp; EXP" FontSize="10" FontWeight="Bold" Foreground="#64748B" />
+                                            <TextBlock Grid.Column="1" Text="LOCATION" FontSize="10" FontWeight="Bold" Foreground="#64748B" />
+                                            <TextBlock Grid.Column="2" Text="QTY" FontSize="10" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Right" />
+                                            <TextBlock Grid.Column="3" Text="COST / MRP" FontSize="10" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Right" />
+                                            <TextBlock Grid.Column="4" Text="ACTIONS" FontSize="10" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Right" />
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Table Rows -->
+                                    <ScrollViewer Grid.Row="1" MaxHeight="380" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding ActiveProductBatches}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="12,9" Background="#FFFFFF">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="2.1*" />
+                                                                <ColumnDefinition Width="1.9*" />
+                                                                <ColumnDefinition Width="0.9*" />
+                                                                <ColumnDefinition Width="1.4*" />
+                                                                <ColumnDefinition Width="106" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- Batch & Exp -->
+                                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                                <WrapPanel VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding BatchNumber}" FontFamily="Consolas" FontSize="12.5" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,5,0" />
+                                                                    <Border Visibility="{Binding IsFefoRecommended, Converter={StaticResource BoolToVis}}"
+                                                                            Background="#DCFCE7" CornerRadius="4" Padding="4,1" Margin="0,0,4,0">
+                                                                        <TextBlock Text="FEFO" FontSize="9" FontWeight="Bold" Foreground="#15803D" />
+                                                                    </Border>
+                                                                    <Border Visibility="{Binding IsExpired, Converter={StaticResource BoolToVis}}"
+                                                                            Background="#FEE2E2" CornerRadius="4" Padding="4,1">
+                                                                        <TextBlock Text="EXP" FontSize="9" FontWeight="Bold" Foreground="#B91C1C" />
+                                                                    </Border>
+                                                                </WrapPanel>
+                                                                <TextBlock Text="{Binding ExpiryDateFormatted, StringFormat=Exp: {0}}"
+                                                                           FontSize="11" Foreground="#64748B" Margin="0,2,0,0" />
+                                                            </StackPanel>
+
+                                                            <!-- Location & Rack -->
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                                <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
+                                                                        CornerRadius="5" Padding="5,1" HorizontalAlignment="Left">
+                                                                    <TextBlock Text="{Binding StorageLocationBadgeLabel}" FontSize="10" FontWeight="SemiBold" Foreground="#1D4ED8" TextTrimming="CharacterEllipsis" />
+                                                                </Border>
+                                                                <TextBlock Visibility="{Binding HasRack, Converter={StaticResource BoolToVis}}"
+                                                                           Text="{Binding Rack, StringFormat=Rack: {0}}"
+                                                                           FontSize="10.5" Foreground="#64748B" Margin="0,2,0,0" />
+                                                            </StackPanel>
+
+                                                            <!-- Qty -->
+                                                            <TextBlock Grid.Column="2" Text="{Binding Quantity}"
+                                                                       FontSize="12.5" FontWeight="Bold" Foreground="#0F172A"
+                                                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+                                                            <!-- Cost / MRP -->
+                                                            <StackPanel Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding UnitPurchasePrice, StringFormat=C: {0:N2}}" FontSize="10.5" Foreground="#64748B" HorizontalAlignment="Right" />
+                                                                <TextBlock Text="{Binding UnitSalePrice, StringFormat=S: {0:N2}}" FontSize="11" FontWeight="SemiBold" Foreground="#0F172A" HorizontalAlignment="Right" />
+                                                            </StackPanel>
+
+                                                            <!-- Actions: Edit / Move / Delete -->
+                                                            <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                                <Button Style="{StaticResource QuickPillButtonStyle}"
+                                                                        Command="{Binding DataContext.StartEditBatchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="✎" ToolTip="Edit batch in workbench" />
+                                                                <Button Style="{StaticResource QuickPillButtonStyle}"
+                                                                        Background="#EEF2FF" BorderBrush="#C7D2FE" Foreground="#4338CA"
+                                                                        Command="{Binding DataContext.OpenMoveBatchModalCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="⇄" ToolTip="Move / split batch to another storage location" />
+                                                                <Button Style="{StaticResource QuickPillButtonStyle}"
+                                                                        Background="#FEF2F2" BorderBrush="#FECACA" Foreground="#DC2626"
+                                                                        Command="{Binding DataContext.OpenDeleteBatchModalCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Content="🗑" ToolTip="Delete batch (returns units to unassigned stock)" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- =========================================================== -->
+                <!-- BOTTOM FULL-WIDTH CARD: ALL PRODUCT BATCHES DIRECTORY       -->
+                <!-- =========================================================== -->
+                <Border Style="{StaticResource CardBorderStyle}">
+                    <StackPanel>
+
+                        <!-- Directory Top Bar & Status Filter Tabs -->
+                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1"
+                                CornerRadius="12,12,0,0" Padding="18,14">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <WrapPanel VerticalAlignment="Center">
+                                            <TextBlock Text="All Product Batches" FontSize="15" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,8,0" />
+                                            <Border Background="#E2E8F0" CornerRadius="6" Padding="7,2">
+                                                <TextBlock Text="{Binding GlobalBatchesCountBadgeText}" FontSize="11" FontWeight="Bold" Foreground="#334155" />
+                                            </Border>
+                                        </WrapPanel>
+                                        <TextBlock Text="Click any row to load that product and batch directly into the workbench editor above."
+                                                   FontSize="11.5" Foreground="#64748B" Margin="0,2,0,0" />
+                                    </StackPanel>
+
+                                    <!-- 5 Status Filter Pills -->
+                                    <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <!-- All -->
+                                        <Button Command="{Binding SetGlobalStatusFilterCommand}" CommandParameter="all"
+                                                Content="{Binding StatusAllTabLabel}" Margin="0,0,6,0" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsStatusAllSelected}" Value="True">
+                                                            <Setter Property="Background" Value="#0F172A" />
+                                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                                            <Setter Property="BorderBrush" Value="#0F172A" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <!-- Expired -->
+                                        <Button Command="{Binding SetGlobalStatusFilterCommand}" CommandParameter="expired"
+                                                Content="{Binding StatusExpiredTabLabel}" Margin="0,0,6,0" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                    <Setter Property="Foreground" Value="#DC2626" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsStatusExpiredSelected}" Value="True">
+                                                            <Setter Property="Background" Value="#DC2626" />
+                                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                                            <Setter Property="BorderBrush" Value="#DC2626" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <!-- Critical <=30d -->
+                                        <Button Command="{Binding SetGlobalStatusFilterCommand}" CommandParameter="critical"
+                                                Content="{Binding StatusCriticalTabLabel}" Margin="0,0,6,0" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                    <Setter Property="Foreground" Value="#EA580C" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsStatusCriticalSelected}" Value="True">
+                                                            <Setter Property="Background" Value="#EA580C" />
+                                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                                            <Setter Property="BorderBrush" Value="#EA580C" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <!-- Warning -->
+                                        <Button Command="{Binding SetGlobalStatusFilterCommand}" CommandParameter="warning"
+                                                Content="{Binding StatusWarningTabLabel}" Margin="0,0,6,0" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                    <Setter Property="Foreground" Value="#D97706" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsStatusWarningSelected}" Value="True">
+                                                            <Setter Property="Background" Value="#D97706" />
+                                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                                            <Setter Property="BorderBrush" Value="#D97706" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <!-- Safe -->
+                                        <Button Command="{Binding SetGlobalStatusFilterCommand}" CommandParameter="safe"
+                                                Content="{Binding StatusSafeTabLabel}" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                    <Setter Property="Foreground" Value="#16A34A" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsStatusSafeSelected}" Value="True">
+                                                            <Setter Property="Background" Value="#16A34A" />
+                                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                                            <Setter Property="BorderBrush" Value="#16A34A" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </WrapPanel>
+                                </Grid>
+
+                                <!-- Directory Filter Bar (Live Search + Storage Location SearchableSelect + Include 0-Qty Toggle) -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="5*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="4*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="3*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Live Search Box -->
+                                    <Grid Grid.Column="0">
+                                        <TextBox x:Name="GlobalSearchTextBox"
+                                                 Style="{StaticResource ModernTextBoxStyle}"
+                                                 Padding="32,7,30,7"
+                                                 Text="{Binding GlobalSearchText, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Text="🔍" FontSize="12.5" Foreground="#94A3B8"
+                                                   VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0"
+                                                   IsHitTestVisible="False" />
+                                        <TextBlock Text="Filter directory by product, batch #, barcode, rack..."
+                                                   FontSize="12" Foreground="#94A3B8"
+                                                   VerticalAlignment="Center" HorizontalAlignment="Left" Margin="32,0,30,0"
+                                                   IsHitTestVisible="False">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasGlobalSearchText}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <Button Visibility="{Binding HasGlobalSearchText, Converter={StaticResource BoolToVis}}"
+                                                Command="{Binding ClearGlobalSearchCommand}"
+                                                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                Background="Transparent" BorderThickness="0" Cursor="Hand">
+                                            <TextBlock Text="✕" FontSize="11.5" FontWeight="Bold" Foreground="#94A3B8" Padding="4,2" />
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Storage Location Filter -->
+                                    <local:SearchableSelect Grid.Column="2"
+                                                            ItemsSource="{Binding GlobalLocationOptions}"
+                                                            SelectedItem="{Binding SelectedGlobalLocation, Mode=TwoWay}"
+                                                            DisplayMemberPath="DisplayLabel"
+                                                            Placeholder="All Storage Locations" />
+
+                                    <!-- Include 0-Qty Batches + Expiry Risk Dashboard Link -->
+                                    <Grid Grid.Column="4" VerticalAlignment="Center">
+                                        <CheckBox Content="Include 0-Qty Batches"
+                                                  IsChecked="{Binding GlobalIncludeZeroStock}"
+                                                  FontSize="12" FontWeight="Medium" Foreground="#334155"
+                                                  VerticalAlignment="Center" HorizontalAlignment="Left" />
+
+                                        <Button Command="{Binding OpenExpiryRiskDashboardCommand}"
+                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <TextBlock Text="Expiry Risk →" FontSize="11.5" FontWeight="SemiBold" Foreground="#2563EB" />
+                                        </Button>
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Global Directory Table Header -->
+                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="18,9">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2.5*" />
+                                    <ColumnDefinition Width="1.3*" />
+                                    <ColumnDefinition Width="1.1*" />
+                                    <ColumnDefinition Width="1.3*" />
+                                    <ColumnDefinition Width="1.8*" />
+                                    <ColumnDefinition Width="0.9*" />
+                                    <ColumnDefinition Width="1.0*" />
+                                    <ColumnDefinition Width="1.0*" />
+                                    <ColumnDefinition Width="170" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="PRODUCT" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                <TextBlock Grid.Column="1" Text="BATCH #" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                <TextBlock Grid.Column="2" Text="EXPIRY DATE" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                <TextBlock Grid.Column="3" Text="STATUS" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                <TextBlock Grid.Column="4" Text="LOCATION &amp; RACK" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                <TextBlock Grid.Column="5" Text="BATCH QTY" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="6" Text="UNIT COST" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="7" Text="UNIT MRP" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="8" Text="ACTIONS" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Right" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Empty Directory State -->
+                        <StackPanel Visibility="{Binding ShowEmptyGlobalBatches, Converter={StaticResource BoolToVis}}"
+                                    Margin="32" HorizontalAlignment="Center">
+                            <TextBlock Text="No product batches match the current filters."
+                                       FontSize="13" FontWeight="SemiBold" Foreground="#64748B" HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Global Directory Rows -->
+                        <ItemsControl ItemsSource="{Binding GlobalBatchRows}"
+                                      VirtualizingStackPanel.IsVirtualizing="True"
+                                      VirtualizingStackPanel.VirtualizationMode="Recycling">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="18,10" Background="#FFFFFF">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="2.5*" />
+                                                <ColumnDefinition Width="1.3*" />
+                                                <ColumnDefinition Width="1.1*" />
+                                                <ColumnDefinition Width="1.3*" />
+                                                <ColumnDefinition Width="1.8*" />
+                                                <ColumnDefinition Width="0.9*" />
+                                                <ColumnDefinition Width="1.0*" />
+                                                <ColumnDefinition Width="1.0*" />
+                                                <ColumnDefinition Width="170" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Product -->
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                <TextBlock Text="{Binding ProductName}" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock FontSize="11" Foreground="#64748B" Margin="0,2,0,0">
+                                                    <Run Text="Code:" />
+                                                    <Run Text="{Binding ProductCode, Mode=OneWay}" FontFamily="Consolas" />
+                                                    <Run Text=" • Pack:" />
+                                                    <Run Text="{Binding PackSize, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <!-- Batch # -->
+                                            <TextBlock Grid.Column="1" Text="{Binding BatchNumber}"
+                                                       FontFamily="Consolas" FontSize="12.5" FontWeight="Bold" Foreground="#0F172A"
+                                                       VerticalAlignment="Center" />
+
+                                            <!-- Expiry Date -->
+                                            <TextBlock Grid.Column="2" Text="{Binding ExpiryDateFormatted}"
+                                                       FontSize="12" FontWeight="Medium" Foreground="#334155"
+                                                       VerticalAlignment="Center" />
+
+                                            <!-- Status Pill -->
+                                            <Border Grid.Column="3" CornerRadius="6" Padding="7,3" BorderThickness="1"
+                                                    HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#DCFCE7" />
+                                                        <Setter Property="BorderBrush" Value="#BBF7D0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsExpired}" Value="True">
+                                                                <Setter Property="Background" Value="#FEE2E2" />
+                                                                <Setter Property="BorderBrush" Value="#FECACA" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsCritical}" Value="True">
+                                                                <Setter Property="Background" Value="#FFEDD5" />
+                                                                <Setter Property="BorderBrush" Value="#FED7AA" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                                                <Setter Property="Background" Value="#FEF3C7" />
+                                                                <Setter Property="BorderBrush" Value="#FDE68A" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding StatusBadgeText}" FontSize="10.5" FontWeight="Bold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="#15803D" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsExpired}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#B91C1C" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsCritical}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#C2410C" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                                                    <Setter Property="Foreground" Value="#B45309" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
+
+                                            <!-- Location & Rack -->
+                                            <StackPanel Grid.Column="4" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
+                                                        CornerRadius="5" Padding="6,2" HorizontalAlignment="Left">
+                                                    <TextBlock Text="{Binding StorageLocationBadgeLabel}" FontSize="10.5" FontWeight="SemiBold" Foreground="#1D4ED8" />
+                                                </Border>
+                                                <TextBlock Visibility="{Binding HasRack, Converter={StaticResource BoolToVis}}"
+                                                           Text="{Binding Rack, StringFormat=Rack: {0}}"
+                                                           FontSize="10.5" Foreground="#64748B" Margin="0,2,0,0" />
+                                            </StackPanel>
+
+                                            <!-- Batch Qty -->
+                                            <TextBlock Grid.Column="5" Text="{Binding Quantity}"
+                                                       FontSize="12.5" FontWeight="Bold" Foreground="#0F172A"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+                                            <!-- Unit Cost -->
+                                            <TextBlock Grid.Column="6" Text="{Binding UnitPurchasePrice, StringFormat=N2}"
+                                                       FontSize="12" Foreground="#475569"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+                                            <!-- Unit MRP -->
+                                            <TextBlock Grid.Column="7" Text="{Binding UnitSalePrice, StringFormat=N2}"
+                                                       FontSize="12" FontWeight="SemiBold" Foreground="#0F172A"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+                                            <!-- Row Actions: Edit Batch | + Batch -->
+                                            <StackPanel Grid.Column="8" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <Button Style="{StaticResource QuickPillButtonStyle}"
+                                                        Padding="8,4"
+                                                        Command="{Binding DataContext.EditGlobalBatchRowCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="✎ Edit Batch"
+                                                        ToolTip="Load this product and batch into the workbench editor above" />
+                                                <Button Style="{StaticResource QuickPillButtonStyle}"
+                                                        Background="#DCFCE7" BorderBrush="#BBF7D0" Foreground="#15803D"
+                                                        Padding="8,4"
+                                                        Command="{Binding DataContext.NewBatchForGlobalRowProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="+ Batch"
+                                                        ToolTip="Select this product to add a new batch" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Directory Pagination Footer -->
+                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
+                                CornerRadius="0,0,12,12" Padding="18,10">
+                            <Grid>
+                                <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="#64748B">
+                                    <Run Text="Showing" />
+                                    <Run Text="{Binding GlobalFromItem, Mode=OneWay}" FontWeight="SemiBold" Foreground="#0F172A" />
+                                    <Run Text="–" />
+                                    <Run Text="{Binding GlobalToItem, Mode=OneWay}" FontWeight="SemiBold" Foreground="#0F172A" />
+                                    <Run Text="of" />
+                                    <Run Text="{Binding GlobalTotalCount, Mode=OneWay}" FontWeight="SemiBold" Foreground="#0F172A" />
+                                    <Run Text="batches" />
+                                </TextBlock>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <Button Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding GlobalPrevPageCommand}"
+                                            IsEnabled="{Binding CanGoGlobalPrevPage}"
+                                            Content="← Prev" Padding="10,5" />
+                                    <TextBlock VerticalAlignment="Center" Margin="12,0" FontSize="12" FontWeight="SemiBold" Foreground="#334155">
+                                        <Run Text="Page" />
+                                        <Run Text="{Binding GlobalCurrentPage, Mode=OneWay}" />
+                                        <Run Text="of" />
+                                        <Run Text="{Binding GlobalLastPage, Mode=OneWay}" />
+                                    </TextBlock>
+                                    <Button Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding GlobalNextPageCommand}"
+                                            IsEnabled="{Binding CanGoGlobalNextPage}"
+                                            Content="Next →" Padding="10,5" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- =================================================================== -->
+        <!-- MODAL 1: MOVE / SPLIT BATCH LOCATION MODAL                          -->
+        <!-- =================================================================== -->
+        <Grid Visibility="{Binding IsMoveBatchModalOpen, Converter={StaticResource BoolToVis}}"
+              Background="#660F172A">
+            <Border Width="480" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="14" Padding="22">
+                <StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <TextBlock Text="Move / Split Batch Location" FontSize="16" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" />
+                        <Button Command="{Binding CloseMoveBatchModalCommand}"
+                                HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Cursor="Hand">
+                            <TextBlock Text="✕" FontSize="14" FontWeight="Bold" Foreground="#64748B" />
+                        </Button>
+                    </Grid>
+
+                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,9" Margin="0,0,0,14">
+                        <TextBlock FontSize="12" Foreground="#475569" TextWrapping="Wrap">
+                            <Run Text="Batch" />
+                            <Run Text="{Binding MovingSourceBatch.BatchNumber, Mode=OneWay}" FontFamily="Consolas" FontWeight="Bold" Foreground="#0F172A" />
+                            <Run Text="currently has" />
+                            <Run Text="{Binding MovingSourceBatch.Quantity, Mode=OneWay}" FontWeight="Bold" Foreground="#0F172A" />
+                            <Run Text="units in" />
+                            <Run Text="{Binding MovingSourceBatch.StorageLocationName, Mode=OneWay}" FontWeight="Bold" Foreground="#1D4ED8" />
+                            <Run Text=". Move all or part of this batch to another storage location." />
+                        </TextBlock>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Destination Location *" />
+                    <local:SearchableSelect ItemsSource="{Binding ActiveStorageLocations}"
+                                            SelectedItem="{Binding MoveTargetLocation, Mode=TwoWay}"
+                                            DisplayMemberPath="DisplayLabel"
+                                            Placeholder="Select Destination Location..."
+                                            Margin="0,0,0,12" />
+
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <Grid Margin="0,0,0,5">
+                                <TextBlock Text="Quantity to Move *" FontSize="11.5" FontWeight="SemiBold" Foreground="#334155" />
+                                <Button Style="{StaticResource QuickPillButtonStyle}"
+                                        Content="{Binding MoveAllButtonLabel}"
+                                        Command="{Binding FillMoveAllQuantityCommand}"
+                                        HorizontalAlignment="Right" />
+                            </Grid>
+                            <TextBox Style="{StaticResource ModernTextBoxStyle}"
+                                     Text="{Binding MoveQuantityText, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Target Rack / Shelf" />
+                            <TextBox Style="{StaticResource ModernTextBoxStyle}"
+                                     Text="{Binding MoveTargetRack, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding CloseMoveBatchModalCommand}"
+                                Content="Cancel (Esc)" Margin="0,0,8,0" />
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Command="{Binding ConfirmMoveBatchLocationCommand}"
+                                Content="⇄ Move Stock (Ctrl+S)" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- =================================================================== -->
+        <!-- MODAL 2: MANAGE STORAGE LOCATIONS MODAL                             -->
+        <!-- =================================================================== -->
+        <Grid Visibility="{Binding IsLocationsModalOpen, Converter={StaticResource BoolToVis}}"
+              Background="#660F172A">
+            <Border Width="860" MaxHeight="620" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="14" Padding="22">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock Text="🏪 Manage Storage Locations" FontSize="16" FontWeight="Bold" Foreground="#0F172A" />
+                            <TextBlock Text="Configure Shop Counter, Godown, Cold Storage, and Quarantine locations."
+                                       FontSize="12" Foreground="#64748B" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <Button Command="{Binding CloseLocationsModalCommand}"
+                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Background="Transparent" BorderThickness="0" Cursor="Hand">
+                            <TextBlock Text="✕" FontSize="15" FontWeight="Bold" Foreground="#64748B" />
+                        </Button>
+                    </Grid>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="5*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="7*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: Add / Edit Location Form -->
+                        <Border Grid.Column="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10" Padding="14">
+                            <StackPanel>
+                                <TextBlock Text="{Binding StorageLocationFormTitle}" FontSize="13.5" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,10" />
+
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Location Name *" />
+                                <TextBox Style="{StaticResource ModernTextBoxStyle}"
+                                         Text="{Binding LocFormName, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,0,10" />
+
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="1.3*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Short Code" />
+                                        <TextBox Style="{StaticResource ModernTextBoxStyle}"
+                                                 FontFamily="Consolas"
+                                                 Text="{Binding LocFormCode, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Type" />
+                                        <local:SearchableSelect ItemsSource="{Binding LocationTypeOptions}"
+                                                                SelectedItem="{Binding SelectedLocTypeOption, Mode=TwoWay}"
+                                                                DisplayMemberPath="Label"
+                                                                Placeholder="Select Type..." />
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Default Rack / Zone" />
+                                <TextBox Style="{StaticResource ModernTextBoxStyle}"
+                                         Text="{Binding LocFormDefaultRack, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,0,10" />
+
+                                <TextBlock Style="{StaticResource FieldLabelStyle}" Text="Notes" />
+                                <TextBox Style="{StaticResource ModernTextBoxStyle}"
+                                         Text="{Binding LocFormNotes, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,0,10" />
+
+                                <WrapPanel Margin="0,0,0,12">
+                                    <CheckBox Content="Default Location" IsChecked="{Binding LocFormIsDefault}" Margin="0,0,14,0" FontSize="12" />
+                                    <CheckBox Content="Active" IsChecked="{Binding LocFormIsActive}" FontSize="12" />
+                                </WrapPanel>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Visibility="{Binding IsEditingStorageLocation, Converter={StaticResource BoolToVis}}"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding ResetStorageLocationFormCommand}"
+                                            Content="Cancel" Margin="0,0,8,0" />
+                                    <Button Style="{StaticResource PrimaryButtonStyle}"
+                                            Command="{Binding SaveStorageLocationCommand}"
+                                            Content="{Binding SaveStorageLocationButtonLabel}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Right: Existing Locations List -->
+                        <Border Grid.Column="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding ManagedLocationsList}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="14,10">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <WrapPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,6,0" />
+                                                            <Border Background="#F1F5F9" CornerRadius="4" Padding="5,1" Margin="0,0,6,0">
+                                                                <TextBlock Text="{Binding Code}" FontFamily="Consolas" FontSize="10.5" Foreground="#475569" />
+                                                            </Border>
+                                                            <Border Background="#EFF6FF" CornerRadius="4" Padding="5,1" Margin="0,0,6,0">
+                                                                <TextBlock Text="{Binding TypeLabel}" FontSize="10" FontWeight="SemiBold" Foreground="#1D4ED8" />
+                                                            </Border>
+                                                            <Border Visibility="{Binding IsDefault, Converter={StaticResource BoolToVis}}"
+                                                                    Background="#DCFCE7" CornerRadius="4" Padding="5,1">
+                                                                <TextBlock Text="Default" FontSize="10" FontWeight="Bold" Foreground="#15803D" />
+                                                            </Border>
+                                                        </WrapPanel>
+                                                        <TextBlock FontSize="11" Foreground="#64748B" Margin="0,3,0,0">
+                                                            <Run Text="{Binding ProductsCount, Mode=OneWay}" FontWeight="SemiBold" />
+                                                            <Run Text="products •" />
+                                                            <Run Text="{Binding BatchesCount, Mode=OneWay}" FontWeight="SemiBold" />
+                                                            <Run Text="batches" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Button Style="{StaticResource QuickPillButtonStyle}"
+                                                                Command="{Binding DataContext.StartEditStorageLocationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Content="✎ Edit" />
+                                                        <Button Style="{StaticResource QuickPillButtonStyle}"
+                                                                Background="#FEF2F2" BorderBrush="#FECACA" Foreground="#DC2626"
+                                                                Command="{Binding DataContext.DeleteStorageLocationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Content="🗑" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- =================================================================== -->
+        <!-- MODAL 3: DELETE BATCH CONFIRMATION MODAL                            -->
+        <!-- =================================================================== -->
+        <Grid Visibility="{Binding IsDeleteBatchModalOpen, Converter={StaticResource BoolToVis}}"
+              Background="#660F172A">
+            <Border Width="440" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="#FFFFFF" BorderBrush="#FECACA" BorderThickness="1.5" CornerRadius="14" Padding="22">
+                <StackPanel>
+                    <TextBlock Text="Delete Product Batch" FontSize="16" FontWeight="Bold" Foreground="#B91C1C" Margin="0,0,0,8" />
+                    <TextBlock Text="{Binding DeleteBatchConfirmMessage}"
+                               FontSize="12.5" Foreground="#334155" TextWrapping="Wrap" Margin="0,0,0,18" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                Command="{Binding CloseDeleteBatchModalCommand}"
+                                Content="Cancel (Esc)" Margin="0,0,8,0" />
+                        <Button Style="{StaticResource PrimaryButtonStyle}"
+                                Background="#DC2626"
+                                Command="{Binding ConfirmDeleteBatchCommand}"
+                                Content="🗑 Remove Batch" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

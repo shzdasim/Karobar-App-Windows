@@ -921,7 +921,12 @@
                         <views:ProductsView x:Name="ProductsPageView" DataContext="{Binding Products}" />
                     </Grid>
 
-                    <!-- G. Inner Page Host for any other Sidebar/Topbar Route -->
+                    <!-- G. Product Batches Workbench Page (When CurrentPath == "/product-batches") -->
+                    <Grid Visibility="{Binding IsProductBatchesPage, Converter={StaticResource BoolToVis}}">
+                        <views:ProductBatchesView x:Name="ProductBatchesPageView" DataContext="{Binding ProductBatches}" />
+                    </Grid>
+
+                    <!-- H. Inner Page Host for any other Sidebar/Topbar Route -->
                     <Border Visibility="{Binding IsOtherPage, Converter={StaticResource BoolToVis}}"
                             Background="#FFFFFF"
                             BorderBrush="#E2E8F0"

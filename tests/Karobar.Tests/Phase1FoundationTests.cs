@@ -596,6 +596,22 @@ public sealed class Phase1FoundationTests
             batchSummary.Batches.First().BatchNumber.Should().Be("B-002");
             batchSummary.Batches.First().IsFefoRecommended.Should().BeTrue();
 
+            // Product Batches Workbench Search & Global Directory checks
+            var wbSearch = await products.SearchProductsForBatchWorkbenchAsync("Panadol", 10);
+            wbSearch.Should().ContainSingle(p => p.Id == p1Id && p.Quantity == 100 && p.BatchedQuantity == 100 && p.UnassignedQuantity == 0);
+
+            var globalDir = await products.GetGlobalBatchesDirectoryAsync(new GlobalBatchQueryFilter
+            {
+                Status = "all",
+                IncludeZeroStock = true,
+                Page = 1,
+                PerPage = 25
+            });
+            globalDir.TotalCount.Should().BeGreaterThanOrEqualTo(2);
+            globalDir.Summary.TotalBatchesTracked.Should().BeGreaterThanOrEqualTo(2);
+            globalDir.Items.Should().Contain(b => b.ProductId == p1Id && b.BatchNumber == "B-001");
+            globalDir.Items.Should().Contain(b => b.ProductId == p1Id && b.BatchNumber == "B-002");
+
             // Link secondary supplier
             var supLinkRes = await products.SaveProductSupplierAsync(p1Id, new ProductSupplierSaveRequest
             {

@@ -103,13 +103,16 @@ public partial class MainViewModel : ObservableObject
     public bool IsProductsPage =>
         string.Equals(CurrentPath, "/products", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(CurrentPath, "/products/create", StringComparison.OrdinalIgnoreCase);
+    public bool IsProductBatchesPage =>
+        string.Equals(CurrentPath, "/product-batches", StringComparison.OrdinalIgnoreCase);
     public bool IsOtherPage =>
         !IsDashboardPage &&
         !IsCategoriesPage &&
         !IsBrandsPage &&
         !IsSuppliersPage &&
         !IsCustomersPage &&
-        !IsProductsPage;
+        !IsProductsPage &&
+        !IsProductBatchesPage;
 
     public ToastNotificationService ToastService { get; }
     public DashboardViewModel Dashboard { get; }
@@ -118,6 +121,7 @@ public partial class MainViewModel : ObservableObject
     public SuppliersViewModel Suppliers { get; }
     public CustomersViewModel Customers { get; }
     public ProductsViewModel Products { get; }
+    public ProductBatchesViewModel ProductBatches { get; }
 
     public ObservableCollection<SidebarSectionViewModel> Sections { get; } = [];
     public ObservableCollection<SidebarItemViewModel> FavoriteItems { get; } = [];
@@ -141,6 +145,7 @@ public partial class MainViewModel : ObservableObject
         Suppliers = new SuppliersViewModel(supplierService, authService, toastService, Navigate);
         Customers = new CustomersViewModel(customerService, authService, toastService, Navigate);
         Products = new ProductsViewModel(productService, authService, toastService);
+        ProductBatches = new ProductBatchesViewModel(productService, toastService, Navigate);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");
@@ -172,6 +177,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSuppliersPage));
         OnPropertyChanged(nameof(IsCustomersPage));
         OnPropertyChanged(nameof(IsProductsPage));
+        OnPropertyChanged(nameof(IsProductBatchesPage));
         OnPropertyChanged(nameof(IsOtherPage));
     }
 
@@ -304,6 +310,42 @@ public partial class MainViewModel : ObservableObject
 
     private void UpdateActiveNavigationState(string targetPath)
     {
+        long? editProductId = null;
+        long? batchProductId = null;
+        long? batchId = null;
+
+        if (targetPath.StartsWith("/products/edit/", StringComparison.OrdinalIgnoreCase))
+        {
+            var idPart = targetPath["/products/edit/".Length..].Trim();
+            if (long.TryParse(idPart, out var pid) && pid > 0)
+            {
+                editProductId = pid;
+            }
+            targetPath = "/products";
+        }
+        else if (targetPath.StartsWith("/product-batches?", StringComparison.OrdinalIgnoreCase))
+        {
+            var queryPart = targetPath["/product-batches?".Length..];
+            foreach (var pair in queryPart.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var kv = pair.Split('=', 2);
+                if (kv.Length == 2)
+                {
+                    if (string.Equals(kv[0], "product_id", StringComparison.OrdinalIgnoreCase) &&
+                        long.TryParse(kv[1], out var bpid) && bpid > 0)
+                    {
+                        batchProductId = bpid;
+                    }
+                    else if (string.Equals(kv[0], "batch_id", StringComparison.OrdinalIgnoreCase) &&
+                             long.TryParse(kv[1], out var bid) && bid > 0)
+                    {
+                        batchId = bid;
+                    }
+                }
+            }
+            targetPath = "/product-batches";
+        }
+
         CurrentPath = targetPath;
 
         if (string.Equals(targetPath, "/dashboard", StringComparison.OrdinalIgnoreCase))
@@ -326,9 +368,10 @@ public partial class MainViewModel : ObservableObject
             foreach (var item in sec.Items)
             {
                 bool isMatch = string.Equals(item.Path, targetPath, StringComparison.OrdinalIgnoreCase) ||
-                               string.Equals(item.QuickCreatePath, targetPath, StringComparison.OrdinalIgnoreCase);
+                               (!string.Equals(targetPath, "/product-batches", StringComparison.OrdinalIgnoreCase) &&
+                                string.Equals(item.QuickCreatePath, targetPath, StringComparison.OrdinalIgnoreCase));
                 item.IsActive = isMatch;
-                if (isMatch)
+                if (isMatch && matchedItem == null)
                 {
                     matchedItem = item;
                     matchedSection = sec;
@@ -339,7 +382,8 @@ public partial class MainViewModel : ObservableObject
         if (matchedItem != null && matchedSection != null)
         {
             matchedSection.IsExpanded = true;
-            CurrentPageTitle = string.Equals(matchedItem.QuickCreatePath, targetPath, StringComparison.OrdinalIgnoreCase)
+            CurrentPageTitle = string.Equals(matchedItem.QuickCreatePath, targetPath, StringComparison.OrdinalIgnoreCase) &&
+                               !string.Equals(matchedItem.Path, targetPath, StringComparison.OrdinalIgnoreCase)
                 ? $"Create {matchedItem.Name}"
                 : matchedItem.Name;
             CurrentSectionTitle = matchedSection.Title;
@@ -388,11 +432,22 @@ public partial class MainViewModel : ObservableObject
         }
         else if (string.Equals(targetPath, "/products", StringComparison.OrdinalIgnoreCase))
         {
-            _ = Products.OpenDirectoryModeAsync();
+            if (editProductId.HasValue)
+            {
+                _ = Products.OpenEditProductByIdAsync(editProductId.Value);
+            }
+            else
+            {
+                _ = Products.OpenDirectoryModeAsync();
+            }
         }
         else if (string.Equals(targetPath, "/products/create", StringComparison.OrdinalIgnoreCase))
         {
             _ = Products.OpenCreateProductAsync();
+        }
+        else if (string.Equals(targetPath, "/product-batches", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = ProductBatches.OpenWorkbenchAsync(batchProductId, batchId);
         }
     }
 

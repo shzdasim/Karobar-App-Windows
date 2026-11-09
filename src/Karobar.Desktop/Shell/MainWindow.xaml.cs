@@ -30,6 +30,7 @@ public partial class MainWindow : Window
 
     private IPageKeyboardHandler? GetActivePageHandler()
     {
+        if (_viewModel.IsProductBatchesPage) return ProductBatchesPageView;
         if (_viewModel.IsProductsPage) return ProductsPageView;
         if (_viewModel.IsCustomersPage) return CustomersPageView;
         if (_viewModel.IsSuppliersPage) return SuppliersPageView;

@@ -862,8 +862,315 @@ public sealed class ProductService : IProductService
     }
 
     // =========================================================================
-    // BATCHES & EXPIRY MANAGEMENT (FEFO)
+    // BATCHES & EXPIRY MANAGEMENT (FEFO & WORKBENCH)
     // =========================================================================
+
+    public async Task<List<BatchWorkbenchProductSearchItemDto>> SearchProductsForBatchWorkbenchAsync(
+        string? query,
+        int limit = 25,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        var safeLimit = Math.Clamp(limit <= 0 ? 25 : limit, 1, 50);
+        var q = (query ?? string.Empty).Trim();
+
+        List<Product> products;
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var matching = await db.Products.AsNoTracking()
+                .Where(p =>
+                    EF.Functions.Like(p.Name, $"%{q}%") ||
+                    EF.Functions.Like(p.ProductCode, $"%{q}%") ||
+                    (p.Barcode != null && EF.Functions.Like(p.Barcode, $"%{q}%")) ||
+                    (p.Formulation != null && EF.Functions.Like(p.Formulation, $"%{q}%")) ||
+                    (p.Rack != null && EF.Functions.Like(p.Rack, $"%{q}%")))
+                .Take(150)
+                .ToListAsync(cancellationToken);
+
+            var qLower = q.ToLowerInvariant();
+            products = matching
+                .OrderBy(p =>
+                    string.Equals(p.ProductCode, q, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(p.Barcode, q, StringComparison.OrdinalIgnoreCase)
+                        ? 0
+                        : p.Name.StartsWith(q, StringComparison.OrdinalIgnoreCase)
+                            ? 1
+                            : p.ProductCode.StartsWith(q, StringComparison.OrdinalIgnoreCase)
+                                ? 2
+                                : 3)
+                .ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .Take(safeLimit)
+                .ToList();
+        }
+        else
+        {
+            products = await db.Products.AsNoTracking()
+                .OrderByDescending(p => p.Id)
+                .Take(safeLimit)
+                .ToListAsync(cancellationToken);
+        }
+
+        if (products.Count == 0)
+            return [];
+
+        var productIds = products.Select(p => p.Id).ToList();
+        var batchTotals = await db.Batches.AsNoTracking()
+            .Where(b => productIds.Contains(b.ProductId))
+            .GroupBy(b => b.ProductId)
+            .Select(g => new { ProductId = g.Key, TotalQty = g.Sum(x => x.Quantity) })
+            .ToDictionaryAsync(x => x.ProductId, x => x.TotalQty, cancellationToken);
+
+        return products.Select(p =>
+        {
+            var totalQty = Math.Max(0, p.Quantity);
+            var batchedQty = Math.Max(0, batchTotals.GetValueOrDefault(p.Id));
+            return new BatchWorkbenchProductSearchItemDto
+            {
+                Id = p.Id,
+                Name = p.Name,
+                ProductCode = p.ProductCode,
+                Barcode = p.Barcode ?? string.Empty,
+                Formulation = p.Formulation,
+                Rack = p.Rack,
+                PackSize = Math.Max(1, p.PackSize),
+                UnitPurchasePrice = p.UnitPurchasePrice,
+                UnitSalePrice = p.UnitSalePrice,
+                StorageLocationId = p.StorageLocationId,
+                Quantity = totalQty,
+                BatchedQuantity = batchedQty,
+                UnassignedQuantity = Math.Max(0, totalQty - batchedQty)
+            };
+        }).ToList();
+    }
+
+    public async Task<GlobalBatchDirectoryResponse> GetGlobalBatchesDirectoryAsync(
+        GlobalBatchQueryFilter filter,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+
+        var setting = await db.Settings.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+        var globalWarningDays = Math.Clamp(
+            filter.WarningDays ?? setting?.ExpiryWarningDays ?? 90,
+            1,
+            730);
+
+        var locations = await db.StorageLocations.AsNoTracking()
+            .ToDictionaryAsync(l => l.Id, l => l, cancellationToken);
+        var defaultLoc = locations.Values.FirstOrDefault(l => l.IsDefault)
+                         ?? locations.Values.OrderBy(l => l.Id).FirstOrDefault();
+
+        var productsDict = await db.Products.AsNoTracking()
+            .ToDictionaryAsync(p => p.Id, p => p, cancellationToken);
+
+        var categoriesDict = await db.Categories.AsNoTracking()
+            .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken);
+
+        var brandsDict = await db.Brands.AsNoTracking()
+            .ToDictionaryAsync(b => b.Id, b => b.Name, cancellationToken);
+
+        var suppliersDict = await db.Suppliers.AsNoTracking()
+            .ToDictionaryAsync(s => s.Id, s => s.Name, cancellationToken);
+
+        var batchQuery = db.Batches.AsNoTracking().AsQueryable();
+        if (!filter.IncludeZeroStock)
+        {
+            batchQuery = batchQuery.Where(b => b.Quantity > 0);
+        }
+
+        if (filter.StorageLocationId.HasValue && filter.StorageLocationId.Value > 0)
+        {
+            batchQuery = batchQuery.Where(b => b.StorageLocationId == filter.StorageLocationId.Value);
+        }
+
+        var rawBatches = await batchQuery.ToListAsync(cancellationToken);
+        var today = DateTime.Today;
+        var searchTerm = (filter.Search ?? string.Empty).Trim();
+        var hasSearch = !string.IsNullOrWhiteSpace(searchTerm);
+
+        var summary = new GlobalBatchSummaryDto
+        {
+            GlobalWarningDays = globalWarningDays
+        };
+
+        var allRows = new List<GlobalBatchDirectoryRowDto>(rawBatches.Count);
+
+        foreach (var b in rawBatches)
+        {
+            if (!productsDict.TryGetValue(b.ProductId, out var product))
+                continue;
+
+            if (filter.CategoryId.HasValue && filter.CategoryId.Value > 0 && product.CategoryId != filter.CategoryId.Value)
+                continue;
+
+            if (filter.BrandId.HasValue && filter.BrandId.Value > 0 && product.BrandId != filter.BrandId.Value)
+                continue;
+
+            if (filter.SupplierId.HasValue && filter.SupplierId.Value > 0 && product.SupplierId != filter.SupplierId.Value)
+                continue;
+
+            var catName = product.CategoryId.HasValue && categoriesDict.TryGetValue(product.CategoryId.Value, out var cn) ? cn : "—";
+            var brandName = product.BrandId.HasValue && brandsDict.TryGetValue(product.BrandId.Value, out var bn) ? bn : "—";
+            var supName = product.SupplierId.HasValue && suppliersDict.TryGetValue(product.SupplierId.Value, out var sn) ? sn : "—";
+
+            var loc = b.StorageLocationId.HasValue && locations.TryGetValue(b.StorageLocationId.Value, out var bl)
+                ? bl
+                : (product.StorageLocationId.HasValue && locations.TryGetValue(product.StorageLocationId.Value, out var pl) ? pl : defaultLoc);
+
+            var rack = !string.IsNullOrWhiteSpace(b.Rack)
+                ? b.Rack
+                : (!string.IsNullOrWhiteSpace(product.Rack) ? product.Rack : loc?.DefaultRack);
+
+            if (hasSearch)
+            {
+                bool matchesSearch =
+                    b.BatchNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    product.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    product.ProductCode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrWhiteSpace(product.Barcode) && product.Barcode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(product.Formulation) && product.Formulation.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrWhiteSpace(rack) && rack.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                    brandName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    supName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase);
+
+                if (!matchesSearch)
+                    continue;
+            }
+
+            var effectiveWarningDays = Math.Clamp(product.ExpiryWarningDays ?? globalWarningDays, 1, 730);
+            int? daysRem = b.ExpiryDate.HasValue
+                ? (int)(b.ExpiryDate.Value.Date - today).TotalDays
+                : null;
+
+            string status;
+            if (!daysRem.HasValue)
+            {
+                status = "safe";
+            }
+            else if (daysRem.Value < 0)
+            {
+                status = "expired";
+            }
+            else if (daysRem.Value <= 30)
+            {
+                status = "critical";
+            }
+            else if (daysRem.Value <= effectiveWarningDays)
+            {
+                status = "warning";
+            }
+            else
+            {
+                status = "safe";
+            }
+
+            var qty = Math.Max(0, b.Quantity);
+            var unitCost = b.UnitPurchasePrice ?? product.UnitPurchasePrice;
+            var unitMrp = b.UnitSalePrice ?? product.UnitSalePrice;
+            var packSize = Math.Max(1, b.PackSize > 0 ? b.PackSize : product.PackSize);
+            var costValue = Math.Round(qty * unitCost, 2);
+            var saleValue = Math.Round(qty * unitMrp, 2);
+
+            summary.TotalBatchesTracked++;
+            switch (status)
+            {
+                case "expired":
+                    summary.TotalExpiredBatches++;
+                    summary.ExpiredStockUnits += qty;
+                    summary.ExpiredCostValue += costValue;
+                    summary.ExpiredSaleValue += saleValue;
+                    break;
+                case "critical":
+                    summary.TotalCriticalBatches++;
+                    summary.CriticalStockUnits += qty;
+                    summary.CriticalCostValue += costValue;
+                    summary.AtRiskStockUnits += qty;
+                    summary.AtRiskCostValue += costValue;
+                    summary.AtRiskSaleValue += saleValue;
+                    break;
+                case "warning":
+                    summary.TotalWarningBatches++;
+                    summary.WarningStockUnits += qty;
+                    summary.WarningCostValue += costValue;
+                    summary.AtRiskStockUnits += qty;
+                    summary.AtRiskCostValue += costValue;
+                    summary.AtRiskSaleValue += saleValue;
+                    break;
+                default:
+                    summary.TotalSafeBatches++;
+                    summary.SafeStockUnits += qty;
+                    break;
+            }
+
+            allRows.Add(new GlobalBatchDirectoryRowDto
+            {
+                Id = b.Id,
+                ProductId = product.Id,
+                ProductName = product.Name,
+                ProductCode = product.ProductCode,
+                Barcode = product.Barcode ?? string.Empty,
+                Formulation = product.Formulation,
+                PackSize = packSize,
+                ProductTotalQuantity = Math.Max(0, product.Quantity),
+                CategoryId = product.CategoryId,
+                CategoryName = catName,
+                BrandId = product.BrandId,
+                BrandName = brandName,
+                SupplierId = product.SupplierId,
+                SupplierName = supName,
+                BatchNumber = b.BatchNumber,
+                ExpiryDate = b.ExpiryDate,
+                DaysRemaining = daysRem,
+                EffectiveWarningDays = effectiveWarningDays,
+                ExpiryStatus = status,
+                Quantity = qty,
+                StorageLocationId = b.StorageLocationId ?? loc?.Id,
+                StorageLocationName = loc?.Name ?? "Shop Counter",
+                StorageLocationCode = loc?.Code ?? "SHOP",
+                StorageLocationType = loc?.Type ?? "shop",
+                Rack = rack,
+                UnitPurchasePrice = unitCost,
+                UnitSalePrice = unitMrp,
+                PackPurchasePrice = b.PackPurchasePrice ?? Math.Round(unitCost * packSize, 2),
+                PackSalePrice = b.PackSalePrice ?? Math.Round(unitMrp * packSize, 2)
+            });
+        }
+
+        var statusFilter = (filter.Status ?? "all").Trim().ToLowerInvariant();
+        IEnumerable<GlobalBatchDirectoryRowDto> filteredRows = statusFilter switch
+        {
+            "expired" => allRows.Where(r => r.ExpiryStatus == "expired"),
+            "critical" => allRows.Where(r => r.ExpiryStatus == "critical"),
+            "warning" => allRows.Where(r => r.ExpiryStatus == "warning"),
+            "safe" => allRows.Where(r => r.ExpiryStatus == "safe"),
+            _ => allRows
+        };
+
+        var orderedRows = filteredRows
+            .OrderBy(r => r.ExpiryDate ?? DateTime.MaxValue)
+            .ThenByDescending(r => r.Quantity)
+            .ThenBy(r => r.Id)
+            .ToList();
+
+        var totalCount = orderedRows.Count;
+        var perPage = Math.Clamp(filter.PerPage <= 0 ? 25 : filter.PerPage, 1, 200);
+        var lastPage = Math.Max(1, (int)Math.Ceiling(totalCount / (double)perPage));
+        var currentPage = Math.Clamp(filter.Page <= 0 ? 1 : filter.Page, 1, lastPage);
+        var skip = (currentPage - 1) * perPage;
+        var pageItems = orderedRows.Skip(skip).Take(perPage).ToList();
+
+        return new GlobalBatchDirectoryResponse
+        {
+            Items = pageItems,
+            Summary = summary,
+            TotalCount = totalCount,
+            CurrentPage = currentPage,
+            PerPage = perPage,
+            LastPage = lastPage,
+            FromItem = totalCount == 0 ? 0 : skip + 1,
+            ToItem = Math.Min(totalCount, skip + pageItems.Count)
+        };
+    }
 
     public async Task<ProductBatchSummaryDto> GetProductBatchesAsync(
         long productId,
@@ -1029,15 +1336,22 @@ public sealed class ProductService : IProductService
                     $"Cannot assign {qty} units to batch. Maximum assignable quantity is {availableUnassigned} units (Current batch: {existingById.Quantity}, unassigned stock: {unbatchedPool}).");
             }
 
+            var packSize = Math.Max(1, existingById.PackSize > 0 ? existingById.PackSize : product.PackSize);
             existingById.BatchNumber = batchNumber;
             existingById.ExpiryDate = expiryDate;
             existingById.Quantity = qty;
             existingById.StorageLocationId = targetLocId;
             existingById.Rack = rack;
             if (request.UnitSalePrice.HasValue)
+            {
                 existingById.UnitSalePrice = request.UnitSalePrice.Value;
+                existingById.PackSalePrice = Math.Round(request.UnitSalePrice.Value * packSize, 2);
+            }
             if (request.UnitPurchasePrice.HasValue)
+            {
                 existingById.UnitPurchasePrice = request.UnitPurchasePrice.Value;
+                existingById.PackPurchasePrice = Math.Round(request.UnitPurchasePrice.Value * packSize, 2);
+            }
             existingById.UpdatedAt = now;
 
             await db.SaveChangesAsync(cancellationToken);
@@ -1075,33 +1389,43 @@ public sealed class ProductService : IProductService
 
             if (existingMatch != null)
             {
+                var matchPackSize = Math.Max(1, existingMatch.PackSize > 0 ? existingMatch.PackSize : product.PackSize);
                 existingMatch.ExpiryDate = expiryDate;
                 existingMatch.Quantity = qty;
                 existingMatch.StorageLocationId = targetLocId;
                 existingMatch.Rack = rack;
                 if (request.UnitSalePrice.HasValue)
+                {
                     existingMatch.UnitSalePrice = request.UnitSalePrice.Value;
+                    existingMatch.PackSalePrice = Math.Round(request.UnitSalePrice.Value * matchPackSize, 2);
+                }
                 if (request.UnitPurchasePrice.HasValue)
+                {
                     existingMatch.UnitPurchasePrice = request.UnitPurchasePrice.Value;
+                    existingMatch.PackPurchasePrice = Math.Round(request.UnitPurchasePrice.Value * matchPackSize, 2);
+                }
                 existingMatch.UpdatedAt = now;
 
                 await db.SaveChangesAsync(cancellationToken);
                 return ProductResult.Success($"Batch '{batchNumber}' updated successfully.", existingMatch.Id);
             }
 
+            var prodPackSize = Math.Max(1, product.PackSize);
+            var unitSale = request.UnitSalePrice ?? product.UnitSalePrice;
+            var unitPurchase = request.UnitPurchasePrice ?? product.UnitPurchasePrice;
             var newBatch = new Batch
             {
                 ProductId = productId,
                 BatchNumber = batchNumber,
                 ExpiryDate = expiryDate,
                 Quantity = qty,
-                PackSize = product.PackSize,
+                PackSize = prodPackSize,
                 StorageLocationId = targetLocId,
                 Rack = rack,
-                UnitSalePrice = request.UnitSalePrice ?? product.UnitSalePrice,
-                PackSalePrice = product.PackSalePrice,
-                UnitPurchasePrice = request.UnitPurchasePrice ?? product.UnitPurchasePrice,
-                PackPurchasePrice = product.PackPurchasePrice,
+                UnitSalePrice = unitSale,
+                PackSalePrice = request.UnitSalePrice.HasValue ? Math.Round(unitSale * prodPackSize, 2) : product.PackSalePrice,
+                UnitPurchasePrice = unitPurchase,
+                PackPurchasePrice = request.UnitPurchasePrice.HasValue ? Math.Round(unitPurchase * prodPackSize, 2) : product.PackPurchasePrice,
                 WholeSaleUnitPrice = product.WholeSaleUnitPrice,
                 WholeSalePackPrice = product.WholeSalePackPrice,
                 CreatedAt = now,

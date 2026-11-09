@@ -54,7 +54,16 @@ public interface IProductService
         long id,
         CancellationToken cancellationToken = default);
 
-    // Batches (FEFO)
+    // Batches (FEFO & Workbench)
+    Task<List<BatchWorkbenchProductSearchItemDto>> SearchProductsForBatchWorkbenchAsync(
+        string? query,
+        int limit = 25,
+        CancellationToken cancellationToken = default);
+
+    Task<GlobalBatchDirectoryResponse> GetGlobalBatchesDirectoryAsync(
+        GlobalBatchQueryFilter filter,
+        CancellationToken cancellationToken = default);
+
     Task<ProductBatchSummaryDto> GetProductBatchesAsync(
         long productId,
         CancellationToken cancellationToken = default);
@@ -391,9 +400,138 @@ public sealed class ProductBatchItemDto
     public int? DaysRemaining { get; set; }
     public bool IsFefoRecommended { get; set; }
 
+    public bool HasRack => !string.IsNullOrWhiteSpace(Rack);
+    public string RackDisplay => string.IsNullOrWhiteSpace(Rack) ? "—" : Rack!;
+    public string StorageLocationBadgeLabel => $"{StorageLocationName} ({StorageLocationCode})";
+
     public string PickerLabel =>
         $"{BatchNumber} — {Quantity} units • Exp: {ExpiryDateFormatted} • [{StorageLocationName}]" +
         (IsExpired ? " [Expired]" : IsFefoRecommended ? " [FEFO]" : "");
+}
+
+public sealed class BatchWorkbenchProductSearchItemDto
+{
+    public long Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string ProductCode { get; set; } = string.Empty;
+    public string Barcode { get; set; } = string.Empty;
+    public string? Formulation { get; set; }
+    public string? Rack { get; set; }
+    public int PackSize { get; set; } = 1;
+    public decimal UnitPurchasePrice { get; set; }
+    public decimal UnitSalePrice { get; set; }
+    public long? StorageLocationId { get; set; }
+    public int Quantity { get; set; }
+    public int BatchedQuantity { get; set; }
+    public int UnassignedQuantity { get; set; }
+
+    public bool HasRack => !string.IsNullOrWhiteSpace(Rack);
+    public bool HasUnassigned => UnassignedQuantity > 0;
+}
+
+public sealed class GlobalBatchQueryFilter
+{
+    public string? Search { get; set; }
+    public string Status { get; set; } = "all"; // all | expired | critical | warning | safe
+    public long? StorageLocationId { get; set; }
+    public long? SupplierId { get; set; }
+    public long? CategoryId { get; set; }
+    public long? BrandId { get; set; }
+    public bool IncludeZeroStock { get; set; } = true;
+    public int? WarningDays { get; set; }
+    public int Page { get; set; } = 1;
+    public int PerPage { get; set; } = 25;
+}
+
+public sealed class GlobalBatchDirectoryResponse
+{
+    public List<GlobalBatchDirectoryRowDto> Items { get; set; } = [];
+    public GlobalBatchSummaryDto Summary { get; set; } = new();
+    public int TotalCount { get; set; }
+    public int CurrentPage { get; set; } = 1;
+    public int PerPage { get; set; } = 25;
+    public int LastPage { get; set; } = 1;
+    public int FromItem { get; set; }
+    public int ToItem { get; set; }
+}
+
+public sealed class GlobalBatchSummaryDto
+{
+    public int GlobalWarningDays { get; set; } = 90;
+    public int TotalBatchesTracked { get; set; }
+    public int TotalExpiredBatches { get; set; }
+    public int TotalCriticalBatches { get; set; }
+    public int TotalWarningBatches { get; set; }
+    public int TotalSafeBatches { get; set; }
+
+    public int ExpiredStockUnits { get; set; }
+    public decimal ExpiredCostValue { get; set; }
+    public decimal ExpiredSaleValue { get; set; }
+
+    public int AtRiskStockUnits { get; set; }
+    public decimal AtRiskCostValue { get; set; }
+    public decimal AtRiskSaleValue { get; set; }
+
+    public int CriticalStockUnits { get; set; }
+    public decimal CriticalCostValue { get; set; }
+
+    public int WarningStockUnits { get; set; }
+    public decimal WarningCostValue { get; set; }
+
+    public int SafeStockUnits { get; set; }
+}
+
+public sealed class GlobalBatchDirectoryRowDto
+{
+    public long Id { get; set; }
+    public long ProductId { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public string ProductCode { get; set; } = string.Empty;
+    public string Barcode { get; set; } = string.Empty;
+    public string? Formulation { get; set; }
+    public int PackSize { get; set; } = 1;
+    public int ProductTotalQuantity { get; set; }
+
+    public long? CategoryId { get; set; }
+    public string CategoryName { get; set; } = "—";
+    public long? BrandId { get; set; }
+    public string BrandName { get; set; } = "—";
+    public long? SupplierId { get; set; }
+    public string SupplierName { get; set; } = "—";
+
+    public string BatchNumber { get; set; } = string.Empty;
+    public DateTime? ExpiryDate { get; set; }
+    public string ExpiryDateFormatted => ExpiryDate?.ToString("yyyy-MM-dd") ?? "N/A";
+    public int? DaysRemaining { get; set; }
+    public int EffectiveWarningDays { get; set; } = 90;
+    public string ExpiryStatus { get; set; } = "safe"; // expired | critical | warning | safe
+
+    public int Quantity { get; set; }
+    public long? StorageLocationId { get; set; }
+    public string StorageLocationName { get; set; } = "Shop Counter";
+    public string StorageLocationCode { get; set; } = "SHOP";
+    public string StorageLocationType { get; set; } = "shop";
+    public string? Rack { get; set; }
+
+    public decimal UnitPurchasePrice { get; set; }
+    public decimal UnitSalePrice { get; set; }
+    public decimal PackPurchasePrice { get; set; }
+    public decimal PackSalePrice { get; set; }
+    public decimal StockCostValue => Math.Round(Quantity * UnitPurchasePrice, 2);
+    public decimal StockSaleValue => Math.Round(Quantity * UnitSalePrice, 2);
+
+    public bool IsExpired => ExpiryStatus == "expired";
+    public bool IsCritical => ExpiryStatus == "critical";
+    public bool IsWarning => ExpiryStatus == "warning";
+    public bool IsSafe => ExpiryStatus == "safe";
+    public bool HasRack => !string.IsNullOrWhiteSpace(Rack);
+    public string StorageLocationBadgeLabel => $"{StorageLocationName} ({StorageLocationCode})";
+
+    public string StatusBadgeText => !DaysRemaining.HasValue
+        ? "No Expiry"
+        : DaysRemaining.Value < 0
+            ? $"Expired ({Math.Abs(DaysRemaining.Value)}d ago)"
+            : $"{DaysRemaining.Value}d left";
 }
 
 public sealed class BatchSaveRequest

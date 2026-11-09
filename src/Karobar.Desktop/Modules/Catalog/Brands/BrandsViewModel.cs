@@ -775,12 +775,16 @@ public partial class BrandsViewModel : ObservableObject
     [RelayCommand]
     public void ManageBatch(BrandBatchIntimationDto? batch)
     {
-        _navigate?.Invoke("/product-batches");
         if (batch != null)
         {
+            _navigate?.Invoke($"/product-batches?product_id={batch.ProductId}&batch_id={batch.Id}");
             _toastService.ShowInfo(
                 $"Opened Product Batches for {batch.ProductName} (Batch #{batch.BatchNumber}).",
                 "Manage Batch");
+        }
+        else
+        {
+            _navigate?.Invoke("/product-batches");
         }
     }
 
