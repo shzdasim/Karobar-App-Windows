@@ -900,7 +900,12 @@
                         <views:CategoriesView DataContext="{Binding Categories}" />
                     </Grid>
 
-                    <!-- C. Inner Page Host for any other Sidebar/Topbar Route -->
+                    <!-- C. Brands Page (When CurrentPath == "/brands" or "/brands/create") -->
+                    <Grid Visibility="{Binding IsBrandsPage, Converter={StaticResource BoolToVis}}">
+                        <views:BrandsView DataContext="{Binding Brands}" />
+                    </Grid>
+
+                    <!-- D. Inner Page Host for any other Sidebar/Topbar Route -->
                     <Border Visibility="{Binding IsOtherPage, Converter={StaticResource BoolToVis}}"
                             Background="#FFFFFF"
                             BorderBrush="#E2E8F0"

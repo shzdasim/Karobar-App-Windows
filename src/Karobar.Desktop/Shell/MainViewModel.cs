@@ -91,11 +91,15 @@ public partial class MainViewModel : ObservableObject
     public bool IsDashboardActive => string.Equals(CurrentPath, "/dashboard", StringComparison.OrdinalIgnoreCase);
     public bool IsDashboardPage => IsDashboardActive;
     public bool IsCategoriesPage => string.Equals(CurrentPath, "/categories", StringComparison.OrdinalIgnoreCase);
-    public bool IsOtherPage => !IsDashboardPage && !IsCategoriesPage;
+    public bool IsBrandsPage =>
+        string.Equals(CurrentPath, "/brands", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/brands/create", StringComparison.OrdinalIgnoreCase);
+    public bool IsOtherPage => !IsDashboardPage && !IsCategoriesPage && !IsBrandsPage;
 
     public ToastNotificationService ToastService { get; }
     public DashboardViewModel Dashboard { get; }
     public CategoriesViewModel Categories { get; }
+    public BrandsViewModel Brands { get; }
 
     public ObservableCollection<SidebarSectionViewModel> Sections { get; } = [];
     public ObservableCollection<SidebarItemViewModel> FavoriteItems { get; } = [];
@@ -104,6 +108,7 @@ public partial class MainViewModel : ObservableObject
         IAuthService authService,
         IDatabaseInitializerService dbInitializer,
         ICategoryService categoryService,
+        IBrandService brandService,
         ToastNotificationService toastService)
     {
         _authService = authService;
@@ -111,6 +116,7 @@ public partial class MainViewModel : ObservableObject
         ToastService = toastService;
         Dashboard = new DashboardViewModel(Navigate, toastService);
         Categories = new CategoriesViewModel(categoryService, authService, toastService);
+        Brands = new BrandsViewModel(brandService, authService, toastService, Navigate);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");
@@ -138,6 +144,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDashboardActive));
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsCategoriesPage));
+        OnPropertyChanged(nameof(IsBrandsPage));
         OnPropertyChanged(nameof(IsOtherPage));
     }
 
@@ -327,6 +334,14 @@ public partial class MainViewModel : ObservableObject
         if (string.Equals(targetPath, "/categories", StringComparison.OrdinalIgnoreCase))
         {
             _ = Categories.LoadCategoriesAsync();
+        }
+        else if (string.Equals(targetPath, "/brands", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Brands.OpenDirectoryModeAsync();
+        }
+        else if (string.Equals(targetPath, "/brands/create", StringComparison.OrdinalIgnoreCase))
+        {
+            Brands.OpenCreateMode();
         }
     }
 

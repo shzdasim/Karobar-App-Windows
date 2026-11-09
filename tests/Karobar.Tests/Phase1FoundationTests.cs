@@ -264,4 +264,90 @@ public sealed class Phase1FoundationTests
             if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
         }
     }
+
+    [Fact]
+    public async Task BrandService_ShouldSupportCrud_ExpiryPolicies_BatchIntimation_AndCsvImportExport()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "karobar_brand_test_" + Guid.NewGuid().ToString("N"));
+        var csvPath = Path.Combine(Path.GetTempPath(), $"brand_import_{Guid.NewGuid():N}.csv");
+        var exportPath = Path.Combine(Path.GetTempPath(), $"brand_export_{Guid.NewGuid():N}.csv");
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddKarobarInfrastructure(tempDir);
+
+            await using var provider = services.BuildServiceProvider();
+            var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
+            var brands = provider.GetRequiredService<IBrandService>();
+
+            await dbInit.InitializeAndSeedAsync();
+
+            // 1. Create Brand with 6 Months Before Expiry policy
+            var b1 = await brands.CreateAsync(new BrandUpsertRequest
+            {
+                Name = "GSK",
+                ExpiryReturnPolicy = "before_expiry",
+                ExpiryReturnMonths = 6,
+                ExpiryReturnDays = 180,
+                ExpiryReturnNotes = "Intimate distributor 180 days prior"
+            });
+
+            b1.Name.Should().Be("GSK");
+            b1.ExpiryReturnPolicy.Should().Be("before_expiry");
+            b1.ExpiryReturnMonths.Should().Be(6);
+            b1.ExpiryReturnDays.Should().Be(180);
+            b1.ExpiryPolicyLabel.Should().Be("6 Months Before Expiry");
+
+            // Duplicate check (case-insensitive)
+            var dupAct = async () => await brands.CreateAsync(new BrandUpsertRequest { Name = "gsk" });
+            await dupAct.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("The name has already been taken.");
+
+            // 2. Update Brand to Accepts Expired Products
+            var updated = await brands.UpdateAsync(b1.Id, new BrandUpsertRequest
+            {
+                Name = "GlaxoSmithKline",
+                ExpiryReturnPolicy = "accepts_expired",
+                ExpiryReturnNotes = "Accepts expired packs"
+            });
+
+            updated.Name.Should().Be("GlaxoSmithKline");
+            updated.ExpiryReturnPolicy.Should().Be("accepts_expired");
+            updated.ExpiryReturnMonths.Should().Be(0);
+            updated.ExpiryReturnDays.Should().Be(0);
+            updated.ExpiryPolicyLabel.Should().Be("Accepts Expired Products");
+
+            // 3. CSV Validate & Commit
+            await File.WriteAllTextAsync(csvPath, "name,image\nAbbott,brands/abbott.png\nGetz Pharma,https://example.com/getz.png\nAbbott,dup.png\n");
+            var valRes = await brands.ValidateCsvAsync(csvPath, ",");
+            valRes.Ok.Should().BeTrue();
+            valRes.Total.Should().Be(3);
+            valRes.Valid.Should().Be(2);
+            valRes.Invalid.Should().Be(1);
+
+            var commitStats = await brands.CommitCsvAsync(csvPath, insertValidOnly: true, ",");
+            commitStats.NewCount.Should().Be(2);
+
+            var all = await brands.GetAllAsync();
+            all.Select(x => x.Name).Should().Contain(["GlaxoSmithKline", "Abbott", "Getz Pharma"]);
+
+            // 4. Export CSV
+            await brands.ExportCsvAsync(exportPath);
+            var exportedText = await File.ReadAllTextAsync(exportPath);
+            exportedText.Should().Contain("GlaxoSmithKline");
+            exportedText.Should().Contain("Abbott");
+
+            // 5. Delete
+            await brands.DeleteAsync(b1.Id);
+            (await brands.GetAllAsync()).Select(x => x.Name).Should().NotContain("GlaxoSmithKline");
+        }
+        finally
+        {
+            if (File.Exists(csvPath)) try { File.Delete(csvPath); } catch { }
+            if (File.Exists(exportPath)) try { File.Delete(exportPath); } catch { }
+            if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
 }

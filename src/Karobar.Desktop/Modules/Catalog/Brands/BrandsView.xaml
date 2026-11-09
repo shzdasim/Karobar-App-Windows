@@ -1,0 +1,1464 @@
+<UserControl x:Class="Karobar.Desktop.Views.BrandsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.InputBindings>
+        <KeyBinding Key="N" Modifiers="Alt" Command="{Binding OpenCreateModeCommand}" />
+        <KeyBinding Key="S" Modifiers="Alt" Command="{Binding SaveBrandCommand}" />
+    </UserControl.InputBindings>
+
+    <UserControl.Resources>
+        <!-- Secondary Action Button Style -->
+        <Style x:Key="BrandSecondaryBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="#F8FAFC" />
+            <Setter Property="Foreground" Value="#0F172A" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="11"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#EFF6FF" />
+                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#93C5FD" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="BtnBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Primary Action Button Style -->
+        <Style x:Key="BrandPrimaryBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="#3B82F6" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#2563EB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="18,9" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="11"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#2563EB" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="BtnBorder" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Table Row Icon Action Button -->
+        <Style x:Key="BrandRowActionBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#64748B" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="RowBtnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="9">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RowBtnBorder" Property="Background" Value="#EFF6FF" />
+                                <Setter TargetName="RowBtnBorder" Property="BorderBrush" Value="#BFDBFE" />
+                                <Setter Property="Foreground" Value="#2563EB" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="RowBtnBorder" Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- ================================================================ -->
+        <!-- MAIN SCROLLABLE WORKSPACE CONTENT                                -->
+        <!-- ================================================================ -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="4,2,10,24">
+            <Grid>
+                <!-- ======================================================== -->
+                <!-- MODE A: BRANDS DIRECTORY VIEW (Brands/Index.jsx)         -->
+                <!-- ======================================================== -->
+                <StackPanel Visibility="{Binding IsDirectoryMode, Converter={StaticResource BoolToVis}}">
+
+                    <!-- 1. Directory Header + Filter Bar Card -->
+                    <Border Background="#FFFFFF"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="20"
+                            Padding="24,20"
+                            Margin="0,0,0,16">
+                        <StackPanel>
+                            <!-- Top Row: Identity + Action Buttons -->
+                            <Grid Margin="0,0,0,18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Left: Icon + Title + Subtitle -->
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="52" Height="52"
+                                            CornerRadius="16"
+                                            Background="#EFF6FF"
+                                            BorderBrush="#BFDBFE"
+                                            BorderThickness="1"
+                                            Margin="0,0,16,0">
+                                        <TextBlock Text="🏷"
+                                                   FontSize="22"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Brands &amp; Expiry Return Policies"
+                                                   FontSize="25"
+                                                   FontWeight="Bold"
+                                                   Foreground="#0F172A" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                            <TextBlock Text="◈ "
+                                                       FontSize="12"
+                                                       Foreground="#3B82F6"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding DirectorySubtitleText}"
+                                                       FontSize="12.5"
+                                                       Foreground="#64748B"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Right: Add Brand / Import / Export / Refresh -->
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Visibility="{Binding CanCreate, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding OpenCreateModeCommand}"
+                                            ToolTip="Add Brand (Alt+N)"
+                                            Style="{StaticResource BrandPrimaryBtnStyle}"
+                                            Margin="0,0,8,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="+ " FontWeight="Bold" />
+                                            <TextBlock Text="Add Brand" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Visibility="{Binding CanImport, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding OpenImportModalCommand}"
+                                            Style="{StaticResource BrandSecondaryBtnStyle}"
+                                            Margin="0,0,8,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="↑" FontWeight="Bold" Margin="0,0,6,0" />
+                                            <TextBlock Text="Import" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Visibility="{Binding CanExport, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding ExportCsvCommand}"
+                                            IsEnabled="{Binding CanExportNow}"
+                                            Style="{StaticResource BrandSecondaryBtnStyle}"
+                                            Margin="0,0,8,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="↓" FontWeight="Bold" Margin="0,0,6,0" />
+                                            <TextBlock Text="Export" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Command="{Binding LoadBrandsCommand}"
+                                            Style="{StaticResource BrandSecondaryBtnStyle}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="↻" FontWeight="Bold" Margin="0,0,6,0" />
+                                            <TextBlock Text="Refresh" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Bottom Row: Search Input + Policy Filter + Page Size -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="260" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Search Box -->
+                                <Border Grid.Column="0"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#CBD5E1"
+                                        BorderThickness="1"
+                                        CornerRadius="12"
+                                        Padding="12,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="🔍"
+                                                   FontSize="13"
+                                                   Foreground="#64748B"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,10,0" />
+                                        <Grid Grid.Column="1">
+                                            <TextBox x:Name="SearchBrandsBox"
+                                                     Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     FontSize="13.5"
+                                                     Foreground="#0F172A" />
+                                            <TextBlock Text="Search brands by name..."
+                                                       FontSize="13.5"
+                                                       Foreground="#94A3B8"
+                                                       IsHitTestVisible="False"
+                                                       VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Text, ElementName=SearchBrandsBox}" Value="">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Expiry Return Policy Filter ComboBox -->
+                                <ComboBox Grid.Column="2"
+                                          ItemsSource="{Binding PolicyFilterOptions}"
+                                          SelectedItem="{Binding SelectedPolicyFilter}"
+                                          DisplayMemberPath="Label"
+                                          FontSize="13"
+                                          Padding="10,8"
+                                          VerticalContentAlignment="Center" />
+
+                                <!-- Page Size Selector -->
+                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Rows:"
+                                               FontSize="12.5"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,8,0" />
+                                    <ComboBox ItemsSource="{Binding PageSizeOptions}"
+                                              SelectedItem="{Binding PageSize}"
+                                              Width="72"
+                                              FontSize="13"
+                                              Padding="8,7"
+                                              VerticalContentAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 2. Full-Width Brands Table Card -->
+                    <Border Background="#FFFFFF"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="20"
+                            Padding="18">
+                        <StackPanel>
+                            <Border BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="14"
+                                    Background="#F8FAFC">
+                                <StackPanel>
+                                    <!-- Table Column Headers -->
+                                    <Border Background="#FFFFFF"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="0,0,0,1"
+                                            CornerRadius="14,14,0,0"
+                                            Padding="18,13">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="250" />
+                                                <ColumnDefinition Width="125" />
+                                                <ColumnDefinition Width="245" />
+                                                <ColumnDefinition Width="110" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0"
+                                                       Text="BRAND"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       Foreground="#475569" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="EXPIRY RETURN POLICY"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       Foreground="#475569" />
+                                            <TextBlock Grid.Column="2"
+                                                       Text="PRODUCTS"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       Foreground="#475569" />
+                                            <TextBlock Grid.Column="3"
+                                                       Text="INTIMATION STATUS"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       Foreground="#475569" />
+                                            <TextBlock Grid.Column="4"
+                                                       Visibility="{Binding HasRowActions, Converter={StaticResource BoolToVis}}"
+                                                       Text="ACTIONS"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       Foreground="#475569"
+                                                       HorizontalAlignment="Right" />
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Empty State -->
+                                    <Border Visibility="{Binding IsEmptyList, Converter={StaticResource BoolToVis}}"
+                                            Background="#FFFFFF"
+                                            CornerRadius="0,0,14,14"
+                                            Padding="28,48">
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <TextBlock Text="🏷"
+                                                       FontSize="32"
+                                                       Foreground="#94A3B8"
+                                                       HorizontalAlignment="Center"
+                                                       Margin="0,0,0,8" />
+                                            <TextBlock Text="No brands found matching your filters"
+                                                       FontSize="14"
+                                                       FontWeight="Medium"
+                                                       Foreground="#64748B"
+                                                       HorizontalAlignment="Center"
+                                                       Margin="0,0,0,14" />
+                                            <Button Visibility="{Binding CanCreate, Converter={StaticResource BoolToVis}}"
+                                                    Content="+ Create First Brand"
+                                                    Command="{Binding OpenCreateModeCommand}"
+                                                    Style="{StaticResource BrandPrimaryBtnStyle}"
+                                                    HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Brand Rows -->
+                                    <ItemsControl ItemsSource="{Binding PagedBrands}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#FFFFFF"
+                                                        BorderBrush="#E2E8F0"
+                                                        BorderThickness="0,0,0,1"
+                                                        Padding="18,12">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="250" />
+                                                            <ColumnDefinition Width="125" />
+                                                            <ColumnDefinition Width="245" />
+                                                            <ColumnDefinition Width="110" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Col 0: Brand Logo + Name + Notes -->
+                                                        <StackPanel Grid.Column="0"
+                                                                    Orientation="Horizontal"
+                                                                    VerticalAlignment="Center"
+                                                                    Margin="0,0,12,0">
+                                                            <Border Width="40" Height="40"
+                                                                    CornerRadius="10"
+                                                                    Background="#F8FAFC"
+                                                                    BorderBrush="#E2E8F0"
+                                                                    BorderThickness="1"
+                                                                    Margin="0,0,12,0">
+                                                                <Grid>
+                                                                    <Image Visibility="{Binding HasImage, Converter={StaticResource BoolToVis}}"
+                                                                           Source="{Binding ImageAbsolutePath}"
+                                                                           Stretch="UniformToFill" />
+                                                                    <TextBlock Visibility="{Binding HasNoImage, Converter={StaticResource BoolToVis}}"
+                                                                               Text="🏷"
+                                                                               FontSize="16"
+                                                                               Foreground="#94A3B8"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center" />
+                                                                </Grid>
+                                                            </Border>
+
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}"
+                                                                           FontSize="14"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="#0F172A" />
+                                                                <TextBlock Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"
+                                                                           Text="{Binding ExpiryReturnNotes}"
+                                                                           FontSize="11.5"
+                                                                           Foreground="#64748B"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           MaxWidth="320"
+                                                                           Margin="0,2,0,0" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+
+                                                        <!-- Col 1: Expiry Return Policy Badge -->
+                                                        <Border Grid.Column="1"
+                                                                Background="{Binding PolicyBadgeBg}"
+                                                                BorderBrush="{Binding PolicyBadgeBorder}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="99"
+                                                                Padding="10,4"
+                                                                HorizontalAlignment="Left"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding PolicyBadgeDisplay}"
+                                                                       FontSize="11.5"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{Binding PolicyBadgeFg}" />
+                                                        </Border>
+
+                                                        <!-- Col 2: Products Count -->
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding ProductsCountLabel}"
+                                                                   FontSize="12.5"
+                                                                   FontFamily="Consolas"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="#334155"
+                                                                   VerticalAlignment="Center" />
+
+                                                        <!-- Col 3: Intimation Status -->
+                                                        <Grid Grid.Column="3" VerticalAlignment="Center">
+                                                            <Button Visibility="{Binding HasIntimationsDue, Converter={StaticResource BoolToVis}}"
+                                                                    Command="{Binding DataContext.EditBrandCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    ToolTip="Click to inspect due product batches"
+                                                                    Cursor="Hand"
+                                                                    HorizontalAlignment="Left"
+                                                                    Background="Transparent"
+                                                                    BorderThickness="0">
+                                                                <Button.Template>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border Background="#FFFBEB"
+                                                                                BorderBrush="#FCD34D"
+                                                                                BorderThickness="1"
+                                                                                CornerRadius="99"
+                                                                                Padding="10,4">
+                                                                            <TextBlock Text="{Binding IntimationDueText}"
+                                                                                       FontSize="11.5"
+                                                                                       FontWeight="Bold"
+                                                                                       Foreground="#B45309" />
+                                                                        </Border>
+                                                                    </ControlTemplate>
+                                                                </Button.Template>
+                                                            </Button>
+
+                                                            <TextBlock Visibility="{Binding NoIntimationsDue, Converter={StaticResource BoolToVis}}"
+                                                                       Text="✓ No return intimations due"
+                                                                       FontSize="12"
+                                                                       FontWeight="Medium"
+                                                                       Foreground="#059669"
+                                                                       VerticalAlignment="Center" />
+                                                        </Grid>
+
+                                                        <!-- Col 4: Row Actions (Edit & Delete) -->
+                                                        <StackPanel Grid.Column="4"
+                                                                    Orientation="Horizontal"
+                                                                    HorizontalAlignment="Right"
+                                                                    VerticalAlignment="Center">
+                                                            <Button Visibility="{Binding DataContext.CanUpdate, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
+                                                                    Command="{Binding DataContext.EditBrandCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    ToolTip="Edit Brand &amp; Expiry Return Policy"
+                                                                    Style="{StaticResource BrandRowActionBtnStyle}"
+                                                                    Margin="0,0,6,0">
+                                                                <TextBlock Text="✎" FontSize="14" FontWeight="Bold" />
+                                                            </Button>
+
+                                                            <Button Visibility="{Binding DataContext.CanDelete, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
+                                                                    Command="{Binding DataContext.DeleteBrandCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    IsEnabled="{Binding CanDelete}"
+                                                                    ToolTip="{Binding DeleteTooltip}"
+                                                                    Style="{StaticResource BrandRowActionBtnStyle}"
+                                                                    Foreground="#E11D48">
+                                                                <TextBlock Text="🗑" FontSize="13" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Pagination Footer -->
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding PageStatusText}"
+                                           FontSize="12.5"
+                                           Foreground="#64748B"
+                                           VerticalAlignment="Center" />
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="«"
+                                            Command="{Binding FirstPageCommand}"
+                                            IsEnabled="{Binding CanGoPrevPage}"
+                                            Style="{StaticResource BrandSecondaryBtnStyle}"
+                                            Padding="10,5"
+                                            Margin="0,0,4,0" />
+                                    <Button Content="‹"
+                                            Command="{Binding PrevPageCommand}"
+                                            IsEnabled="{Binding CanGoPrevPage}"
+                                            Style="{StaticResource BrandSecondaryBtnStyle}"
+                                            Padding="10,5"
+                                            Margin="0,0,4,0" />
+                                    <Border Background="#F1F5F9"
+                                            BorderBrush="#CBD5E1"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="11,5"
+                                            Margin="2,0,6,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Page}"
+                                                   FontSize="12"
+                                                   FontWeight="Bold"
+                                                   Foreground="#0F172A" />
+                                    </Border>
+                                    <Button Content="›"
+                                            Command="{Binding NextPageCommand}"
+                                            IsEnabled="{Binding CanGoNextPage}"
+                                            Style="{StaticResource BrandSecondaryBtnStyle}"
+                                            Padding="10,5"
+                                            Margin="0,0,4,0" />
+                                    <Button Content="»"
+                                            Command="{Binding LastPageCommand}"
+                                            IsEnabled="{Binding CanGoNextPage}"
+                                            Style="{StaticResource BrandSecondaryBtnStyle}"
+                                            Padding="10,5" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ======================================================== -->
+                <!-- MODE B: CREATE / EDIT BRAND FORM VIEW                    -->
+                <!-- (Brands/Create.jsx, Brands/Edit.jsx, BrandForm.jsx,      -->
+                <!--  ExpiryReturnPolicyFields.jsx & ExpiryIntimationTable)   -->
+                <!-- ======================================================== -->
+                <StackPanel Visibility="{Binding IsFormMode, Converter={StaticResource BoolToVis}}">
+
+                    <!-- 1. Form Page Header Card -->
+                    <Border Background="#FFFFFF"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="20"
+                            Padding="24,18"
+                            Margin="0,0,0,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Icon + Title + Subtitle -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="48" Height="48"
+                                        CornerRadius="14"
+                                        Background="#EFF6FF"
+                                        BorderBrush="#BFDBFE"
+                                        BorderThickness="1"
+                                        Margin="0,0,14,0">
+                                    <TextBlock Text="🏷"
+                                               FontSize="20"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding FormPageTitle}"
+                                               FontSize="22"
+                                               FontWeight="Bold"
+                                               Foreground="#0F172A" />
+                                    <TextBlock Text="{Binding FormPageSubtitle}"
+                                               FontSize="12.5"
+                                               Foreground="#64748B"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Right: Back to Brands + Save/Update Brand -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Command="{Binding BackToDirectoryCommand}"
+                                        Style="{StaticResource BrandSecondaryBtnStyle}"
+                                        Margin="0,0,10,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="← " FontWeight="Bold" />
+                                        <TextBlock Text="Back to Brands" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Command="{Binding SaveBrandCommand}"
+                                        ToolTip="Save Brand (Alt+S)"
+                                        Style="{StaticResource BrandPrimaryBtnStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="✓ " FontWeight="Bold" />
+                                        <TextBlock Text="{Binding SaveButtonText}" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 2. Brand Details & Expiry Return Policy Card -->
+                    <Border Background="#FFFFFF"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="20"
+                            Padding="24,22"
+                            Margin="0,0,0,16">
+                        <StackPanel>
+                            <!-- Row 1: Brand Name + Brand Logo / Image -->
+                            <Grid Margin="0,0,0,22">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Brand Name Input -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Brand Name *"
+                                               FontSize="12.5"
+                                               FontWeight="SemiBold"
+                                               Foreground="#334155"
+                                               Margin="0,0,0,6" />
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#CBD5E1"
+                                            BorderThickness="1"
+                                            CornerRadius="11"
+                                            Padding="12,10">
+                                        <Grid>
+                                            <TextBox x:Name="BrandNameInputBox"
+                                                     Text="{Binding FormName, UpdateSourceTrigger=PropertyChanged}"
+                                                     KeyDown="BrandFormInput_OnKeyDown"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     FontSize="14"
+                                                     Foreground="#0F172A" />
+                                            <TextBlock Text="e.g. GSK, Abbott, Getz Pharma, Nestle"
+                                                       FontSize="13.5"
+                                                       Foreground="#94A3B8"
+                                                       IsHitTestVisible="False"
+                                                       VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Text, ElementName=BrandNameInputBox}" Value="">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Brand Logo / Image Picker + Preview -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Brand Logo / Image (Optional)"
+                                               FontSize="12.5"
+                                               FontWeight="SemiBold"
+                                               Foreground="#334155"
+                                               Margin="0,0,0,6" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.Column="0"
+                                                Background="#F8FAFC"
+                                                BorderBrush="#CBD5E1"
+                                                BorderThickness="1"
+                                                CornerRadius="11"
+                                                Padding="10,7">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Button Grid.Column="0"
+                                                        Content="Choose Image..."
+                                                        Command="{Binding ChooseBrandImageCommand}"
+                                                        Style="{StaticResource BrandSecondaryBtnStyle}"
+                                                        Padding="12,5"
+                                                        FontSize="12" />
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding FormImageFileNameDisplay}"
+                                                           FontSize="12.5"
+                                                           Foreground="#475569"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <Button Grid.Column="3"
+                                                        Visibility="{Binding HasActivePreviewImage, Converter={StaticResource BoolToVis}}"
+                                                        Content="✕"
+                                                        Command="{Binding ClearChosenBrandImageCommand}"
+                                                        ToolTip="Clear selected image"
+                                                        Style="{StaticResource BrandSecondaryBtnStyle}"
+                                                        Padding="7,3"
+                                                        FontSize="11"
+                                                        Margin="6,0,0,0" />
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- 44x44 Preview Box -->
+                                        <Border Grid.Column="2"
+                                                Width="44" Height="44"
+                                                CornerRadius="11"
+                                                Background="#F8FAFC"
+                                                BorderBrush="#CBD5E1"
+                                                BorderThickness="1">
+                                            <Grid>
+                                                <Image Visibility="{Binding HasActivePreviewImage, Converter={StaticResource BoolToVis}}"
+                                                       Source="{Binding ActivePreviewImagePath}"
+                                                       Stretch="UniformToFill" />
+                                                <TextBlock Visibility="{Binding HasNoActivePreviewImage, Converter={StaticResource BoolToVis}}"
+                                                           Text="🏷"
+                                                           FontSize="17"
+                                                           Foreground="#94A3B8"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Row 2: Expiry Return Policy (Product Intimation) Container -->
+                            <Border Background="#F8FAFC"
+                                    BorderBrush="#BFDBFE"
+                                    BorderThickness="1"
+                                    CornerRadius="16"
+                                    Padding="20,18">
+                                <StackPanel>
+                                    <!-- Policy Container Header -->
+                                    <Grid Margin="0,0,0,16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="🕒 "
+                                                           FontSize="14"
+                                                           Foreground="#2563EB"
+                                                           VerticalAlignment="Center" />
+                                                <TextBlock Text="EXPIRY RETURN POLICY (PRODUCT INTIMATION)"
+                                                           FontSize="12"
+                                                           FontWeight="Bold"
+                                                           Foreground="#1E293B"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Text="Defines when products of this brand must be intimated/returned to the supplier before or after expiry"
+                                                       FontSize="12"
+                                                       Foreground="#64748B"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+
+                                        <!-- Live Preview Policy Badge -->
+                                        <Border Grid.Column="1"
+                                                Background="{Binding FormPolicyBadgeBg}"
+                                                BorderBrush="{Binding FormPolicyBadgeBorder}"
+                                                BorderThickness="1"
+                                                CornerRadius="99"
+                                                Padding="12,5"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding FormPolicyBadgeDisplay}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="{Binding FormPolicyBadgeFg}" />
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- 2-Column Preset Selector + Policy Notes -->
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="18" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Return / Intimation Policy Preset ComboBox -->
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Return / Intimation Policy *"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#334155"
+                                                       Margin="0,0,0,6" />
+                                            <ComboBox ItemsSource="{Binding PolicyPresets}"
+                                                      SelectedItem="{Binding SelectedPolicyPreset}"
+                                                      DisplayMemberPath="Label"
+                                                      FontSize="13.5"
+                                                      Padding="10,9"
+                                                      VerticalContentAlignment="Center" />
+                                        </StackPanel>
+
+                                        <!-- Policy Notes / Return Conditions -->
+                                        <StackPanel Grid.Column="2">
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Text="Policy Notes / Return Conditions (Optional)"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#334155" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="Enter ↵ Saves"
+                                                           FontSize="10.5"
+                                                           FontWeight="Bold"
+                                                           Foreground="#2563EB" />
+                                            </Grid>
+
+                                            <Border Background="#FFFFFF"
+                                                    BorderBrush="#CBD5E1"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="12,9">
+                                                <Grid>
+                                                    <TextBox x:Name="PolicyNotesInputBox"
+                                                             Text="{Binding FormNotes, UpdateSourceTrigger=PropertyChanged}"
+                                                             KeyDown="BrandFormInput_OnKeyDown"
+                                                             Background="Transparent"
+                                                             BorderThickness="0"
+                                                             FontSize="13.5"
+                                                             Foreground="#0F172A" />
+                                                    <TextBlock Text="e.g. Intimate distributor 90 days prior with batch &amp; invoice copy"
+                                                               FontSize="13"
+                                                               Foreground="#94A3B8"
+                                                               IsHitTestVisible="False"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Text, ElementName=PolicyNotesInputBox}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Conditional Custom Duration Row (When "Custom Period Before Expiry…" is selected) -->
+                                    <Border Visibility="{Binding IsCustomPolicySelected, Converter={StaticResource BoolToVis}}"
+                                            Background="#FFFFFF"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14,12"
+                                            Margin="0,0,0,14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="16" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Time Unit"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#334155"
+                                                           Margin="0,0,0,6" />
+                                                <ComboBox ItemsSource="{Binding CustomTimeUnitOptions}"
+                                                          SelectedItem="{Binding SelectedCustomTimeUnit}"
+                                                          DisplayMemberPath="Label"
+                                                          FontSize="13"
+                                                          Padding="10,8" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="{Binding CustomDurationFieldLabel}"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#334155"
+                                                           Margin="0,0,0,6" />
+                                                <Border Background="#F8FAFC"
+                                                        BorderBrush="#CBD5E1"
+                                                        BorderThickness="1"
+                                                        CornerRadius="9"
+                                                        Padding="10,7">
+                                                    <TextBox Text="{Binding CustomDurationText, UpdateSourceTrigger=PropertyChanged}"
+                                                             KeyDown="BrandFormInput_OnKeyDown"
+                                                             Background="Transparent"
+                                                             BorderThickness="0"
+                                                             FontSize="13.5"
+                                                             Foreground="#0F172A" />
+                                                </Border>
+                                                <TextBlock Text="{Binding CustomDurationComputedHint}"
+                                                           FontSize="11"
+                                                           Foreground="#64748B"
+                                                           Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Live Policy Explanation Banner -->
+                                    <Border Background="#FFFFFF"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
+                                            Padding="12,9">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="ℹ "
+                                                       FontSize="13"
+                                                       FontWeight="Bold"
+                                                       Foreground="#2563EB"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,6,0" />
+                                            <TextBlock Text="{Binding FormPolicyExplanationText}"
+                                                       FontSize="12.5"
+                                                       Foreground="#334155"
+                                                       TextWrapping="Wrap"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Form Bottom Action Row -->
+                            <Grid Margin="0,18,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button Grid.Column="0"
+                                        Command="{Binding BackToDirectoryCommand}"
+                                        Style="{StaticResource BrandSecondaryBtnStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="← " FontWeight="Bold" />
+                                        <TextBlock Text="Cancel" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Grid.Column="2"
+                                        Command="{Binding SaveBrandCommand}"
+                                        Style="{StaticResource BrandPrimaryBtnStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="✓ " FontWeight="Bold" />
+                                        <TextBlock Text="{Binding SaveButtonText}" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 3. Live Product Expiry Return Intimation Status Table (Edit Mode Only) -->
+                    <Border Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}"
+                            Background="#FFFFFF"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="20"
+                            Padding="22,18">
+                        <StackPanel>
+                            <!-- Table Card Header -->
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="🕒 "
+                                                   FontSize="15"
+                                                   Foreground="#2563EB"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="Live Product Expiry Return Intimation Status"
+                                                   FontSize="15"
+                                                   FontWeight="Bold"
+                                                   Foreground="#0F172A"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock Text="Active product batches under this brand evaluated against its Expiry Return Policy"
+                                               FontSize="12"
+                                               Foreground="#64748B"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Policy: "
+                                               FontSize="12"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,6,0" />
+                                    <Border Background="{Binding FormPolicyBadgeBg}"
+                                            BorderBrush="{Binding FormPolicyBadgeBorder}"
+                                            BorderThickness="1"
+                                            CornerRadius="99"
+                                            Padding="10,4">
+                                        <TextBlock Text="{Binding FormPolicyBadgeDisplay}"
+                                                   FontSize="11.5"
+                                                   FontWeight="Bold"
+                                                   Foreground="{Binding FormPolicyBadgeFg}" />
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Empty Batches State -->
+                            <Border Visibility="{Binding HasNoEditingBatches, Converter={StaticResource BoolToVis}}"
+                                    Background="#F8FAFC"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="24,32">
+                                <TextBlock Text="No active batches in stock for products of this brand."
+                                           FontSize="13"
+                                           Foreground="#64748B"
+                                           HorizontalAlignment="Center" />
+                            </Border>
+
+                            <!-- Batches Table -->
+                            <Border Visibility="{Binding HasEditingBatches, Converter={StaticResource BoolToVis}}"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Background="#F8FAFC">
+                                <StackPanel>
+                                    <!-- Header -->
+                                    <Border Background="#FFFFFF"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="0,0,0,1"
+                                            CornerRadius="12,12,0,0"
+                                            Padding="14,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="105" />
+                                                <ColumnDefinition Width="135" />
+                                                <ColumnDefinition Width="185" />
+                                                <ColumnDefinition Width="250" />
+                                                <ColumnDefinition Width="115" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="PRODUCT" FontSize="10.5" FontWeight="Bold" Foreground="#475569" />
+                                            <TextBlock Grid.Column="1" Text="BATCH #" FontSize="10.5" FontWeight="Bold" Foreground="#475569" />
+                                            <TextBlock Grid.Column="2" Text="ON-HAND QTY" FontSize="10.5" FontWeight="Bold" Foreground="#475569" />
+                                            <TextBlock Grid.Column="3" Text="EXPIRY DATE" FontSize="10.5" FontWeight="Bold" Foreground="#475569" />
+                                            <TextBlock Grid.Column="4" Text="LAST RETURN / INTIMATION" FontSize="10.5" FontWeight="Bold" Foreground="#475569" />
+                                            <TextBlock Grid.Column="5" Text="INTIMATION STATUS" FontSize="10.5" FontWeight="Bold" Foreground="#475569" />
+                                            <TextBlock Grid.Column="6" Text="ACTION" FontSize="10.5" FontWeight="Bold" Foreground="#475569" HorizontalAlignment="Right" />
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Batch Rows -->
+                                    <ItemsControl ItemsSource="{Binding EditingBrandBatches}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#FFFFFF"
+                                                        BorderBrush="#E2E8F0"
+                                                        BorderThickness="0,0,0,1"
+                                                        Padding="14,10">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="120" />
+                                                            <ColumnDefinition Width="105" />
+                                                            <ColumnDefinition Width="135" />
+                                                            <ColumnDefinition Width="185" />
+                                                            <ColumnDefinition Width="250" />
+                                                            <ColumnDefinition Width="115" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                            <TextBlock Text="{Binding ProductName}" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A" />
+                                                            <TextBlock Text="{Binding ProductMetaText}" FontSize="11" Foreground="#64748B" />
+                                                        </StackPanel>
+
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding BatchNumber}"
+                                                                   FontSize="12"
+                                                                   FontFamily="Consolas"
+                                                                   Foreground="#334155"
+                                                                   VerticalAlignment="Center" />
+
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding Quantity}"
+                                                                   FontSize="12.5"
+                                                                   FontFamily="Consolas"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#0F172A"
+                                                                   VerticalAlignment="Center" />
+
+                                                        <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding ExpiryDate}" FontSize="12" FontFamily="Consolas" Foreground="#0F172A" />
+                                                            <TextBlock Text="{Binding ExpirySubText}" FontSize="10.5" Foreground="#64748B" />
+                                                        </StackPanel>
+
+                                                        <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding ReturnDeadlineDisplay}" FontSize="12" FontFamily="Consolas" FontWeight="SemiBold" Foreground="#0F172A" />
+                                                            <TextBlock Text="{Binding ReturnDeadlineSubText}" FontSize="10.5" Foreground="#64748B" />
+                                                        </StackPanel>
+
+                                                        <Border Grid.Column="5"
+                                                                Background="{Binding StatusBadgeBg}"
+                                                                BorderBrush="{Binding StatusBadgeBorder}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="99"
+                                                                Padding="9,3"
+                                                                HorizontalAlignment="Left"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding StatusBadgeText}"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{Binding StatusBadgeFg}" />
+                                                        </Border>
+
+                                                        <Button Grid.Column="6"
+                                                                Content="Manage Batch"
+                                                                Command="{Binding DataContext.ManageBatchCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource BrandSecondaryBtnStyle}"
+                                                                Padding="10,5"
+                                                                FontSize="11.5"
+                                                                HorizontalAlignment="Right"
+                                                                VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- ================================================================ -->
+        <!-- CSV IMPORT MODAL OVERLAY (BrandImportModal.jsx)                  -->
+        <!-- ================================================================ -->
+        <Grid Visibility="{Binding IsImportModalOpen, Converter={StaticResource BoolToVis}}"
+              Background="#660F172A">
+            <Border Width="780"
+                    MaxHeight="660"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Background="#FFFFFF"
+                    BorderBrush="#CBD5E1"
+                    BorderThickness="1"
+                    CornerRadius="18">
+                <Border.Effect>
+                    <DropShadowEffect Color="#0F172A" BlurRadius="32" ShadowDepth="8" Opacity="0.22" />
+                </Border.Effect>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Modal Header -->
+                    <Border Grid.Row="0"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="0,0,0,1"
+                            Padding="22,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="Import Brands (CSV)"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#0F172A"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Content="✕"
+                                    Command="{Binding CloseImportModalCommand}"
+                                    Style="{StaticResource BrandSecondaryBtnStyle}"
+                                    Padding="10,4" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Modal Body -->
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="22,18">
+                        <StackPanel>
+                            <!-- STEP 1: Choose File & Delimiter -->
+                            <StackPanel Visibility="{Binding IsImportStep1Visible, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Choose CSV file (header: name[, image])"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="#334155"
+                                           Margin="0,0,0,8" />
+
+                                <Border Background="#F8FAFC"
+                                        BorderBrush="#CBD5E1"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="12,10"
+                                        Margin="0,0,0,14">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0"
+                                                Content="Choose File..."
+                                                Command="{Binding ChooseImportFileCommand}"
+                                                Style="{StaticResource BrandSecondaryBtnStyle}"
+                                                Padding="14,6" />
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding ImportFileNameDisplay}"
+                                                   FontSize="13"
+                                                   Foreground="#475569"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,14">
+                                    <TextBlock Text="Delimiter"
+                                               FontSize="13"
+                                               FontWeight="Medium"
+                                               Foreground="#334155"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,12,0" />
+                                    <ComboBox ItemsSource="{Binding DelimiterOptions}"
+                                              SelectedItem="{Binding SelectedDelimiter}"
+                                              DisplayMemberPath="Label"
+                                              Width="160"
+                                              Padding="8,5"
+                                              FontSize="12.5" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,10">
+                                    <TextBlock Text="Need a sample? "
+                                               FontSize="12.5"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center" />
+                                    <Button Content="Download CSV template"
+                                            Command="{Binding DownloadTemplateCommand}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="#2563EB"
+                                            FontWeight="SemiBold"
+                                            FontSize="12.5"
+                                            Cursor="Hand" />
+                                </StackPanel>
+
+                                <TextBlock Text="Tip: Image can be a storage path (e.g. brands/acme.png) or a full URL. Optional expiry policy columns (expiry_return_policy, expiry_return_months, expiry_return_days, expiry_return_notes) are also supported."
+                                           FontSize="12"
+                                           Foreground="#64748B"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <!-- STEP 2: Validation Summary & Sample Rows -->
+                            <StackPanel Visibility="{Binding IsImportStep2Visible, Converter={StaticResource BoolToVis}}">
+                                <!-- Summary Badges -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                    <Border Background="#F1F5F9" CornerRadius="8" Padding="10,5" Margin="0,0,10,0">
+                                        <TextBlock Text="{Binding TotalBadgeText}" FontSize="12.5" FontWeight="Bold" Foreground="#334155" />
+                                    </Border>
+                                    <Border Background="#DCFCE7" CornerRadius="8" Padding="10,5" Margin="0,0,10,0">
+                                        <TextBlock Text="{Binding ValidBadgeText}" FontSize="12.5" FontWeight="Bold" Foreground="#16A34A" />
+                                    </Border>
+                                    <Border Background="{Binding InvalidBadgeBg}" CornerRadius="8" Padding="10,5">
+                                        <TextBlock Text="{Binding InvalidBadgeText}" FontSize="12.5" FontWeight="Bold" Foreground="{Binding InvalidBadgeFg}" />
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Invalid Sample Rows -->
+                                <StackPanel Visibility="{Binding HasInvalidSamples, Converter={StaticResource BoolToVis}}"
+                                            Margin="0,0,0,16">
+                                    <TextBlock Text="Invalid sample rows:"
+                                               FontSize="13"
+                                               FontWeight="Bold"
+                                               Foreground="#DC2626"
+                                               Margin="0,0,0,6" />
+                                    <Border BorderBrush="#FECACA" BorderThickness="1" CornerRadius="8">
+                                        <ItemsControl ItemsSource="{Binding InvalidSamples}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="#FEE2E2" BorderThickness="0,0,0,1" Padding="10,7" Background="#FEF2F2">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="65" />
+                                                                <ColumnDefinition Width="170" />
+                                                                <ColumnDefinition Width="180" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Row, StringFormat='Row #{0}'}" FontSize="12" FontWeight="SemiBold" Foreground="#991B1B" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" Foreground="#0F172A" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding Image}" FontSize="11.5" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Grid.Column="3" Text="{Binding ErrorsDisplay}" FontSize="12" Foreground="#DC2626" TextWrapping="Wrap" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Valid Sample Rows -->
+                                <StackPanel Visibility="{Binding HasValidSamples, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="Valid sample rows:"
+                                               FontSize="13"
+                                               FontWeight="Bold"
+                                               Foreground="#0F172A"
+                                               Margin="0,0,0,6" />
+                                    <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8">
+                                        <ItemsControl ItemsSource="{Binding ValidSamples}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="10,7">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="65" />
+                                                                <ColumnDefinition Width="200" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Row, StringFormat='Row #{0}'}" FontSize="12" Foreground="#64748B" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold" Foreground="#0F172A" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding Image}" FontSize="11.5" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Grid.Column="3" Text="{Binding WarningsDisplay}" FontSize="11.5" Foreground="#D97706" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Modal Footer -->
+                    <Border Grid.Row="2"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="0,1,0,0"
+                            Padding="22,14">
+                        <Grid>
+                            <!-- Step 1 Footer -->
+                            <Grid Visibility="{Binding IsImportStep1Visible, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="CSV header: name[, image]"
+                                           FontSize="12"
+                                           FontFamily="Consolas"
+                                           Foreground="#64748B"
+                                           VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <Button Content="Cancel"
+                                            Command="{Binding CloseImportModalCommand}"
+                                            Style="{StaticResource BrandSecondaryBtnStyle}"
+                                            Margin="0,0,8,0" />
+                                    <Button Content="Validate"
+                                            Command="{Binding ValidateImportCsvCommand}"
+                                            IsEnabled="{Binding CanValidateImport}"
+                                            Style="{StaticResource BrandPrimaryBtnStyle}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Step 2 Footer -->
+                            <Grid Visibility="{Binding IsImportStep2Visible, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0"
+                                        Content="Start Over"
+                                        Command="{Binding StartOverImportCommand}"
+                                        Style="{StaticResource BrandSecondaryBtnStyle}" />
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                    <Button Content="{Binding CommitPrimaryButtonText}"
+                                            Command="{Binding CommitImportValidOnlyCommand}"
+                                            Style="{StaticResource BrandPrimaryBtnStyle}"
+                                            Background="#10B981"
+                                            BorderBrush="#059669"
+                                            Margin="0,0,8,0" />
+                                    <Button Visibility="{Binding HasInvalidRows, Converter={StaticResource BoolToVis}}"
+                                            Content="Import (Abort on Error)"
+                                            Command="{Binding CommitImportStrictCommand}"
+                                            Style="{StaticResource BrandPrimaryBtnStyle}"
+                                            Background="#E11D48"
+                                            BorderBrush="#BE123C" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
