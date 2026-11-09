@@ -57,8 +57,8 @@ public partial class CustomerRegularItemFormRowViewModel : ObservableObject
 
     public int PackSize => Math.Max(1, SelectedProduct?.PackSize ?? 1);
     public int AvailableUnits => SelectedProduct?.OnHandUnits ?? 0;
-    public string PackSizeDisplay => SelectedProduct != null ? PackSize.ToString() : "—";
-    public string AvailableUnitsDisplay => SelectedProduct != null ? AvailableUnits.ToString() : "—";
+    public string PackSizeDisplay => SelectedProduct != null ? PackSize.ToString(CultureInfo.InvariantCulture) : "—";
+    public string AvailableUnitsDisplay => SelectedProduct != null ? AvailableUnits.ToString(CultureInfo.InvariantCulture) : "—";
 
     public int PackQuantityValue => int.TryParse(PackQuantityText?.Trim(), out int pq) && pq >= 0 ? pq : 0;
     public int UnitQuantityValue => int.TryParse(UnitQuantityText?.Trim(), out int uq) && uq >= 1 ? uq : 1;
@@ -66,6 +66,25 @@ public partial class CustomerRegularItemFormRowViewModel : ObservableObject
     public string AvailableUnitsFg => SelectedProduct == null
         ? "#64748B"
         : (AvailableUnits >= UnitQuantityValue ? "#059669" : "#D97706");
+
+    public void InitializeFromDto(CustomerCatalogProductDto product, int packQty, int unitQty, string? dosageNotes)
+    {
+        _suppressQuantitySync = true;
+        SelectedProduct = product;
+        int ps = Math.Max(1, product.PackSize);
+        int resolvedUnits = unitQty > 0 ? unitQty : Math.Max(1, packQty * ps);
+        int resolvedPacks = packQty > 0 ? packQty : (resolvedUnits / ps);
+        PackQuantityText = resolvedPacks.ToString(CultureInfo.InvariantCulture);
+        UnitQuantityText = resolvedUnits.ToString(CultureInfo.InvariantCulture);
+        DosageNotes = dosageNotes ?? string.Empty;
+        _suppressQuantitySync = false;
+
+        OnPropertyChanged(nameof(PackSize));
+        OnPropertyChanged(nameof(AvailableUnits));
+        OnPropertyChanged(nameof(PackSizeDisplay));
+        OnPropertyChanged(nameof(AvailableUnitsDisplay));
+        OnPropertyChanged(nameof(AvailableUnitsFg));
+    }
 
     partial void OnSelectedProductChanged(CustomerCatalogProductDto? value)
     {
@@ -75,12 +94,21 @@ public partial class CustomerRegularItemFormRowViewModel : ObservableObject
         OnPropertyChanged(nameof(AvailableUnitsDisplay));
         OnPropertyChanged(nameof(AvailableUnitsFg));
 
-        if (value != null && PackQuantityValue > 0)
+        if (_suppressQuantitySync || value == null)
+            return;
+
+        _suppressQuantitySync = true;
+        if (PackQuantityValue > 0)
         {
-            _suppressQuantitySync = true;
-            UnitQuantityText = Math.Max(1, PackQuantityValue * PackSize).ToString();
-            _suppressQuantitySync = false;
+            UnitQuantityText = Math.Max(1, PackQuantityValue * PackSize).ToString(CultureInfo.InvariantCulture);
         }
+        else
+        {
+            PackQuantityText = "1";
+            UnitQuantityText = PackSize.ToString(CultureInfo.InvariantCulture);
+        }
+        _suppressQuantitySync = false;
+        OnPropertyChanged(nameof(AvailableUnitsFg));
     }
 
     partial void OnPackQuantityTextChanged(string value)
@@ -88,11 +116,10 @@ public partial class CustomerRegularItemFormRowViewModel : ObservableObject
         if (_suppressQuantitySync)
             return;
 
-        int pq = PackQuantityValue;
-        if (pq > 0)
+        if (int.TryParse(value?.Trim(), out int pq) && pq >= 0)
         {
             _suppressQuantitySync = true;
-            UnitQuantityText = Math.Max(1, pq * PackSize).ToString();
+            UnitQuantityText = (pq > 0 ? Math.Max(1, pq * PackSize) : 1).ToString(CultureInfo.InvariantCulture);
             _suppressQuantitySync = false;
         }
         OnPropertyChanged(nameof(AvailableUnitsFg));
@@ -100,6 +127,15 @@ public partial class CustomerRegularItemFormRowViewModel : ObservableObject
 
     partial void OnUnitQuantityTextChanged(string value)
     {
+        if (_suppressQuantitySync)
+            return;
+
+        if (int.TryParse(value?.Trim(), out int uq) && uq >= 1)
+        {
+            _suppressQuantitySync = true;
+            PackQuantityText = (uq / PackSize).ToString(CultureInfo.InvariantCulture);
+            _suppressQuantitySync = false;
+        }
         OnPropertyChanged(nameof(AvailableUnitsFg));
     }
 }
@@ -229,9 +265,14 @@ public partial class CustomersViewModel : ObservableObject
     public string DirectorySubtitleText =>
         $"{TotalCustomersCount} customers ({RegularCustomersCount} regular • {DueRegularCustomersCount} due for WhatsApp reminder)";
 
+    public string DirectoryCountBadgeText => $"Showing {PagedCustomers.Count} of {FilteredCustomersCount}";
     public bool HasDueRegularCustomers => DueRegularCustomersCount > 0;
+    public bool IsFilteredByDue => string.Equals(SelectedCustomerFilter?.Key, "due_reminder", StringComparison.OrdinalIgnoreCase);
+    public string DueFilterButtonText => IsFilteredByDue
+        ? "Show All Customers"
+        : $"Filter Due Customers ({DueRegularCustomersCount})";
     public string DueBannerTitleText =>
-        $"{DueRegularCustomersCount} Regular {(DueRegularCustomersCount == 1 ? "Customer is" : "Customers are")} due for medicine refill reminder";
+        $"{DueRegularCustomersCount} Regular {(DueRegularCustomersCount == 1 ? "Customer is" : "Customers are")} Due for Prior Medicine / Product Pickup Reminder";
 
     public string PageStatusText => $"Page {Page} of {PageCount}";
     public bool CanGoPrevPage => Page > 1;
@@ -552,6 +593,8 @@ public partial class CustomersViewModel : ObservableObject
     partial void OnSelectedCustomerFilterChanged(CustomerFilterOption value)
     {
         Page = 1;
+        OnPropertyChanged(nameof(IsFilteredByDue));
+        OnPropertyChanged(nameof(DueFilterButtonText));
         RecomputeFilteredAndPaged();
     }
 
@@ -590,6 +633,7 @@ public partial class CustomersViewModel : ObservableObject
         OnPropertyChanged(nameof(DirectorySubtitleText));
         OnPropertyChanged(nameof(HasDueRegularCustomers));
         OnPropertyChanged(nameof(DueBannerTitleText));
+        OnPropertyChanged(nameof(DueFilterButtonText));
     }
 
     partial void OnFormIsRegularChanged(bool value)
@@ -813,7 +857,14 @@ public partial class CustomersViewModel : ObservableObject
     [RelayCommand]
     public void FilterDueCustomers()
     {
-        SelectedCustomerFilter = CustomerFilterOptions.First(f => f.Key == "due_reminder");
+        if (IsFilteredByDue)
+        {
+            SelectedCustomerFilter = CustomerFilterOptions.First(f => f.Key == "all");
+        }
+        else
+        {
+            SelectedCustomerFilter = CustomerFilterOptions.First(f => f.Key == "due_reminder");
+        }
     }
 
     [RelayCommand]
@@ -1368,6 +1419,16 @@ public partial class CustomersViewModel : ObservableObject
     // Pagination Commands
     // ------------------------------------------------------------------------
     [RelayCommand]
+    public void FirstPage()
+    {
+        if (Page > 1)
+        {
+            Page = 1;
+            RecomputeFilteredAndPaged();
+        }
+    }
+
+    [RelayCommand]
     public void PrevPage()
     {
         if (Page > 1)
@@ -1383,6 +1444,16 @@ public partial class CustomersViewModel : ObservableObject
         if (Page < PageCount)
         {
             Page++;
+            RecomputeFilteredAndPaged();
+        }
+    }
+
+    [RelayCommand]
+    public void LastPage()
+    {
+        if (Page < PageCount)
+        {
+            Page = PageCount;
             RecomputeFilteredAndPaged();
         }
     }
@@ -1688,13 +1759,8 @@ public partial class CustomersViewModel : ObservableObject
                 CatalogProducts.Add(matchedProd);
             }
 
-            var row = new CustomerRegularItemFormRowViewModel
-            {
-                SelectedProduct = matchedProd,
-                PackQuantityText = item.PackQuantity.ToString(CultureInfo.InvariantCulture),
-                UnitQuantityText = item.UnitQuantity.ToString(CultureInfo.InvariantCulture),
-                DosageNotes = item.DosageNotes ?? string.Empty
-            };
+            var row = new CustomerRegularItemFormRowViewModel();
+            row.InitializeFromDto(matchedProd, item.PackQuantity, item.UnitQuantity, item.DosageNotes);
             row.PropertyChanged += (_, _) => OnPropertyChanged(nameof(RegularItemsCountBadgeText));
             RegularItemRows.Add(row);
         }
@@ -1770,6 +1836,7 @@ public partial class CustomersViewModel : ObservableObject
             PagedCustomers.Add(item);
         }
 
+        OnPropertyChanged(nameof(DirectoryCountBadgeText));
         OnPropertyChanged(nameof(PageStatusText));
         OnPropertyChanged(nameof(CanGoPrevPage));
         OnPropertyChanged(nameof(CanGoNextPage));

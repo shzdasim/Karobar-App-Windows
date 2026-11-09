@@ -37,6 +37,12 @@ public sealed class CustomerRegularItemDto
     public bool HasProductCode => !string.IsNullOrWhiteSpace(ProductCode);
     public bool HasDosageNotes => !string.IsNullOrWhiteSpace(DosageNotes);
     public string DosageNotesDisplay => string.IsNullOrWhiteSpace(DosageNotes) ? "—" : DosageNotes!;
+    public string PackSizeText => PackSize.ToString();
+    public string PackQuantityDisplay => PackQuantity > 0
+        ? $"{PackQuantity}"
+        : Math.Round((decimal)RequiredTotalUnits / Math.Max(1, PackSize), 2).ToString("0.##");
+    public string RequiredUnitsDisplay => $"{RequiredTotalUnits} Units";
+    public string OnHandUnitsDisplay => $"{OnHandUnits}";
     public decimal LineEstimatedValue => Math.Round(RequiredTotalUnits * UnitSalePrice, 2);
     public string LineEstimatedValueDisplay => $"Rs. {LineEstimatedValue:N2}";
 
@@ -121,6 +127,19 @@ public sealed class CustomerRefillReminderPreviewDto
     public List<CustomerRegularItemDto> RegularItems { get; set; } = [];
     public string EnglishMessage { get; set; } = string.Empty;
     public string UrduMessage { get; set; } = string.Empty;
+
+    public string HeaderSubtitle =>
+        $"Customer: {CustomerName} • Cycle: {(string.IsNullOrWhiteSpace(RefillCycle) ? "MONTHLY" : RefillCycle.ToUpperInvariant())}{(string.IsNullOrWhiteSpace(NextRefillDate) ? string.Empty : $" • Due: {NextRefillDate}")}";
+
+    public string StockReadinessTitle => StockReady
+        ? "✓ All Regular Medicines / Products In Stock"
+        : $"⚠ Warning: {OutOfStockCount} item(s) have low stock";
+
+    public string StockReadinessBg => StockReady ? "#ECFDF5" : "#FFFBEB";
+    public string StockReadinessBorder => StockReady ? "#A7F3D0" : "#FDE68A";
+    public string StockReadinessFg => StockReady ? "#065F46" : "#92400E";
+    public bool HasRegularItems => RegularItems.Count > 0;
+    public bool HasNoRegularItems => RegularItems.Count == 0;
 }
 
 public sealed class CustomerDto
@@ -164,9 +183,21 @@ public sealed class CustomerDto
     public bool HasEmail => !string.IsNullOrWhiteSpace(Email);
     public bool HasRegularNotes => !string.IsNullOrWhiteSpace(RegularNotes);
     public string PhoneDisplay => string.IsNullOrWhiteSpace(Phone) ? "—" : Phone!;
+    public string EmailDisplay => string.IsNullOrWhiteSpace(Email) ? "—" : Email!;
+    public string AddressDisplay => string.IsNullOrWhiteSpace(Address) ? "—" : Address!;
+    public string TaxStatusUpper => (string.IsNullOrWhiteSpace(TaxStatus) ? "unregistered" : TaxStatus).ToUpperInvariant();
+    public string TaxNumberDisplay => string.IsNullOrWhiteSpace(TaxNumber) ? "—" : TaxNumber!;
     public bool IsStandardCustomer => !IsRegular;
     public bool HasRegularItems => RegularItemsCount > 0;
     public bool HasNoRegularItems => RegularItemsCount == 0;
+    public string RegularStatusChipText => IsRegular ? "ACTIVE" : "STANDARD";
+    public string RegularStatusChipBg => IsRegular ? "#DCFCE7" : "#F1F5F9";
+    public string RegularStatusChipFg => IsRegular ? "#047857" : "#64748B";
+    public string RegularItemsSectionTitle => $"💊 Customer's Regular Medicines / Products ({RegularItems.Count})";
+    public string ReminderLeadDaysDisplay => $"{ReminderLeadDays} Days Before Due Date";
+    public string ReminderLanguageDisplay => string.Equals(ReminderLanguage, "urdu", StringComparison.OrdinalIgnoreCase)
+        ? "اردو (Urdu)"
+        : "English";
 
     public string RegularBadgeText => RefillCycle switch
     {
@@ -246,6 +277,7 @@ public sealed class CustomerDto
         : "Unlimited";
 
     public string CreditTermsDisplay => $"{CreditDays ?? 30} days";
+    public string CreditDaysCompact => $"{CreditDays ?? 30}d";
     public string CreditStatusUpper => (string.IsNullOrWhiteSpace(CreditStatus) ? "active" : CreditStatus).ToUpperInvariant();
 
     public string CreditStatusBg => CreditStatus?.ToLowerInvariant() switch

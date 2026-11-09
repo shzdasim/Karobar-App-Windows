@@ -706,7 +706,9 @@
                                 </StackPanel>
                             </Grid>
 
-                            <Grid Margin="0,0,0,22">
+                            <!-- Row 3A (Create Mode): Credit Limit, Credit Days, Opening Balance Payable -->
+                            <Grid Visibility="{Binding IsCreating, Converter={StaticResource BoolToVis}}"
+                                  Margin="0,0,0,22">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="16" />
@@ -752,8 +754,7 @@
                                 </StackPanel>
 
                                 <!-- Opening Balance Payable (Create Mode Only) -->
-                                <StackPanel Grid.Column="4"
-                                            Visibility="{Binding IsCreating, Converter={StaticResource BoolToVis}}">
+                                <StackPanel Grid.Column="4">
                                     <TextBlock Text="Opening Balance Payable (Rs.)"
                                                FontSize="13"
                                                FontWeight="SemiBold"
@@ -765,6 +766,52 @@
                                              BorderBrush="#CBD5E1"
                                              BorderThickness="1" />
                                     <TextBlock Text="If you owe this supplier prior to setup, enter the amount"
+                                               FontSize="11"
+                                               Foreground="#94A3B8"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Row 3B (Edit Mode): 2 Equal Columns (Credit Limit, Credit Days) -->
+                            <Grid Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}"
+                                  Margin="0,0,0,22">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Credit Limit (Rs.) -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Credit Limit (Rs.)"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="#334155"
+                                               Margin="0,0,0,6" />
+                                    <TextBox Text="{Binding FormCreditLimitText, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="13.5"
+                                             Padding="11,8"
+                                             BorderBrush="#CBD5E1"
+                                             BorderThickness="1" />
+                                    <TextBlock Text="Leave blank or 0 for unlimited credit"
+                                               FontSize="11"
+                                               Foreground="#94A3B8"
+                                               Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <!-- Credit Days -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Credit Days"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="#334155"
+                                               Margin="0,0,0,6" />
+                                    <TextBox Text="{Binding FormCreditDaysText, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="13.5"
+                                             Padding="11,8"
+                                             BorderBrush="#CBD5E1"
+                                             BorderThickness="1" />
+                                    <TextBlock Text="Default credit days for purchase invoices"
                                                FontSize="11"
                                                Foreground="#94A3B8"
                                                Margin="0,3,0,0" />
@@ -1109,120 +1156,121 @@
                                        HorizontalAlignment="Center"
                                        Margin="0,24" />
 
-                            <StackPanel Visibility="{Binding HasCreditSummary, Converter={StaticResource BoolToVis}}"
-                                        DataContext="{Binding CreditSummary}">
-                                <TextBlock Text="{Binding Name}"
-                                           FontSize="16"
-                                           FontWeight="Bold"
-                                           Foreground="#0F172A"
-                                           Margin="0,0,0,12" />
+                            <Grid Visibility="{Binding HasCreditSummary, Converter={StaticResource BoolToVis}}">
+                                <StackPanel DataContext="{Binding CreditSummary}">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="16"
+                                               FontWeight="Bold"
+                                               Foreground="#0F172A"
+                                               Margin="0,0,0,12" />
 
-                                <!-- Credit Limit Exceeded Alert -->
-                                <Border Visibility="{Binding IsLimitExceeded, Converter={StaticResource BoolToVis}}"
-                                        Background="#FFF1F2"
-                                        BorderBrush="#FECDD3"
-                                        BorderThickness="1"
-                                        CornerRadius="10"
-                                        Padding="12,10"
-                                        Margin="0,0,0,12">
-                                    <StackPanel>
-                                        <TextBlock Text="⚠ Credit Limit Exceeded"
-                                                   FontSize="13"
-                                                   FontWeight="Bold"
-                                                   Foreground="#BE123C" />
-                                        <TextBlock Text="Current payable balance exceeds the configured supplier credit limit."
-                                                   FontSize="11.5"
-                                                   Foreground="#E11D48"
-                                                   Margin="0,2,0,0" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Grid Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="12" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Border Grid.Column="0"
-                                            Background="#F8FAFC"
-                                            BorderBrush="#E2E8F0"
+                                    <!-- Credit Limit Exceeded Alert -->
+                                    <Border Visibility="{Binding IsLimitExceeded, Converter={StaticResource BoolToVis}}"
+                                            Background="#FFF1F2"
+                                            BorderBrush="#FECDD3"
                                             BorderThickness="1"
                                             CornerRadius="10"
-                                            Padding="12,10">
+                                            Padding="12,10"
+                                            Margin="0,0,0,12">
                                         <StackPanel>
-                                            <TextBlock Text="CURRENT PAYABLE" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
-                                            <TextBlock Text="{Binding CurrentBalanceDisplay}" FontSize="17" FontWeight="Bold" Foreground="#0F172A" Margin="0,4,0,0" />
+                                            <TextBlock Text="⚠ Credit Limit Exceeded"
+                                                       FontSize="13"
+                                                       FontWeight="Bold"
+                                                       Foreground="#BE123C" />
+                                            <TextBlock Text="Current payable balance exceeds the configured supplier credit limit."
+                                                       FontSize="11.5"
+                                                       Foreground="#E11D48"
+                                                       Margin="0,2,0,0" />
                                         </StackPanel>
                                     </Border>
 
-                                    <Border Grid.Column="2"
-                                            Background="#F8FAFC"
-                                            BorderBrush="#E2E8F0"
-                                            BorderThickness="1"
-                                            CornerRadius="10"
-                                            Padding="12,10">
-                                        <StackPanel>
-                                            <TextBlock Text="CREDIT LIMIT" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
-                                            <TextBlock Text="{Binding CreditLimitDisplay}" FontSize="17" FontWeight="Bold" Foreground="#0F172A" Margin="0,4,0,0" />
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
 
-                                <Grid Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="12" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0"
+                                                Background="#F8FAFC"
+                                                BorderBrush="#E2E8F0"
+                                                BorderThickness="1"
+                                                CornerRadius="10"
+                                                Padding="12,10">
+                                            <StackPanel>
+                                                <TextBlock Text="CURRENT PAYABLE" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                                <TextBlock Text="{Binding CurrentBalanceDisplay}" FontSize="17" FontWeight="Bold" Foreground="#0F172A" Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </Border>
 
-                                    <Border Grid.Column="0"
-                                            Background="#F8FAFC"
-                                            BorderBrush="#E2E8F0"
-                                            BorderThickness="1"
-                                            CornerRadius="10"
-                                            Padding="12,10">
-                                        <StackPanel>
-                                            <TextBlock Text="AVAILABLE CREDIT" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
-                                            <TextBlock Text="{Binding AvailableCreditDisplay}" FontSize="17" FontWeight="Bold" Foreground="#059669" Margin="0,4,0,0" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Grid.Column="2"
-                                            Background="#F8FAFC"
-                                            BorderBrush="#E2E8F0"
-                                            BorderThickness="1"
-                                            CornerRadius="10"
-                                            Padding="12,10">
-                                        <StackPanel>
-                                            <TextBlock Text="CREDIT TERMS" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
-                                            <TextBlock Text="{Binding CreditTermsDisplay}" FontSize="17" FontWeight="Bold" Foreground="#0F172A" Margin="0,4,0,0" />
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
-
-                                <!-- Overdue Payable Box -->
-                                <Border Background="#FFFBEB"
-                                        BorderBrush="#FDE68A"
-                                        BorderThickness="1"
-                                        CornerRadius="10"
-                                        Padding="14,10">
-                                    <Grid>
-                                        <StackPanel>
-                                            <TextBlock Text="OVERDUE PAYABLE AMOUNT" FontSize="10.5" FontWeight="Bold" Foreground="#B45309" />
-                                            <TextBlock Text="{Binding TotalOverdueDisplay}" FontSize="16" FontWeight="Bold" Foreground="#92400E" Margin="0,3,0,0" />
-                                        </StackPanel>
-                                        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding OverdueInvoicesLabel}" FontSize="12" FontWeight="SemiBold" Foreground="#B45309" HorizontalAlignment="Right" />
-                                            <TextBlock Visibility="{Binding HasOldestDueDate, Converter={StaticResource BoolToVis}}"
-                                                       Text="{Binding OldestDueDateDisplay}"
-                                                       FontSize="11"
-                                                       Foreground="#92400E"
-                                                       HorizontalAlignment="Right" />
-                                        </StackPanel>
+                                        <Border Grid.Column="2"
+                                                Background="#F8FAFC"
+                                                BorderBrush="#E2E8F0"
+                                                BorderThickness="1"
+                                                CornerRadius="10"
+                                                Padding="12,10">
+                                            <StackPanel>
+                                                <TextBlock Text="CREDIT LIMIT" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                                <TextBlock Text="{Binding CreditLimitDisplay}" FontSize="17" FontWeight="Bold" Foreground="#0F172A" Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </Border>
                                     </Grid>
-                                </Border>
-                            </StackPanel>
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.Column="0"
+                                                Background="#F8FAFC"
+                                                BorderBrush="#E2E8F0"
+                                                BorderThickness="1"
+                                                CornerRadius="10"
+                                                Padding="12,10">
+                                            <StackPanel>
+                                                <TextBlock Text="AVAILABLE CREDIT" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                                <TextBlock Text="{Binding AvailableCreditDisplay}" FontSize="17" FontWeight="Bold" Foreground="#059669" Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Border Grid.Column="2"
+                                                Background="#F8FAFC"
+                                                BorderBrush="#E2E8F0"
+                                                BorderThickness="1"
+                                                CornerRadius="10"
+                                                Padding="12,10">
+                                            <StackPanel>
+                                                <TextBlock Text="CREDIT TERMS" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                                <TextBlock Text="{Binding CreditTermsDisplay}" FontSize="17" FontWeight="Bold" Foreground="#0F172A" Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Overdue Payable Box -->
+                                    <Border Background="#FFFBEB"
+                                            BorderBrush="#FDE68A"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
+                                            Padding="14,10">
+                                        <Grid>
+                                            <StackPanel>
+                                                <TextBlock Text="OVERDUE PAYABLE AMOUNT" FontSize="10.5" FontWeight="Bold" Foreground="#B45309" />
+                                                <TextBlock Text="{Binding TotalOverdueDisplay}" FontSize="16" FontWeight="Bold" Foreground="#92400E" Margin="0,3,0,0" />
+                                            </StackPanel>
+                                            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding OverdueInvoicesLabel}" FontSize="12" FontWeight="SemiBold" Foreground="#B45309" HorizontalAlignment="Right" />
+                                                <TextBlock Visibility="{Binding HasOldestDueDate, Converter={StaticResource BoolToVis}}"
+                                                           Text="{Binding OldestDueDateDisplay}"
+                                                           FontSize="11"
+                                                           Foreground="#92400E"
+                                                           HorizontalAlignment="Right" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </Border>
 
