@@ -50,6 +50,8 @@ public partial class ProductsViewModel : ObservableObject
     private bool _suppressFilterReload;
     private bool _lookupsLoaded;
     private bool _isDirectoryDirty = true;
+    private CancellationTokenSource? _searchDebounceCts;
+    private CancellationTokenSource? _pageLoadCts;
     private List<ProductBatchItemDto> _allProductBatches = [];
     private List<SubstituteProductItemDto> _allSubstitutes = [];
 
@@ -79,7 +81,10 @@ public partial class ProductsViewModel : ObservableObject
     // =========================================================================
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSearchText))]
     private string _searchText = string.Empty;
+
+    public bool HasSearchText => !string.IsNullOrEmpty(SearchText);
 
     [ObservableProperty]
     private List<LookupOptionDto> _filterCategoryOptions = [];
@@ -713,40 +718,100 @@ public partial class ProductsViewModel : ObservableObject
     // DIRECTORY FILTER & PAGINATION HANDLERS
     // =========================================================================
 
+    partial void OnSearchTextChanged(string value)
+    {
+        if (_suppressFilterReload)
+            return;
+
+        if (!IsDirectoryMode)
+        {
+            _isDirectoryDirty = true;
+            return;
+        }
+
+        _ = TriggerDebouncedSearchAsync(value);
+    }
+
+    private async Task TriggerDebouncedSearchAsync(string query)
+    {
+        _searchDebounceCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _searchDebounceCts = cts;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(query))
+            {
+                await Task.Delay(150, cts.Token);
+            }
+
+            if (cts.Token.IsCancellationRequested)
+                return;
+
+            await LoadProductsPageAsync(resetPage: true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer keystroke
+        }
+    }
+
     partial void OnSelectedFilterCategoryChanged(LookupOptionDto? value)
     {
-        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
+        if (_suppressFilterReload) return;
+        if (IsDirectoryMode)
             _ = LoadProductsPageAsync(resetPage: true);
+        else
+            _isDirectoryDirty = true;
     }
 
     partial void OnSelectedFilterBrandChanged(LookupOptionDto? value)
     {
-        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
+        if (_suppressFilterReload) return;
+        if (IsDirectoryMode)
             _ = LoadProductsPageAsync(resetPage: true);
+        else
+            _isDirectoryDirty = true;
     }
 
     partial void OnSelectedFilterSupplierChanged(LookupOptionDto? value)
     {
-        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
+        if (_suppressFilterReload) return;
+        if (IsDirectoryMode)
             _ = LoadProductsPageAsync(resetPage: true);
+        else
+            _isDirectoryDirty = true;
     }
 
     partial void OnSelectedFilterLocationChanged(StorageLocationDto? value)
     {
-        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
+        if (_suppressFilterReload) return;
+        if (IsDirectoryMode)
             _ = LoadProductsPageAsync(resetPage: true);
+        else
+            _isDirectoryDirty = true;
     }
 
     partial void OnSelectedPageSizeChanged(int value)
     {
-        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
+        if (_suppressFilterReload) return;
+        if (IsDirectoryMode)
             _ = LoadProductsPageAsync(resetPage: true);
+        else
+            _isDirectoryDirty = true;
     }
 
     [RelayCommand]
     private async Task SearchAsync()
     {
+        _searchDebounceCts?.Cancel();
         await LoadProductsPageAsync(resetPage: true);
+    }
+
+    [RelayCommand]
+    private void ClearSearch()
+    {
+        SearchText = string.Empty;
     }
 
     [RelayCommand]
@@ -759,14 +824,22 @@ public partial class ProductsViewModel : ObservableObject
     [RelayCommand]
     private async Task ClearFiltersAsync()
     {
-        IsBusy = true;
-        SearchText = string.Empty;
-        LowStockOnly = false;
-        SelectedFilterCategory = FilterCategoryOptions.FirstOrDefault();
-        SelectedFilterBrand = FilterBrandOptions.FirstOrDefault();
-        SelectedFilterSupplier = FilterSupplierOptions.FirstOrDefault();
-        SelectedFilterLocation = FilterLocationOptions.FirstOrDefault();
-        IsBusy = false;
+        _searchDebounceCts?.Cancel();
+        _suppressFilterReload = true;
+        try
+        {
+            SearchText = string.Empty;
+            LowStockOnly = false;
+            SelectedFilterCategory = FilterCategoryOptions.FirstOrDefault();
+            SelectedFilterBrand = FilterBrandOptions.FirstOrDefault();
+            SelectedFilterSupplier = FilterSupplierOptions.FirstOrDefault();
+            SelectedFilterLocation = FilterLocationOptions.FirstOrDefault();
+        }
+        finally
+        {
+            _suppressFilterReload = false;
+        }
+
         await LoadProductsPageAsync(resetPage: true);
     }
 
@@ -791,6 +864,11 @@ public partial class ProductsViewModel : ObservableObject
         if (resetPage)
             CurrentPage = 1;
 
+        _pageLoadCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _pageLoadCts = cts;
+        var token = cts.Token;
+
         IsBusy = true;
         try
         {
@@ -804,7 +882,10 @@ public partial class ProductsViewModel : ObservableObject
                 LowStockOnly = LowStockOnly,
                 Page = CurrentPage,
                 PerPage = SelectedPageSize
-            });
+            }, token);
+
+            if (token.IsCancellationRequested)
+                return;
 
             var rows = new List<SelectableProductRowViewModel>(response.Items.Count);
             foreach (var item in response.Items)
@@ -821,13 +902,23 @@ public partial class ProductsViewModel : ObservableObject
             _isDirectoryDirty = false;
             UpdateSelectionCounts();
         }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer filter/search query
+        }
         catch (Exception ex)
         {
-            _toast.ShowError($"Failed to load products: {ex.Message}");
+            if (!token.IsCancellationRequested)
+            {
+                _toast.ShowError($"Failed to load products: {ex.Message}");
+            }
         }
         finally
         {
-            IsBusy = false;
+            if (_pageLoadCts == cts)
+            {
+                IsBusy = false;
+            }
         }
     }
 

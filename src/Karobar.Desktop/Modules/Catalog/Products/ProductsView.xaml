@@ -205,20 +205,73 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBox Grid.Column="0" Style="{StaticResource InputTextBox}"
-                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="Search by product name, code, barcode, generic/salt formulation, rack, brand, or supplier">
-                            <TextBox.InputBindings>
-                                <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
-                            </TextBox.InputBindings>
-                        </TextBox>
+                        <Border Grid.Column="0"
+                                Background="#F8FAFC"
+                                BorderBrush="#CBD5E1"
+                                BorderThickness="1"
+                                CornerRadius="9"
+                                Padding="12,6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
 
-                        <Button Grid.Column="1" Style="{StaticResource PrimaryBtn}" Command="{Binding SearchCommand}" Content="Search" Margin="8,0,0,0" />
+                                <TextBlock Grid.Column="0"
+                                           Text="🔍"
+                                           FontSize="13"
+                                           Foreground="#64748B"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0" />
 
-                        <Button Grid.Column="2" Command="{Binding ToggleLowStockCommand}" Margin="8,0,0,0" Cursor="Hand">
+                                <Grid Grid.Column="1">
+                                    <TextBox x:Name="SearchProductsBox"
+                                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             FontSize="13"
+                                             Foreground="#0F172A"
+                                             VerticalContentAlignment="Center"
+                                             ToolTip="Live search by product name, code, barcode, generic/salt formulation, rack, brand, or supplier" />
+                                    <TextBlock Text="Search by product name, code, barcode, generic/salt formulation, rack, brand, or supplier..."
+                                               FontSize="12.5"
+                                               Foreground="#94A3B8"
+                                               IsHitTestVisible="False"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=SearchProductsBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+
+                                <Button Grid.Column="2"
+                                        Command="{Binding ClearSearchCommand}"
+                                        Visibility="{Binding HasSearchText, Converter={StaticResource BoolToVis}}"
+                                        Cursor="Hand"
+                                        ToolTip="Clear search"
+                                        Margin="6,0,0,0">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="Transparent" Padding="4,2">
+                                                <TextBlock Text="✕" FontSize="11.5" FontWeight="Bold" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <Button Grid.Column="1" Command="{Binding ToggleLowStockCommand}" Margin="8,0,0,0" Cursor="Hand">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="LowBd" CornerRadius="9" Padding="12,6" BorderThickness="1" Background="White" BorderBrush="#CBD5E1">
@@ -239,7 +292,7 @@
                             </Button.Template>
                         </Button>
 
-                        <Button Grid.Column="3" Style="{StaticResource SecondaryBtn}" Command="{Binding ClearFiltersCommand}" Content="Reset Filters" Margin="8,0,0,0" />
+                        <Button Grid.Column="2" Style="{StaticResource SecondaryBtn}" Command="{Binding ClearFiltersCommand}" Content="Reset Filters" Margin="8,0,0,0" />
                     </Grid>
 
                     <!-- 4-Column Relational Filter Bar -->
