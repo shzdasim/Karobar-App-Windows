@@ -42,17 +42,13 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
 
         await db.Database.EnsureCreatedAsync(cancellationToken);
 
-        // Ensure schema has the unique 'username' column on 'users' (rebuild if an older dev DB exists)
-        if (!await HasColumnAsync(db, "users", "username", cancellationToken))
-        {
-            await db.Database.EnsureDeletedAsync(cancellationToken);
-            await db.Database.EnsureCreatedAsync(cancellationToken);
-        }
-
         // Configure SQLite WAL mode for concurrent read/write desktop speed and crash resilience
         await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;", cancellationToken);
         await db.Database.ExecuteSqlRawAsync("PRAGMA synchronous=NORMAL;", cancellationToken);
         await db.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys=ON;", cancellationToken);
+
+        // Safely upgrade 'users' table in-place if an older database file exists without 'username'
+        await EnsureUserColumnsExistAsync(db, cancellationToken);
 
         var now = DateTime.UtcNow;
 
@@ -174,6 +170,16 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
                 await db.SaveChangesAsync(cancellationToken);
             }
         }
+        else if (string.IsNullOrWhiteSpace(adminUser.Status))
+        {
+            adminUser.Status = "active";
+            adminUser.IsAdmin = true;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        await db.Database.ExecuteSqlRawAsync(
+            "CREATE UNIQUE INDEX IF NOT EXISTS \"IX_users_username\" ON \"users\" (\"username\");",
+            cancellationToken);
 
         // 4. Seed Singleton Settings (Id = 1)
         if (!await db.Settings.AnyAsync(cancellationToken))
@@ -454,25 +460,58 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
             .ToListAsync(cancellationToken);
     }
 
-    private static async Task<bool> HasColumnAsync(KarobarDbContext db, string tableName, string columnName, CancellationToken cancellationToken)
+    private static async Task EnsureUserColumnsExistAsync(KarobarDbContext db, CancellationToken cancellationToken)
     {
         var conn = db.Database.GetDbConnection();
-        if (conn.State != System.Data.ConnectionState.Open)
+        var shouldClose = conn.State != System.Data.ConnectionState.Open;
+        if (shouldClose)
         {
             await conn.OpenAsync(cancellationToken);
         }
 
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"PRAGMA table_info(\"{tableName}\");";
-        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
+        try
         {
-            var col = reader.GetString(1);
-            if (col.Equals(columnName, StringComparison.OrdinalIgnoreCase))
+            var existingCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await using (var cmd = conn.CreateCommand())
             {
-                return true;
+                cmd.CommandText = "PRAGMA table_info(\"users\");";
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    existingCols.Add(reader.GetString(1));
+                }
+            }
+
+            if (existingCols.Count == 0)
+                return;
+
+            var alterCommands = new List<string>();
+            if (!existingCols.Contains("username"))
+                alterCommands.Add("ALTER TABLE \"users\" ADD COLUMN \"username\" TEXT NOT NULL DEFAULT '';");
+            if (!existingCols.Contains("status"))
+                alterCommands.Add("ALTER TABLE \"users\" ADD COLUMN \"status\" TEXT NOT NULL DEFAULT 'active';");
+            if (!existingCols.Contains("is_admin"))
+                alterCommands.Add("ALTER TABLE \"users\" ADD COLUMN \"is_admin\" INTEGER NOT NULL DEFAULT 0;");
+            if (!existingCols.Contains("pin_code"))
+                alterCommands.Add("ALTER TABLE \"users\" ADD COLUMN \"pin_code\" TEXT NULL;");
+            if (!existingCols.Contains("remember_token_expires_at"))
+                alterCommands.Add("ALTER TABLE \"users\" ADD COLUMN \"remember_token_expires_at\" TEXT NULL;");
+            if (!existingCols.Contains("preferences"))
+                alterCommands.Add("ALTER TABLE \"users\" ADD COLUMN \"preferences\" TEXT NULL;");
+
+            foreach (var sql in alterCommands)
+            {
+                await using var alterCmd = conn.CreateCommand();
+                alterCmd.CommandText = sql;
+                await alterCmd.ExecuteNonQueryAsync(cancellationToken);
             }
         }
-        return false;
+        finally
+        {
+            if (shouldClose)
+            {
+                await conn.CloseAsync();
+            }
+        }
     }
 }

@@ -7,6 +7,8 @@ namespace Karobar.Desktop.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly IAuthService _authService;
+    private readonly IDatabaseInitializerService _dbInitializer;
+    private bool _isDbInitialized;
 
     [ObservableProperty]
     private string _username = string.Empty;
@@ -29,18 +31,19 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
-    public MainViewModel(IAuthService authService)
+    public MainViewModel(IAuthService authService, IDatabaseInitializerService dbInitializer)
     {
         _authService = authService;
+        _dbInitializer = dbInitializer;
     }
 
-    public Task InitializeAsync()
+    public async Task EnsureDatabaseInitializedAsync()
     {
-        IsAuthenticated = false;
-        IsLoginVisible = true;
-        HasError = false;
-        ErrorMessage = string.Empty;
-        return Task.CompletedTask;
+        if (_isDbInitialized)
+            return;
+
+        await _dbInitializer.InitializeAndSeedAsync();
+        _isDbInitialized = true;
     }
 
     [RelayCommand]
@@ -55,6 +58,7 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
+            await EnsureDatabaseInitializedAsync();
             await _authService.LoginAsync(Username, Password);
             IsAuthenticated = true;
             IsLoginVisible = false;
