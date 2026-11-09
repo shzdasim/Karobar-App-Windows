@@ -132,6 +132,25 @@ public sealed class BrandService : IBrandService
 
     public static (int DaysRemaining, string? ReturnDeadlineDate, int? DaysUntilReturnDeadline, string IntimationStatus, bool IsIntimationDue)
         EvaluateBatchIntimation(
+            DateTime? expiryDate,
+            string? rawPolicy,
+            int policyMonths,
+            int policyDays,
+            DateTime? referenceToday = null)
+    {
+        if (!expiryDate.HasValue)
+            return (0, null, null, "safe", false);
+
+        return EvaluateBatchIntimation(
+            expiryDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            rawPolicy,
+            policyMonths,
+            policyDays,
+            referenceToday);
+    }
+
+    public static (int DaysRemaining, string? ReturnDeadlineDate, int? DaysUntilReturnDeadline, string IntimationStatus, bool IsIntimationDue)
+        EvaluateBatchIntimation(
             string? expiryDateStr,
             string? rawPolicy,
             int policyMonths,
@@ -386,7 +405,7 @@ public sealed class BrandService : IBrandService
             {
                 BatchId = r.BatchId,
                 BatchNumber = r.BatchNumber,
-                ExpiryDate = r.ExpiryDate ?? string.Empty,
+                ExpiryDate = r.ExpiryDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty,
                 Quantity = r.Quantity,
                 ProductId = r.ProductId,
                 ProductName = r.ProductName,
