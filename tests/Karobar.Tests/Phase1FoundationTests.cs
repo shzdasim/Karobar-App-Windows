@@ -201,4 +201,67 @@ public sealed class Phase1FoundationTests
             if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
         }
     }
+
+    [Fact]
+    public async Task CategoryService_ShouldSupportCrud_ProductGuard_AndCsvImportExport()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "karobar_cat_test_" + Guid.NewGuid().ToString("N"));
+        var csvPath = Path.Combine(Path.GetTempPath(), $"cat_import_{Guid.NewGuid():N}.csv");
+        var exportPath = Path.Combine(Path.GetTempPath(), $"cat_export_{Guid.NewGuid():N}.csv");
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddKarobarInfrastructure(tempDir);
+
+            await using var provider = services.BuildServiceProvider();
+            var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
+            var categories = provider.GetRequiredService<ICategoryService>();
+
+            await dbInit.InitializeAndSeedAsync();
+
+            // 1. Create & Duplicate check
+            var c1 = await categories.CreateAsync("Antibiotics");
+            c1.Name.Should().Be("Antibiotics");
+
+            var dupAct = async () => await categories.CreateAsync("antibiotics");
+            await dupAct.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("The name has already been taken.");
+
+            // 2. Update
+            var updated = await categories.UpdateAsync(c1.Id, "Broad Antibiotics");
+            updated.Name.Should().Be("Broad Antibiotics");
+
+            // 3. CSV Validate & Commit
+            await File.WriteAllTextAsync(csvPath, "name\nAnalgesics\nVitamins\n\nAnalgesics\n");
+            var valRes = await categories.ValidateCsvAsync(csvPath, ",");
+            valRes.Ok.Should().BeTrue();
+            valRes.Total.Should().Be(3);
+            valRes.Valid.Should().Be(2);
+            valRes.Invalid.Should().Be(1); // Duplicate Analgesics in file
+
+            var commitStats = await categories.CommitCsvAsync(csvPath, insertValidOnly: true, ",");
+            commitStats.NewCount.Should().Be(2);
+
+            var all = await categories.GetAllAsync();
+            all.Select(x => x.Name).Should().Contain(["Broad Antibiotics", "Analgesics", "Vitamins"]);
+
+            // 4. Export CSV
+            await categories.ExportCsvAsync(exportPath);
+            var exportedText = await File.ReadAllTextAsync(exportPath);
+            exportedText.Should().Contain("Analgesics");
+            exportedText.Should().Contain("Broad Antibiotics");
+
+            // 5. Delete
+            await categories.DeleteAsync(c1.Id);
+            (await categories.GetAllAsync()).Select(x => x.Name).Should().NotContain("Broad Antibiotics");
+        }
+        finally
+        {
+            if (File.Exists(csvPath)) try { File.Delete(csvPath); } catch { }
+            if (File.Exists(exportPath)) try { File.Delete(exportPath); } catch { }
+            if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
 }

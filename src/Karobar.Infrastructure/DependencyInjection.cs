@@ -36,6 +36,7 @@ public static class DependencyInjection
 
         services.AddSingleton<ILicenseService, LicenseService>();
         services.AddSingleton<IAuthService, AuthService>();
+        services.AddSingleton<ICategoryService, CategoryService>();
         services.AddSingleton<ILedgerRebuildService, LedgerRebuildService>();
         services.AddSingleton<ILegacyKarobarImporterService, LegacyKarobarImporterService>();
 

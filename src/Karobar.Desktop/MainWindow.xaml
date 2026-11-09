@@ -895,7 +895,12 @@
                         <views:DashboardView DataContext="{Binding Dashboard}" />
                     </Grid>
 
-                    <!-- B. Inner Page Host for any other Sidebar/Topbar Route -->
+                    <!-- B. Categories Page (When CurrentPath == "/categories") -->
+                    <Grid Visibility="{Binding IsCategoriesPage, Converter={StaticResource BoolToVis}}">
+                        <views:CategoriesView DataContext="{Binding Categories}" />
+                    </Grid>
+
+                    <!-- C. Inner Page Host for any other Sidebar/Topbar Route -->
                     <Border Visibility="{Binding IsOtherPage, Converter={StaticResource BoolToVis}}"
                             Background="#FFFFFF"
                             BorderBrush="#E2E8F0"

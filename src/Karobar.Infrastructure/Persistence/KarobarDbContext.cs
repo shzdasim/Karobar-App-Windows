@@ -110,6 +110,10 @@ public sealed class KarobarDbContext : DbContext
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email);
 
+        modelBuilder.Entity<Category>()
+            .HasIndex(c => c.Name)
+            .IsUnique();
+
         modelBuilder.Entity<Product>()
             .HasIndex(p => p.ProductCode)
             .IsUnique();

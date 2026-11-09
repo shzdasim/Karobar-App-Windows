@@ -1,0 +1,933 @@
+<UserControl x:Class="Karobar.Desktop.Views.CategoriesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.InputBindings>
+        <KeyBinding Key="S" Modifiers="Alt" Command="{Binding SaveCategoryCommand}" />
+    </UserControl.InputBindings>
+
+    <UserControl.Resources>
+        <!-- Secondary Action Button Style (Import / Export / Refresh / Clear) -->
+        <Style x:Key="DirectorySecondaryBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="#F8FAFC" />
+            <Setter Property="Foreground" Value="#0F172A" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,9" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="11"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#EFF6FF" />
+                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#93C5FD" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="BtnBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Primary Blue Save Button Style -->
+        <Style x:Key="DirectoryPrimaryBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="#3B82F6" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#2563EB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="18,9" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="11"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#2563EB" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="BtnBorder" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Table Row Icon Action Button -->
+        <Style x:Key="RowActionBtnStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#64748B" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="RowBtnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="9">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RowBtnBorder" Property="Background" Value="#EFF6FF" />
+                                <Setter TargetName="RowBtnBorder" Property="BorderBrush" Value="#BFDBFE" />
+                                <Setter Property="Foreground" Value="#2563EB" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="RowBtnBorder" Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- ================================================================ -->
+        <!-- MAIN SCROLLABLE DIRECTORY CONTENT                                -->
+        <!-- ================================================================ -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="4,2,10,24">
+            <StackPanel>
+
+                <!-- ======================================================== -->
+                <!-- 1. DIRECTORY OVERVIEW HEADER + SEARCH BAR                -->
+                <!-- ======================================================== -->
+                <Border Background="#FFFFFF"
+                        BorderBrush="#E2E8F0"
+                        BorderThickness="1"
+                        CornerRadius="20"
+                        Padding="24,20"
+                        Margin="0,0,0,16">
+                    <StackPanel>
+                        <!-- Top Row: Title & Actions -->
+                        <Grid Margin="0,0,0,18">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Identity Icon + Title + Subtitle -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="52" Height="52"
+                                        CornerRadius="16"
+                                        Background="#EFF6FF"
+                                        BorderBrush="#BFDBFE"
+                                        BorderThickness="1"
+                                        Margin="0,0,16,0">
+                                    <TextBlock Text="🗂"
+                                               FontSize="22"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Categories"
+                                               FontSize="26"
+                                               FontWeight="Bold"
+                                               Foreground="#0F172A" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                        <TextBlock Text="◈ "
+                                                   FontSize="12"
+                                                   Foreground="#3B82F6"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding SubtitleText}"
+                                                   FontSize="12.5"
+                                                   Foreground="#64748B"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Right: Import / Export / Refresh Action Buttons -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Visibility="{Binding CanImport, Converter={StaticResource BoolToVis}}"
+                                        Command="{Binding OpenImportModalCommand}"
+                                        Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                        Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="↑" FontWeight="Bold" Margin="0,0,6,0" />
+                                        <TextBlock Text="Import" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Visibility="{Binding CanExport, Converter={StaticResource BoolToVis}}"
+                                        Command="{Binding ExportCsvCommand}"
+                                        IsEnabled="{Binding CanExportNow}"
+                                        Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                        Margin="0,0,8,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="↓" FontWeight="Bold" Margin="0,0,6,0" />
+                                        <TextBlock Text="Export" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Command="{Binding LoadCategoriesCommand}"
+                                        Style="{StaticResource DirectorySecondaryBtnStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="↻" FontWeight="Bold" Margin="0,0,6,0" />
+                                        <TextBlock Text="Refresh" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Bottom Row: Integrated Search Field -->
+                        <Border Background="#F8FAFC"
+                                BorderBrush="#CBD5E1"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Padding="12,9"
+                                MaxWidth="720"
+                                HorizontalAlignment="Stretch">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="🔍"
+                                           FontSize="13"
+                                           Foreground="#64748B"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0" />
+                                <Grid Grid.Column="1">
+                                    <TextBox x:Name="SearchCategoriesBox"
+                                             Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             FontSize="13.5"
+                                             Foreground="#0F172A" />
+                                    <TextBlock Text="Search categories..."
+                                               FontSize="13.5"
+                                               Foreground="#94A3B8"
+                                               IsHitTestVisible="False"
+                                               VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=SearchCategoriesBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- ======================================================== -->
+                <!-- 2. STATUS / TOAST FEEDBACK BANNER                        -->
+                <!-- ======================================================== -->
+                <Border Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVis}}"
+                        Background="{Binding StatusBannerBg}"
+                        BorderBrush="{Binding StatusBannerBorder}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="16,10"
+                        Margin="0,0,0,16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding StatusMessage}"
+                                   Foreground="{Binding StatusBannerFg}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <Button Grid.Column="1"
+                                Command="{Binding DismissStatusCommand}"
+                                Content="✕"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Foreground="{Binding StatusBannerFg}"
+                                FontWeight="Bold"
+                                Cursor="Hand"
+                                Padding="6,2" />
+                    </Grid>
+                </Border>
+
+                <!-- ======================================================== -->
+                <!-- 3. TWO-COLUMN DIRECTORY GRID (Form Left + List Right)    -->
+                <!-- ======================================================== -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <!-- Left: Add / Edit Category Form Card -->
+                        <ColumnDefinition Width="340" />
+                        <ColumnDefinition Width="18" />
+                        <!-- Right: Category List Card -->
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ==================================================== -->
+                    <!-- LEFT COLUMN: ADD / EDIT CATEGORY FORM CARD           -->
+                    <!-- ==================================================== -->
+                    <Border Grid.Column="0"
+                            Visibility="{Binding CanShowForm, Converter={StaticResource BoolToVis}}"
+                            Background="#FFFFFF"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="20"
+                            VerticalAlignment="Top">
+                        <StackPanel>
+                            <!-- Form Card Header -->
+                            <Border BorderBrush="#E2E8F0"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="18,16">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0"
+                                            Width="40" Height="40"
+                                            CornerRadius="12"
+                                            Background="#EFF6FF"
+                                            BorderBrush="#BFDBFE"
+                                            BorderThickness="1"
+                                            Margin="0,0,12,0">
+                                        <TextBlock Text="{Binding FormHeaderIcon}"
+                                                   FontSize="18"
+                                                   FontWeight="Bold"
+                                                   Foreground="#2563EB"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding FormHeaderTitle}"
+                                                   FontSize="15"
+                                                   FontWeight="Bold"
+                                                   Foreground="#0F172A" />
+                                        <TextBlock Text="{Binding FormHeaderSubtitle}"
+                                                   FontSize="11.5"
+                                                   Foreground="#64748B"
+                                                   Margin="0,2,0,0" />
+                                    </StackPanel>
+
+                                    <!-- Cancel Editing (X) Button -->
+                                    <Button Grid.Column="2"
+                                            Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding ResetFormCommand}"
+                                            ToolTip="Cancel editing"
+                                            Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                            Padding="10,5">
+                                        <TextBlock Text="✕" FontSize="12" FontWeight="Bold" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!-- Form Body -->
+                            <StackPanel Margin="18">
+                                <TextBlock Text="Name"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="#334155"
+                                           Margin="0,0,0,6" />
+
+                                <Border Background="#F8FAFC"
+                                        BorderBrush="#CBD5E1"
+                                        BorderThickness="1"
+                                        CornerRadius="11"
+                                        Padding="12,9"
+                                        Margin="0,0,0,16">
+                                    <Grid>
+                                        <TextBox x:Name="CategoryNameTextBox"
+                                                 Text="{Binding FormName, UpdateSourceTrigger=PropertyChanged}"
+                                                 KeyDown="CategoryNameTextBox_OnKeyDown"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 FontSize="13.5"
+                                                 Foreground="#0F172A" />
+                                        <TextBlock Text="Category name"
+                                                   FontSize="13.5"
+                                                   Foreground="#94A3B8"
+                                                   IsHitTestVisible="False"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Text, ElementName=CategoryNameTextBox}" Value="">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Clear + Save/Update Buttons -->
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button Grid.Column="0"
+                                            Content="Clear"
+                                            Command="{Binding ResetFormCommand}"
+                                            Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                            Padding="16,10" />
+
+                                    <Button Grid.Column="2"
+                                            Command="{Binding SaveCategoryCommand}"
+                                            Style="{StaticResource DirectoryPrimaryBtnStyle}"
+                                            Padding="18,10">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <TextBlock Text="✓ " FontWeight="Bold" />
+                                            <TextBlock Text="{Binding SaveButtonText}" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <TextBlock Text="Alt+S to save"
+                                           FontSize="11"
+                                           Foreground="#94A3B8"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ==================================================== -->
+                    <!-- RIGHT COLUMN: CATEGORY LIST CARD                     -->
+                    <!-- ==================================================== -->
+                    <Border Grid.Column="2"
+                            Background="#FFFFFF"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="20"
+                            VerticalAlignment="Top">
+                        <StackPanel>
+                            <!-- List Card Header -->
+                            <Border BorderBrush="#E2E8F0"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="18,15">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="30" Height="30"
+                                                CornerRadius="8"
+                                                Background="#F5F3FF"
+                                                BorderBrush="#DDD6FE"
+                                                BorderThickness="1"
+                                                Margin="0,0,10,0">
+                                            <TextBlock Text="🗂"
+                                                       FontSize="13"
+                                                       Foreground="#8B5CF6"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+                                        <TextBlock Text="Category List"
+                                                   FontSize="14.5"
+                                                   FontWeight="Bold"
+                                                   Foreground="#0F172A"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding ListCountLabel}"
+                                               FontSize="12"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+
+                            <!-- Table Container -->
+                            <StackPanel Margin="16">
+                                <Border BorderBrush="#E2E8F0"
+                                        BorderThickness="1"
+                                        CornerRadius="12"
+                                        Background="#F8FAFC">
+                                    <StackPanel>
+                                        <!-- Table Header -->
+                                        <Border Background="#FFFFFF"
+                                                BorderBrush="#E2E8F0"
+                                                BorderThickness="0,0,0,1"
+                                                CornerRadius="12,12,0,0"
+                                                Padding="16,12">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="120" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Text="NAME"
+                                                           FontSize="11"
+                                                           FontWeight="Bold"
+                                                           Foreground="#475569" />
+                                                <TextBlock Grid.Column="1"
+                                                           Visibility="{Binding HasRowActions, Converter={StaticResource BoolToVis}}"
+                                                           Text="ACTIONS"
+                                                           FontSize="11"
+                                                           FontWeight="Bold"
+                                                           Foreground="#475569"
+                                                           HorizontalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Empty State -->
+                                        <Border Visibility="{Binding IsEmptyList, Converter={StaticResource BoolToVis}}"
+                                                Padding="24,42"
+                                                Background="#FFFFFF"
+                                                CornerRadius="0,0,12,12">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="🗂"
+                                                           FontSize="28"
+                                                           Foreground="#94A3B8"
+                                                           HorizontalAlignment="Center"
+                                                           Margin="0,0,0,8" />
+                                                <TextBlock Text="No categories found"
+                                                           FontSize="13.5"
+                                                           Foreground="#64748B"
+                                                           HorizontalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Category Rows -->
+                                        <ItemsControl ItemsSource="{Binding PagedCategories}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#FFFFFF"
+                                                            BorderBrush="#E2E8F0"
+                                                            BorderThickness="0,0,0,1"
+                                                            Padding="16,10">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="120" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- Name + Optional Product Count Pill -->
+                                                            <StackPanel Grid.Column="0"
+                                                                        Orientation="Horizontal"
+                                                                        VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}"
+                                                                           FontSize="13.5"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="#0F172A"
+                                                                           VerticalAlignment="Center" />
+                                                                <Border Visibility="{Binding IsUsedByProducts, Converter={StaticResource BoolToVis}}"
+                                                                        Background="#F1F5F9"
+                                                                        BorderBrush="#E2E8F0"
+                                                                        BorderThickness="1"
+                                                                        CornerRadius="99"
+                                                                        Padding="8,2"
+                                                                        Margin="10,0,0,0"
+                                                                        VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding ProductsCountBadge}"
+                                                                               FontSize="10.5"
+                                                                               Foreground="#64748B" />
+                                                                </Border>
+                                                            </StackPanel>
+
+                                                            <!-- Edit & Delete Row Actions -->
+                                                            <StackPanel Grid.Column="1"
+                                                                        Orientation="Horizontal"
+                                                                        HorizontalAlignment="Center"
+                                                                        VerticalAlignment="Center">
+                                                                <Button Visibility="{Binding DataContext.CanUpdate, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
+                                                                        Command="{Binding DataContext.EditCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Click="EditRowButton_OnClick"
+                                                                        ToolTip="Edit"
+                                                                        Style="{StaticResource RowActionBtnStyle}"
+                                                                        Margin="0,0,6,0">
+                                                                    <TextBlock Text="✎" FontSize="14" FontWeight="Bold" />
+                                                                </Button>
+
+                                                                <Button Visibility="{Binding DataContext.CanDelete, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}"
+                                                                        Command="{Binding DataContext.DeleteCategoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        IsEnabled="{Binding CanDelete}"
+                                                                        ToolTip="{Binding DeleteTooltip}"
+                                                                        Style="{StaticResource RowActionBtnStyle}"
+                                                                        Foreground="#E11D48">
+                                                                    <TextBlock Text="🗑" FontSize="13" />
+                                                                </Button>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Pagination Footer -->
+                                <Grid Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding PageStatusText}"
+                                                   FontSize="12"
+                                                   Foreground="#64748B"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,14,0" />
+                                        <TextBlock Text="Rows:"
+                                                   FontSize="12"
+                                                   Foreground="#64748B"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,6,0" />
+                                        <ComboBox ItemsSource="{Binding PageSizeOptions}"
+                                                  SelectedItem="{Binding PageSize}"
+                                                  Width="64"
+                                                  FontSize="12"
+                                                  Padding="6,3" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="«"
+                                                Command="{Binding FirstPageCommand}"
+                                                IsEnabled="{Binding CanGoPrevPage}"
+                                                Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                                Padding="10,5"
+                                                Margin="0,0,4,0" />
+                                        <Button Content="‹"
+                                                Command="{Binding PrevPageCommand}"
+                                                IsEnabled="{Binding CanGoPrevPage}"
+                                                Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                                Padding="10,5"
+                                                Margin="0,0,4,0" />
+                                        <Border Background="#F1F5F9"
+                                                BorderBrush="#CBD5E1"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="11,5"
+                                                Margin="2,0,6,0"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Page}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="#0F172A" />
+                                        </Border>
+                                        <Button Content="›"
+                                                Command="{Binding NextPageCommand}"
+                                                IsEnabled="{Binding CanGoNextPage}"
+                                                Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                                Padding="10,5"
+                                                Margin="0,0,4,0" />
+                                        <Button Content="»"
+                                                Command="{Binding LastPageCommand}"
+                                                IsEnabled="{Binding CanGoNextPage}"
+                                                Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                                Padding="10,5" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ================================================================ -->
+        <!-- 4. CSV IMPORT MODAL OVERLAY (CategoryImportModal equivalent)     -->
+        <!-- ================================================================ -->
+        <Grid Visibility="{Binding IsImportModalOpen, Converter={StaticResource BoolToVis}}"
+              Background="#660F172A">
+            <Border Width="760"
+                    MaxHeight="640"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Background="#FFFFFF"
+                    BorderBrush="#CBD5E1"
+                    BorderThickness="1"
+                    CornerRadius="18">
+                <Border.Effect>
+                    <DropShadowEffect Color="#0F172A" BlurRadius="32" ShadowDepth="8" Opacity="0.22" />
+                </Border.Effect>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Modal Header -->
+                    <Border Grid.Row="0"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="0,0,0,1"
+                            Padding="22,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="Import Categories (CSV)"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="#0F172A"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Content="✕"
+                                    Command="{Binding CloseImportModalCommand}"
+                                    Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                    Padding="10,4" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Modal Body -->
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="22,18">
+                        <StackPanel>
+                            <!-- STEP 1: Choose CSV File & Delimiter -->
+                            <StackPanel Visibility="{Binding IsImportStep1Visible, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Choose CSV file (header: name)"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="#334155"
+                                           Margin="0,0,0,8" />
+
+                                <Border Background="#F8FAFC"
+                                        BorderBrush="#CBD5E1"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="12,10"
+                                        Margin="0,0,0,14">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0"
+                                                Content="Choose File..."
+                                                Command="{Binding ChooseImportFileCommand}"
+                                                Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                                Padding="14,6" />
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding ImportFileNameDisplay}"
+                                                   FontSize="13"
+                                                   Foreground="#475569"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,14">
+                                    <TextBlock Text="Delimiter"
+                                               FontSize="13"
+                                               FontWeight="Medium"
+                                               Foreground="#334155"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,12,0" />
+                                    <ComboBox ItemsSource="{Binding DelimiterOptions}"
+                                              SelectedItem="{Binding SelectedDelimiter}"
+                                              DisplayMemberPath="Label"
+                                              Width="160"
+                                              Padding="8,5"
+                                              FontSize="12.5" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Need a sample? "
+                                               FontSize="12.5"
+                                               Foreground="#64748B"
+                                               VerticalAlignment="Center" />
+                                    <Button Content="Download CSV template"
+                                            Command="{Binding DownloadTemplateCommand}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="#2563EB"
+                                            FontWeight="SemiBold"
+                                            FontSize="12.5"
+                                            Cursor="Hand" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- STEP 2: Validation Summary & Sample Rows -->
+                            <StackPanel Visibility="{Binding IsImportStep2Visible, Converter={StaticResource BoolToVis}}">
+                                <!-- Summary Badges -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                    <Border Background="#F1F5F9" CornerRadius="8" Padding="10,5" Margin="0,0,10,0">
+                                        <TextBlock Text="{Binding TotalBadgeText}" FontSize="12.5" FontWeight="Bold" Foreground="#334155" />
+                                    </Border>
+                                    <Border Background="#DCFCE7" CornerRadius="8" Padding="10,5" Margin="0,0,10,0">
+                                        <TextBlock Text="{Binding ValidBadgeText}" FontSize="12.5" FontWeight="Bold" Foreground="#16A34A" />
+                                    </Border>
+                                    <Border Background="{Binding InvalidBadgeBg}" CornerRadius="8" Padding="10,5">
+                                        <TextBlock Text="{Binding InvalidBadgeText}" FontSize="12.5" FontWeight="Bold" Foreground="{Binding InvalidBadgeFg}" />
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Invalid Sample Rows -->
+                                <StackPanel Visibility="{Binding HasInvalidSamples, Converter={StaticResource BoolToVis}}"
+                                            Margin="0,0,0,16">
+                                    <TextBlock Text="Invalid sample rows:"
+                                               FontSize="13"
+                                               FontWeight="Bold"
+                                               Foreground="#DC2626"
+                                               Margin="0,0,0,6" />
+                                    <Border BorderBrush="#FECACA" BorderThickness="1" CornerRadius="8">
+                                        <ItemsControl ItemsSource="{Binding InvalidSamples}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="#FEE2E2" BorderThickness="0,0,0,1" Padding="10,7" Background="#FEF2F2">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="60" />
+                                                                <ColumnDefinition Width="200" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Row, StringFormat='Row #{0}'}" FontSize="12" FontWeight="SemiBold" Foreground="#991B1B" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" Foreground="#0F172A" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding ErrorsDisplay}" FontSize="12" Foreground="#DC2626" TextWrapping="Wrap" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Valid Sample Rows -->
+                                <StackPanel Visibility="{Binding HasValidSamples, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="Valid sample rows:"
+                                               FontSize="13"
+                                               FontWeight="Bold"
+                                               Foreground="#0F172A"
+                                               Margin="0,0,0,6" />
+                                    <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8">
+                                        <ItemsControl ItemsSource="{Binding ValidSamples}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="10,7">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="60" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Row, StringFormat='Row #{0}'}" FontSize="12" Foreground="#64748B" />
+                                                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold" Foreground="#0F172A" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding WarningsDisplay}" FontSize="11.5" Foreground="#D97706" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Modal Footer -->
+                    <Border Grid.Row="2"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1,1,0,0"
+                            Padding="22,14">
+                        <Grid>
+                            <!-- Step 1 Footer -->
+                            <Grid Visibility="{Binding IsImportStep1Visible, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="CSV header: name"
+                                           FontSize="12"
+                                           FontFamily="Consolas"
+                                           Foreground="#64748B"
+                                           VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <Button Content="Cancel"
+                                            Command="{Binding CloseImportModalCommand}"
+                                            Style="{StaticResource DirectorySecondaryBtnStyle}"
+                                            Margin="0,0,8,0" />
+                                    <Button Content="Validate"
+                                            Command="{Binding ValidateImportCsvCommand}"
+                                            IsEnabled="{Binding CanValidateImport}"
+                                            Style="{StaticResource DirectoryPrimaryBtnStyle}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Step 2 Footer -->
+                            <Grid Visibility="{Binding IsImportStep2Visible, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0"
+                                        Content="Start Over"
+                                        Command="{Binding StartOverImportCommand}"
+                                        Style="{StaticResource DirectorySecondaryBtnStyle}" />
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                    <Button Content="{Binding CommitPrimaryButtonText}"
+                                            Command="{Binding CommitImportValidOnlyCommand}"
+                                            Style="{StaticResource DirectoryPrimaryBtnStyle}"
+                                            Background="#10B981"
+                                            BorderBrush="#059669"
+                                            Margin="0,0,8,0" />
+
+                                    <Button Visibility="{Binding HasInvalidRows, Converter={StaticResource BoolToVis}}"
+                                            Content="Import (Abort on Error)"
+                                            Command="{Binding CommitImportStrictCommand}"
+                                            Style="{StaticResource DirectoryPrimaryBtnStyle}"
+                                            Background="#EF4444"
+                                            BorderBrush="#DC2626" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

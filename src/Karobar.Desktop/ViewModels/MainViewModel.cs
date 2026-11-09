@@ -90,18 +90,24 @@ public partial class MainViewModel : ObservableObject
 
     public bool IsDashboardActive => string.Equals(CurrentPath, "/dashboard", StringComparison.OrdinalIgnoreCase);
     public bool IsDashboardPage => IsDashboardActive;
-    public bool IsOtherPage => !IsDashboardActive;
+    public bool IsCategoriesPage => string.Equals(CurrentPath, "/categories", StringComparison.OrdinalIgnoreCase);
+    public bool IsOtherPage => !IsDashboardPage && !IsCategoriesPage;
 
     public DashboardViewModel Dashboard { get; }
+    public CategoriesViewModel Categories { get; }
 
     public ObservableCollection<SidebarSectionViewModel> Sections { get; } = [];
     public ObservableCollection<SidebarItemViewModel> FavoriteItems { get; } = [];
 
-    public MainViewModel(IAuthService authService, IDatabaseInitializerService dbInitializer)
+    public MainViewModel(
+        IAuthService authService,
+        IDatabaseInitializerService dbInitializer,
+        ICategoryService categoryService)
     {
         _authService = authService;
         _dbInitializer = dbInitializer;
         Dashboard = new DashboardViewModel(Navigate);
+        Categories = new CategoriesViewModel(categoryService, authService);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");
@@ -128,6 +134,7 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsDashboardActive));
         OnPropertyChanged(nameof(IsDashboardPage));
+        OnPropertyChanged(nameof(IsCategoriesPage));
         OnPropertyChanged(nameof(IsOtherPage));
     }
 
@@ -310,6 +317,11 @@ public partial class MainViewModel : ObservableObject
                 "/search" => "Quick Page Search",
                 _ => targetPath.Trim('/').Replace('-', ' ').ToUpperInvariant()
             };
+        }
+
+        if (string.Equals(targetPath, "/categories", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Categories.LoadCategoriesAsync();
         }
     }
 
