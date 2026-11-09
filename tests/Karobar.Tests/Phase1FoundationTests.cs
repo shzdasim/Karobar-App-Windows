@@ -350,4 +350,168 @@ public sealed class Phase1FoundationTests
             if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
         }
     }
+
+    [Fact]
+    public async Task SupplierService_ShouldSupportCrud_OpeningBalanceLedger_CreditSummary_AndCsvImportExport()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "karobar_sup_test_" + Guid.NewGuid().ToString("N"));
+        var csvPath = Path.Combine(Path.GetTempPath(), $"sup_import_{Guid.NewGuid():N}.csv");
+        var exportPath = Path.Combine(Path.GetTempPath(), $"sup_export_{Guid.NewGuid():N}.csv");
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddKarobarInfrastructure(tempDir);
+
+            await using var provider = services.BuildServiceProvider();
+            var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
+            var suppliers = provider.GetRequiredService<ISupplierService>();
+
+            await dbInit.InitializeAndSeedAsync();
+
+            var s1 = await suppliers.CreateAsync(new SupplierUpsertRequest
+            {
+                Name = "Muller & Phipps",
+                Phone = "0300-1112233",
+                Address = "Industrial Area",
+                TaxStatus = "registered",
+                TaxNumber = "NTN-123456",
+                CreditLimit = 100000m,
+                CreditDays = 45,
+                OpeningBalance = 25000m,
+                ExpiryReturnPolicy = "before_expiry",
+                ExpiryReturnMonths = 6,
+                ExpiryReturnDays = 180
+            });
+
+            s1.Name.Should().Be("Muller & Phipps");
+            s1.CurrentPayable.Should().Be(25000m);
+            s1.ExpiryPolicyLabel.Should().Be("6 Months Before Expiry");
+
+            var credit = await suppliers.GetCreditSummaryAsync(s1.Id);
+            credit.CurrentBalance.Should().Be(25000m);
+            credit.AvailableCredit.Should().Be(75000m);
+            credit.IsLimitExceeded.Should().BeFalse();
+
+            var updated = await suppliers.UpdateAsync(s1.Id, new SupplierUpsertRequest
+            {
+                Name = "M&P Pakistan",
+                Phone = "0300-1112233",
+                Address = "Lahore",
+                CreditLimit = 20000m,
+                CreditDays = 30,
+                ExpiryReturnPolicy = "accepts_expired"
+            });
+            updated.Name.Should().Be("M&P Pakistan");
+            updated.ExpiryReturnPolicy.Should().Be("accepts_expired");
+
+            var creditAfter = await suppliers.GetCreditSummaryAsync(s1.Id);
+            creditAfter.IsLimitExceeded.Should().BeTrue(); // 25,000 > 20,000 limit
+
+            await File.WriteAllTextAsync(csvPath, "name,address,phone,opening_balance\nPremier Distributors,Karachi,0321-0001111,12000\nUDL Distribution,Islamabad,0333-2223333,0\n");
+            var valRes = await suppliers.ValidateCsvAsync(csvPath, ",");
+            valRes.Ok.Should().BeTrue();
+            valRes.Valid.Should().Be(2);
+
+            var stats = await suppliers.CommitCsvAsync(csvPath, insertValidOnly: true, ",");
+            stats.NewCount.Should().Be(2);
+
+            await suppliers.ExportCsvAsync(exportPath);
+            var exported = await File.ReadAllTextAsync(exportPath);
+            exported.Should().Contain("M&P Pakistan");
+            exported.Should().Contain("Premier Distributors");
+
+            await suppliers.DeleteAsync(s1.Id);
+            (await suppliers.GetAllAsync()).Select(x => x.Name).Should().NotContain("M&P Pakistan");
+        }
+        finally
+        {
+            if (File.Exists(csvPath)) try { File.Delete(csvPath); } catch { }
+            if (File.Exists(exportPath)) try { File.Delete(exportPath); } catch { }
+            if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task CustomerService_ShouldSupportCrud_RegularRefillReminders_AndCsvImportExport()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "karobar_cust_test_" + Guid.NewGuid().ToString("N"));
+        var csvPath = Path.Combine(Path.GetTempPath(), $"cust_import_{Guid.NewGuid():N}.csv");
+        var exportPath = Path.Combine(Path.GetTempPath(), $"cust_export_{Guid.NewGuid():N}.csv");
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddKarobarInfrastructure(tempDir);
+
+            await using var provider = services.BuildServiceProvider();
+            var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
+            var customers = provider.GetRequiredService<ICustomerService>();
+
+            await dbInit.InitializeAndSeedAsync();
+
+            var c1 = await customers.CreateAsync(new CustomerUpsertRequest
+            {
+                Name = "Tariq Mehmood",
+                Phone = "0300-1234567",
+                Email = "tariq@example.com",
+                Address = "Model Town",
+                CreditLimit = 50000m,
+                CreditDays = 30,
+                CreditStatus = "active",
+                OpeningBalance = 4500m,
+                IsRegular = true,
+                RefillCycle = "monthly",
+                ReminderLeadDays = 3,
+                NextRefillDate = DateTime.Today.AddDays(2).ToString("yyyy-MM-dd"),
+                ReminderLanguage = "urdu",
+                RegularNotes = "Blood pressure & diabetes monthly pack"
+            });
+
+            c1.Name.Should().Be("Tariq Mehmood");
+            c1.IsRegular.Should().BeTrue();
+            c1.IsDueForReminder.Should().BeTrue();
+            c1.CurrentReceivable.Should().Be(4500m);
+
+            var preview = await customers.GetRefillReminderPreviewAsync(c1.Id);
+            preview.NormalizedPhone.Should().Be("923001234567");
+            preview.UrduMessage.Should().Contain("Tariq Mehmood");
+            preview.EnglishMessage.Should().Contain("Tariq Mehmood");
+
+            var (waUrl, afterRemind) = await customers.RecordRefillReminderSentAsync(
+                c1.Id,
+                "0300-1234567",
+                "urdu",
+                preview.UrduMessage,
+                savePhone: true,
+                advanceCycle: true);
+
+            waUrl.Should().StartWith("https://wa.me/923001234567?text=");
+            afterRemind.HasLastReminded.Should().BeTrue();
+
+            await File.WriteAllTextAsync(csvPath, "name,email,phone,address,opening_balance\nSana Medical,sana@med.pk,0321-9998887,Gulberg,8000\n");
+            var valRes = await customers.ValidateCsvAsync(csvPath, ",");
+            valRes.Ok.Should().BeTrue();
+            valRes.Valid.Should().Be(1);
+
+            var stats = await customers.CommitCsvAsync(csvPath, insertValidOnly: true, ",");
+            stats.NewCount.Should().Be(1);
+
+            await customers.ExportCsvAsync(exportPath);
+            var exported = await File.ReadAllTextAsync(exportPath);
+            exported.Should().Contain("Tariq Mehmood");
+            exported.Should().Contain("Sana Medical");
+
+            await customers.DeleteAsync(c1.Id);
+            (await customers.GetAllAsync()).Select(x => x.Name).Should().NotContain("Tariq Mehmood");
+        }
+        finally
+        {
+            if (File.Exists(csvPath)) try { File.Delete(csvPath); } catch { }
+            if (File.Exists(exportPath)) try { File.Delete(exportPath); } catch { }
+            if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
 }

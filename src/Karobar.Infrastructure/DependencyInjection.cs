@@ -38,6 +38,8 @@ public static class DependencyInjection
         services.AddSingleton<IAuthService, AuthService>();
         services.AddSingleton<ICategoryService, CategoryService>();
         services.AddSingleton<IBrandService, BrandService>();
+        services.AddSingleton<ISupplierService, SupplierService>();
+        services.AddSingleton<ICustomerService, CustomerService>();
         services.AddSingleton<ILedgerRebuildService, LedgerRebuildService>();
         services.AddSingleton<ILegacyKarobarImporterService, LegacyKarobarImporterService>();
 

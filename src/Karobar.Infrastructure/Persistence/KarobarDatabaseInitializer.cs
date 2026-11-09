@@ -49,6 +49,7 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
 
         // Safely upgrade 'users' table in-place if an older database file exists without 'username'
         await EnsureUserColumnsExistAsync(db, cancellationToken);
+        await EnsureRegularCustomerColumnsExistAsync(db, cancellationToken);
 
         var now = DateTime.UtcNow;
 
@@ -498,6 +499,55 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
                 alterCommands.Add("ALTER TABLE \"users\" ADD COLUMN \"remember_token_expires_at\" TEXT NULL;");
             if (!existingCols.Contains("preferences"))
                 alterCommands.Add("ALTER TABLE \"users\" ADD COLUMN \"preferences\" TEXT NULL;");
+
+            foreach (var sql in alterCommands)
+            {
+                await using var alterCmd = conn.CreateCommand();
+                alterCmd.CommandText = sql;
+                await alterCmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await conn.CloseAsync();
+            }
+        }
+    }
+
+    private static async Task EnsureRegularCustomerColumnsExistAsync(KarobarDbContext db, CancellationToken cancellationToken)
+    {
+        var conn = db.Database.GetDbConnection();
+        var shouldClose = conn.State != System.Data.ConnectionState.Open;
+        if (shouldClose)
+        {
+            await conn.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            var existingCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA table_info(\"customer_regular_items\");";
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    existingCols.Add(reader.GetString(1));
+                }
+            }
+
+            if (existingCols.Count == 0)
+                return;
+
+            var alterCommands = new List<string>();
+            if (!existingCols.Contains("pack_quantity"))
+                alterCommands.Add("ALTER TABLE \"customer_regular_items\" ADD COLUMN \"pack_quantity\" INTEGER NOT NULL DEFAULT 0;");
+            if (!existingCols.Contains("unit_quantity"))
+                alterCommands.Add("ALTER TABLE \"customer_regular_items\" ADD COLUMN \"unit_quantity\" INTEGER NOT NULL DEFAULT 1;");
+            if (!existingCols.Contains("dosage_notes"))
+                alterCommands.Add("ALTER TABLE \"customer_regular_items\" ADD COLUMN \"dosage_notes\" TEXT NULL;");
 
             foreach (var sql in alterCommands)
             {

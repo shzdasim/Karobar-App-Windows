@@ -94,12 +94,25 @@ public partial class MainViewModel : ObservableObject
     public bool IsBrandsPage =>
         string.Equals(CurrentPath, "/brands", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(CurrentPath, "/brands/create", StringComparison.OrdinalIgnoreCase);
-    public bool IsOtherPage => !IsDashboardPage && !IsCategoriesPage && !IsBrandsPage;
+    public bool IsSuppliersPage =>
+        string.Equals(CurrentPath, "/suppliers", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/suppliers/create", StringComparison.OrdinalIgnoreCase);
+    public bool IsCustomersPage =>
+        string.Equals(CurrentPath, "/customers", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/customers/create", StringComparison.OrdinalIgnoreCase);
+    public bool IsOtherPage =>
+        !IsDashboardPage &&
+        !IsCategoriesPage &&
+        !IsBrandsPage &&
+        !IsSuppliersPage &&
+        !IsCustomersPage;
 
     public ToastNotificationService ToastService { get; }
     public DashboardViewModel Dashboard { get; }
     public CategoriesViewModel Categories { get; }
     public BrandsViewModel Brands { get; }
+    public SuppliersViewModel Suppliers { get; }
+    public CustomersViewModel Customers { get; }
 
     public ObservableCollection<SidebarSectionViewModel> Sections { get; } = [];
     public ObservableCollection<SidebarItemViewModel> FavoriteItems { get; } = [];
@@ -109,6 +122,8 @@ public partial class MainViewModel : ObservableObject
         IDatabaseInitializerService dbInitializer,
         ICategoryService categoryService,
         IBrandService brandService,
+        ISupplierService supplierService,
+        ICustomerService customerService,
         ToastNotificationService toastService)
     {
         _authService = authService;
@@ -117,6 +132,8 @@ public partial class MainViewModel : ObservableObject
         Dashboard = new DashboardViewModel(Navigate, toastService);
         Categories = new CategoriesViewModel(categoryService, authService, toastService);
         Brands = new BrandsViewModel(brandService, authService, toastService, Navigate);
+        Suppliers = new SuppliersViewModel(supplierService, authService, toastService, Navigate);
+        Customers = new CustomersViewModel(customerService, authService, toastService, Navigate);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");
@@ -145,6 +162,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDashboardPage));
         OnPropertyChanged(nameof(IsCategoriesPage));
         OnPropertyChanged(nameof(IsBrandsPage));
+        OnPropertyChanged(nameof(IsSuppliersPage));
+        OnPropertyChanged(nameof(IsCustomersPage));
         OnPropertyChanged(nameof(IsOtherPage));
     }
 
@@ -343,6 +362,22 @@ public partial class MainViewModel : ObservableObject
         {
             Brands.OpenCreateMode();
         }
+        else if (string.Equals(targetPath, "/suppliers", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Suppliers.OpenDirectoryModeAsync();
+        }
+        else if (string.Equals(targetPath, "/suppliers/create", StringComparison.OrdinalIgnoreCase))
+        {
+            Suppliers.OpenCreateMode();
+        }
+        else if (string.Equals(targetPath, "/customers", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Customers.OpenDirectoryModeAsync();
+        }
+        else if (string.Equals(targetPath, "/customers/create", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Customers.OpenCreateModeAsync();
+        }
     }
 
     private void ApplySidebarFilter(string query)
@@ -414,7 +449,7 @@ public partial class MainViewModel : ObservableObject
         itemsSection.Items.Add(new SidebarItemViewModel { Key = "categories", Name = "Categories", Path = "/categories", IconGlyph = "🗂", AccentHex = "#3B82F6" });
         itemsSection.Items.Add(new SidebarItemViewModel { Key = "brands", Name = "Brands", Path = "/brands", QuickCreatePath = "/brands/create", IconGlyph = "🏷", AccentHex = "#3B82F6" });
         itemsSection.Items.Add(new SidebarItemViewModel { Key = "suppliers", Name = "Suppliers", Path = "/suppliers", QuickCreatePath = "/suppliers/create", IconGlyph = "🚚", AccentHex = "#3B82F6" });
-        itemsSection.Items.Add(new SidebarItemViewModel { Key = "customers", Name = "Customers", Path = "/customers", IconGlyph = "👥", AccentHex = "#3B82F6" });
+        itemsSection.Items.Add(new SidebarItemViewModel { Key = "customers", Name = "Customers", Path = "/customers", QuickCreatePath = "/customers/create", IconGlyph = "👥", AccentHex = "#3B82F6" });
         itemsSection.Items.Add(new SidebarItemViewModel { Key = "barcode-labels", Name = "Barcode Studio", Path = "/barcode-labels", IconGlyph = "🖨", AccentHex = "#3B82F6" });
         Sections.Add(itemsSection);
 

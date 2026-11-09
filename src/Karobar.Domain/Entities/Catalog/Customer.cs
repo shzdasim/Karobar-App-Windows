@@ -96,6 +96,15 @@ public class CustomerRegularItem
     [Column("product_id")]
     public long ProductId { get; set; }
 
+    [Column("pack_quantity")]
+    public int PackQuantity { get; set; }
+
+    [Column("unit_quantity")]
+    public int UnitQuantity { get; set; } = 1;
+
+    [Column("dosage_notes")]
+    public string? DosageNotes { get; set; }
+
     [Column("dosage_quantity")]
     public int DosageQuantity { get; set; } = 1;
 
