@@ -963,5 +963,14 @@
                 </Grid>
             </Grid>
         </Grid>
+
+        <!-- ================================================================ -->
+        <!-- 3. UNIVERSAL TOP-RIGHT FLASH TOAST NOTIFICATION OVERLAY          -->
+        <!-- ================================================================ -->
+        <views:ToastOverlayView DataContext="{Binding ToastService}"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="0,18,22,0"
+                                Panel.ZIndex="9999" />
     </Grid>
 </Window>

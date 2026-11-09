@@ -251,41 +251,7 @@
                 </Border>
 
                 <!-- ======================================================== -->
-                <!-- 2. STATUS / TOAST FEEDBACK BANNER                        -->
-                <!-- ======================================================== -->
-                <Border Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVis}}"
-                        Background="{Binding StatusBannerBg}"
-                        BorderBrush="{Binding StatusBannerBorder}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="16,10"
-                        Margin="0,0,0,16">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0"
-                                   Text="{Binding StatusMessage}"
-                                   Foreground="{Binding StatusBannerFg}"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center"
-                                   TextWrapping="Wrap" />
-                        <Button Grid.Column="1"
-                                Command="{Binding DismissStatusCommand}"
-                                Content="✕"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Foreground="{Binding StatusBannerFg}"
-                                FontWeight="Bold"
-                                Cursor="Hand"
-                                Padding="6,2" />
-                    </Grid>
-                </Border>
-
-                <!-- ======================================================== -->
-                <!-- 3. TWO-COLUMN DIRECTORY GRID (Form Left + List Right)    -->
+                <!-- 2. TWO-COLUMN DIRECTORY GRID (Form Left + List Right)    -->
                 <!-- ======================================================== -->
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -672,7 +638,7 @@
         </ScrollViewer>
 
         <!-- ================================================================ -->
-        <!-- 4. CSV IMPORT MODAL OVERLAY (CategoryImportModal equivalent)     -->
+        <!-- 3. CSV IMPORT MODAL OVERLAY (CategoryImportModal equivalent)     -->
         <!-- ================================================================ -->
         <Grid Visibility="{Binding IsImportModalOpen, Converter={StaticResource BoolToVis}}"
               Background="#660F172A">

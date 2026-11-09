@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Karobar.Application.Interfaces;
 
 namespace Karobar.Desktop.ViewModels;
 
@@ -81,6 +82,7 @@ public sealed class NearExpiryRowModel
 public partial class DashboardViewModel : ObservableObject
 {
     private readonly Action<string>? _navigateCallback;
+    private readonly IToastNotificationService? _toastService;
     private readonly List<NearExpiryRowModel> _allNearExpiryRows = [];
 
     // ------------------------------------------------------------------------
@@ -285,9 +287,12 @@ public partial class DashboardViewModel : ObservableObject
     public ObservableCollection<SnapshotLineModel> PeriodSnapshotLines { get; } = [];
     public ObservableCollection<NearExpiryRowModel> FilteredNearExpiryProducts { get; } = [];
 
-    public DashboardViewModel(Action<string>? navigateCallback = null)
+    public DashboardViewModel(
+        Action<string>? navigateCallback = null,
+        IToastNotificationService? toastService = null)
     {
         _navigateCallback = navigateCallback;
+        _toastService = toastService;
         SeedModuleStats();
         SeedNearExpiryData();
         ApplyPresetData("this_month");
@@ -332,6 +337,7 @@ public partial class DashboardViewModel : ObservableObject
         LastUpdatedLabel = $"Updated {DateTime.Now:hh:mm tt}";
         ApplyPresetData(ActivePreset);
         ApplyNearExpiryFilter();
+        _toastService?.ShowSuccess("Dashboard overview refreshed.", "Refreshed");
     }
 
     [RelayCommand]
@@ -877,9 +883,6 @@ public partial class DashboardViewModel : ObservableObject
             return (string.Empty, string.Empty);
 
         double min = values.Min();
-        double max = values.Max();
-        double span = Math.Max(1.0, max - min);
-
         var normalized = values.Select(v => v - min * 0.85).ToList();
         double normMax = Math.Max(1.0, normalized.Max());
         return BuildVectorPathsWithMax(normalized, width, height, verticalPadding, normMax);

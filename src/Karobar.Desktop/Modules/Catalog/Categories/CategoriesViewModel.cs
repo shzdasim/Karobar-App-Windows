@@ -17,6 +17,7 @@ public partial class CategoriesViewModel : ObservableObject
 {
     private readonly ICategoryService _categoryService;
     private readonly IAuthService _authService;
+    private readonly IToastNotificationService _toastService;
     private readonly List<CategoryDto> _allCategories = [];
 
     // ------------------------------------------------------------------------
@@ -42,22 +43,6 @@ public partial class CategoriesViewModel : ObservableObject
 
     public bool CanShowForm => CanCreate || (CanUpdate && IsEditing);
     public bool HasRowActions => CanUpdate || CanDelete;
-
-    // ------------------------------------------------------------------------
-    // Feedback Banner (Toast equivalent)
-    // ------------------------------------------------------------------------
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
-
-    [ObservableProperty]
-    private bool _hasStatusMessage;
-
-    [ObservableProperty]
-    private bool _isStatusError;
-
-    public string StatusBannerBg => IsStatusError ? "#FEF2F2" : "#ECFDF5";
-    public string StatusBannerBorder => IsStatusError ? "#FCA5A5" : "#A7F3D0";
-    public string StatusBannerFg => IsStatusError ? "#DC2626" : "#059669";
 
     // ------------------------------------------------------------------------
     // Form Card State (Add / Edit Category)
@@ -170,10 +155,14 @@ public partial class CategoriesViewModel : ObservableObject
         ? "Importing..."
         : $"Import {(HasInvalidRows ? "Valid Rows Only" : "All")}";
 
-    public CategoriesViewModel(ICategoryService categoryService, IAuthService authService)
+    public CategoriesViewModel(
+        ICategoryService categoryService,
+        IAuthService authService,
+        IToastNotificationService toastService)
     {
         _categoryService = categoryService;
         _authService = authService;
+        _toastService = toastService;
         _selectedDelimiter = DelimiterOptions[0];
         RefreshPermissions();
     }
@@ -222,13 +211,6 @@ public partial class CategoriesViewModel : ObservableObject
     partial void OnIsExportingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanExportNow));
-    }
-
-    partial void OnIsStatusErrorChanged(bool value)
-    {
-        OnPropertyChanged(nameof(StatusBannerBg));
-        OnPropertyChanged(nameof(StatusBannerBorder));
-        OnPropertyChanged(nameof(StatusBannerFg));
     }
 
     partial void OnSearchQueryChanged(string value)
@@ -298,7 +280,7 @@ public partial class CategoriesViewModel : ObservableObject
         RefreshPermissions();
         if (!CanView)
         {
-            ShowStatus("You don't have permission to view categories.", isError: true);
+            _toastService.ShowError("You don't have permission to view categories.", "Access Denied");
             return;
         }
 
@@ -313,7 +295,7 @@ public partial class CategoriesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ShowStatus($"Failed to load categories: {ex.Message}", isError: true);
+            _toastService.ShowError($"Failed to load categories: {ex.Message}", "Load Error");
         }
         finally
         {
@@ -330,14 +312,14 @@ public partial class CategoriesViewModel : ObservableObject
 
         if (IsEditing ? !CanUpdate : !CanCreate)
         {
-            ShowStatus("You don't have permission to save categories.", isError: true);
+            _toastService.ShowError("You don't have permission to save categories.", "Access Denied");
             return;
         }
 
         string trimmed = FormName?.Trim() ?? string.Empty;
         if (string.IsNullOrEmpty(trimmed))
         {
-            ShowStatus("Name is required", isError: true);
+            _toastService.ShowError("Name is required", "Validation Error");
             return;
         }
 
@@ -347,12 +329,12 @@ public partial class CategoriesViewModel : ObservableObject
             if (EditingId.HasValue)
             {
                 await _categoryService.UpdateAsync(EditingId.Value, trimmed);
-                ShowStatus("Category updated", isError: false);
+                _toastService.ShowSuccess("Category updated", "Updated");
             }
             else
             {
                 await _categoryService.CreateAsync(trimmed);
-                ShowStatus("Category saved", isError: false);
+                _toastService.ShowSuccess("Category saved", "Created");
             }
 
             ResetForm();
@@ -360,7 +342,7 @@ public partial class CategoriesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ShowStatus(ex.Message, isError: true);
+            _toastService.ShowError(ex.Message, "Save Failed");
         }
         finally
         {
@@ -376,13 +358,12 @@ public partial class CategoriesViewModel : ObservableObject
 
         if (!CanUpdate)
         {
-            ShowStatus("You don't have permission to edit categories.", isError: true);
+            _toastService.ShowError("You don't have permission to edit categories.", "Access Denied");
             return;
         }
 
         EditingId = category.Id;
         FormName = category.Name;
-        DismissStatus();
     }
 
     [RelayCommand]
@@ -393,13 +374,13 @@ public partial class CategoriesViewModel : ObservableObject
 
         if (!CanDelete)
         {
-            ShowStatus("You don't have permission to delete categories.", isError: true);
+            _toastService.ShowError("You don't have permission to delete categories.", "Access Denied");
             return;
         }
 
         if (category.IsUsedByProducts)
         {
-            ShowStatus("Cannot delete: category is used by products.", isError: true);
+            _toastService.ShowError("Cannot delete: category is used by products.", "Delete Blocked");
             return;
         }
 
@@ -412,11 +393,11 @@ public partial class CategoriesViewModel : ObservableObject
             }
 
             await LoadCategoriesAsync();
-            ShowStatus("Category deleted", isError: false);
+            _toastService.ShowSuccess("Category deleted", "Deleted");
         }
         catch (Exception ex)
         {
-            ShowStatus(ex.Message, isError: true);
+            _toastService.ShowError(ex.Message, "Delete Failed");
         }
     }
 
@@ -425,13 +406,6 @@ public partial class CategoriesViewModel : ObservableObject
     {
         FormName = string.Empty;
         EditingId = null;
-    }
-
-    [RelayCommand]
-    public void DismissStatus()
-    {
-        HasStatusMessage = false;
-        StatusMessage = string.Empty;
     }
 
     // ------------------------------------------------------------------------
@@ -485,7 +459,7 @@ public partial class CategoriesViewModel : ObservableObject
     {
         if (!CanExport)
         {
-            ShowStatus("You don't have permission to export categories.", isError: true);
+            _toastService.ShowError("You don't have permission to export categories.", "Access Denied");
             return;
         }
 
@@ -504,11 +478,11 @@ public partial class CategoriesViewModel : ObservableObject
         try
         {
             await _categoryService.ExportCsvAsync(dialog.FileName);
-            ShowStatus($"Exported {_allCategories.Count} categories to {Path.GetFileName(dialog.FileName)}", isError: false);
+            _toastService.ShowSuccess($"Exported {_allCategories.Count} categories to {Path.GetFileName(dialog.FileName)}", "CSV Exported");
         }
         catch (Exception ex)
         {
-            ShowStatus($"Export failed: {ex.Message}", isError: true);
+            _toastService.ShowError($"Export failed: {ex.Message}", "Export Error");
         }
         finally
         {
@@ -521,7 +495,7 @@ public partial class CategoriesViewModel : ObservableObject
     {
         if (!CanImport)
         {
-            ShowStatus("You don't have permission to import categories.", isError: true);
+            _toastService.ShowError("You don't have permission to import categories.", "Access Denied");
             return;
         }
 
@@ -578,11 +552,11 @@ public partial class CategoriesViewModel : ObservableObject
         try
         {
             await _categoryService.SaveTemplateCsvAsync(dialog.FileName);
-            ShowStatus($"Saved CSV template to {Path.GetFileName(dialog.FileName)}", isError: false);
+            _toastService.ShowSuccess($"Saved CSV template to {Path.GetFileName(dialog.FileName)}", "Template Saved");
         }
         catch (Exception ex)
         {
-            ShowStatus($"Could not save template: {ex.Message}", isError: true);
+            _toastService.ShowError($"Could not save template: {ex.Message}", "Template Error");
         }
     }
 
@@ -599,7 +573,7 @@ public partial class CategoriesViewModel : ObservableObject
             var res = await _categoryService.ValidateCsvAsync(ImportFilePath, delim);
             if (!res.Ok)
             {
-                ShowStatus(res.Message, isError: true);
+                _toastService.ShowError(res.Message, "CSV Validation Failed");
                 return;
             }
 
@@ -615,11 +589,18 @@ public partial class CategoriesViewModel : ObservableObject
             OnPropertyChanged(nameof(HasInvalidSamples));
             OnPropertyChanged(nameof(HasValidSamples));
 
-            ShowStatus(res.Message, isError: res.Invalid > 0);
+            if (res.Invalid > 0)
+            {
+                _toastService.ShowWarning(res.Message, "CSV Validated with Issues");
+            }
+            else
+            {
+                _toastService.ShowSuccess(res.Message, "CSV Validated");
+            }
         }
         catch (Exception ex)
         {
-            ShowStatus($"Validation failed: {ex.Message}", isError: true);
+            _toastService.ShowError($"Validation failed: {ex.Message}", "Validation Error");
         }
         finally
         {
@@ -651,11 +632,11 @@ public partial class CategoriesViewModel : ObservableObject
             var stats = await _categoryService.CommitCsvAsync(ImportFilePath, insertValidOnly, delim);
             CloseImportModal();
             await LoadCategoriesAsync();
-            ShowStatus($"Import complete ({stats.NewCount} new, {stats.ExistingCount} existing).", isError: false);
+            _toastService.ShowSuccess($"Import complete ({stats.NewCount} new, {stats.ExistingCount} existing).", "CSV Imported");
         }
         catch (Exception ex)
         {
-            ShowStatus(ex.Message, isError: true);
+            _toastService.ShowError(ex.Message, "Import Failed");
         }
         finally
         {
@@ -707,12 +688,5 @@ public partial class CategoriesViewModel : ObservableObject
         OnPropertyChanged(nameof(CanGoPrevPage));
         OnPropertyChanged(nameof(CanGoNextPage));
         OnPropertyChanged(nameof(IsEmptyList));
-    }
-
-    private void ShowStatus(string message, bool isError)
-    {
-        StatusMessage = message;
-        IsStatusError = isError;
-        HasStatusMessage = !string.IsNullOrWhiteSpace(message);
     }
 }

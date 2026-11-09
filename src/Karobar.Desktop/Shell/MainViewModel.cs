@@ -93,6 +93,7 @@ public partial class MainViewModel : ObservableObject
     public bool IsCategoriesPage => string.Equals(CurrentPath, "/categories", StringComparison.OrdinalIgnoreCase);
     public bool IsOtherPage => !IsDashboardPage && !IsCategoriesPage;
 
+    public ToastNotificationService ToastService { get; }
     public DashboardViewModel Dashboard { get; }
     public CategoriesViewModel Categories { get; }
 
@@ -102,12 +103,14 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel(
         IAuthService authService,
         IDatabaseInitializerService dbInitializer,
-        ICategoryService categoryService)
+        ICategoryService categoryService,
+        ToastNotificationService toastService)
     {
         _authService = authService;
         _dbInitializer = dbInitializer;
-        Dashboard = new DashboardViewModel(Navigate);
-        Categories = new CategoriesViewModel(categoryService, authService);
+        ToastService = toastService;
+        Dashboard = new DashboardViewModel(Navigate, toastService);
+        Categories = new CategoriesViewModel(categoryService, authService, toastService);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");
@@ -170,6 +173,7 @@ public partial class MainViewModel : ObservableObject
             Navigate("/dashboard");
             IsAuthenticated = true;
             IsLoginVisible = false;
+            ToastService.ShowSuccess($"Welcome back, {LoggedInUserName}!", "Signed In");
         }
         catch (Exception ex)
         {
@@ -177,6 +181,7 @@ public partial class MainViewModel : ObservableObject
             IsLoginVisible = true;
             ErrorMessage = ex.Message;
             HasError = true;
+            ToastService.ShowError(ex.Message, "Sign In Failed");
         }
         finally
         {
@@ -193,6 +198,7 @@ public partial class MainViewModel : ObservableObject
         ErrorMessage = string.Empty;
         IsAuthenticated = false;
         IsLoginVisible = true;
+        ToastService.ShowInfo("You have been signed out.", "Signed Out");
     }
 
     [RelayCommand]
@@ -306,7 +312,6 @@ public partial class MainViewModel : ObservableObject
         }
         else
         {
-            // Handle Topbar utility routes (e.g., /profile, /guide, /shortcuts, /notifications)
             CurrentSectionTitle = "Workspace Utility";
             CurrentPageTitle = targetPath switch
             {

@@ -225,7 +225,6 @@ public sealed class CategoryService : ICategoryService
         int? nameColIdx = TryFindNameColumnIndex(ParseCsvLine(nonEmptyLines[0], delimChar));
         if (nameColIdx == null)
         {
-            // Auto-detect delimiter from sample if user delimiter didn't match
             char guessed = GuessDelimiterFromSample(nonEmptyLines[0]);
             if (guessed != delimChar)
             {

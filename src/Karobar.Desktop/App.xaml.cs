@@ -1,4 +1,5 @@
 using System.Windows;
+using Karobar.Application.Interfaces;
 using Karobar.Desktop.ViewModels;
 using Karobar.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,8 @@ public partial class App : System.Windows.Application
                 .ConfigureServices((_, services) =>
                 {
                     services.AddKarobarInfrastructure();
+                    services.AddSingleton<ToastNotificationService>();
+                    services.AddSingleton<IToastNotificationService>(sp => sp.GetRequiredService<ToastNotificationService>());
                     services.AddSingleton<MainViewModel>();
                     services.AddSingleton<MainWindow>();
                 })
