@@ -926,7 +926,12 @@
                         <views:ProductBatchesView x:Name="ProductBatchesPageView" DataContext="{Binding ProductBatches}" />
                     </Grid>
 
-                    <!-- H. Inner Page Host for any other Sidebar/Topbar Route -->
+                    <!-- H. Barcode Label Studio & Printing Page (When CurrentPath == "/barcode-labels") -->
+                    <Grid Visibility="{Binding IsBarcodeStudioPage, Converter={StaticResource BoolToVis}}">
+                        <views:BarcodeStudioView x:Name="BarcodeStudioPageView" DataContext="{Binding BarcodeStudio}" />
+                    </Grid>
+
+                    <!-- I. Inner Page Host for any other Sidebar/Topbar Route -->
                     <Border Visibility="{Binding IsOtherPage, Converter={StaticResource BoolToVis}}"
                             Background="#FFFFFF"
                             BorderBrush="#E2E8F0"

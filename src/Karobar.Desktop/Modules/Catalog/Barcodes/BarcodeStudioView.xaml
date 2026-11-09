@@ -1,0 +1,2197 @@
+<UserControl x:Class="Karobar.Desktop.Views.BarcodeStudioView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Karobar.Desktop.Views"
+             Background="#F8FAFC"
+             PreviewKeyDown="BarcodeStudioView_OnPreviewKeyDown">
+
+    <Grid>
+        <ScrollViewer x:Name="MainStudioScrollViewer"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <Border Padding="24,20,24,32">
+                <StackPanel>
+
+                    <!-- Status / Error Toast Banners -->
+                    <Border Background="#ECFDF5"
+                            BorderBrush="#A7F3D0"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="14,10"
+                            Margin="0,0,0,14">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StatusMessage}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding StatusMessage}"
+                                   Foreground="#065F46"
+                                   FontWeight="SemiBold"
+                                   FontSize="13" />
+                    </Border>
+
+                    <Border Background="#FEF2F2"
+                            BorderBrush="#FECACA"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="14,10"
+                            Margin="0,0,0,14">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ErrorMessage}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding ErrorMessage}"
+                                   Foreground="#991B1B"
+                                   FontWeight="SemiBold"
+                                   FontSize="13" />
+                    </Border>
+
+                    <!-- ========================================================= -->
+                    <!-- HERO HEADER & PRESET SELECTOR BANNER                      -->
+                    <!-- ========================================================= -->
+                    <Border Background="White"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="16"
+                            Padding="22,18"
+                            Margin="0,0,0,16">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Title & Subtitle -->
+                                <StackPanel Grid.Column="0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Background="#EEF2FF"
+                                                BorderBrush="#C7D2FE"
+                                                BorderThickness="1"
+                                                CornerRadius="10"
+                                                Width="40"
+                                                Height="40"
+                                                Margin="0,0,12,0">
+                                            <TextBlock Text="🏷"
+                                                       FontSize="19"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Barcode Label Studio &amp; Printing"
+                                                           FontSize="20"
+                                                           FontWeight="Bold"
+                                                           Foreground="#0F172A" />
+                                                <Border Background="#EFF6FF"
+                                                        BorderBrush="#BFDBFE"
+                                                        BorderThickness="1"
+                                                        CornerRadius="6"
+                                                        Padding="8,2"
+                                                        Margin="10,0,0,0"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="Thermal &amp; Sheet"
+                                                               FontSize="11"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="#1D4ED8" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="Design custom sticker sizes, select FEFO pharmaceutical batches &amp; expiry dates, and print crisp vector Code 128 labels."
+                                                       FontSize="12.5"
+                                                       Foreground="#64748B"
+                                                       Margin="0,2,0,0" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Top Right Action Buttons -->
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <Button Command="{Binding OpenSavePresetModalCommand}"
+                                            Background="#F8FAFC"
+                                            BorderBrush="#CBD5E1"
+                                            BorderThickness="1"
+                                            Foreground="#334155"
+                                            FontWeight="SemiBold"
+                                            FontSize="13"
+                                            Padding="14,9"
+                                            Margin="0,0,10,0"
+                                            Cursor="Hand"
+                                            ToolTip="Save current dimensions &amp; styling as a new template preset (Ctrl+N)">
+                                        <Button.Resources>
+                                            <Style TargetType="Border">
+                                                <Setter Property="CornerRadius" Value="9" />
+                                            </Style>
+                                        </Button.Resources>
+                                        <TextBlock Text="🔖 Save As Preset" />
+                                    </Button>
+
+                                    <Button Click="PrintLabelsButton_OnClick"
+                                            Background="#2563EB"
+                                            BorderBrush="#1D4ED8"
+                                            BorderThickness="1"
+                                            Foreground="White"
+                                            FontWeight="Bold"
+                                            FontSize="13"
+                                            Padding="18,9"
+                                            Cursor="Hand"
+                                            ToolTip="Open Windows Printer Dialog and print crisp vector barcode labels (Ctrl+P)">
+                                        <Button.Resources>
+                                            <Style TargetType="Border">
+                                                <Setter Property="CornerRadius" Value="9" />
+                                            </Style>
+                                        </Button.Resources>
+                                        <TextBlock Text="{Binding PrintButtonLabel}" />
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- 3-Column Preset & Summary Strip -->
+                            <Border Background="#F8FAFC"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="14,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="5*" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="3.5*" />
+                                        <ColumnDefinition Width="14" />
+                                        <ColumnDefinition Width="3.5*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Col 1: Active Template Preset Selector + Quick Actions -->
+                                    <StackPanel Grid.Column="0">
+                                        <Grid Margin="0,0,0,5">
+                                            <TextBlock Text="ACTIVE TEMPLATE PRESET"
+                                                       FontSize="10.5"
+                                                       FontWeight="Bold"
+                                                       Foreground="#64748B"
+                                                       VerticalAlignment="Center" />
+                                            <StackPanel Orientation="Horizontal"
+                                                        HorizontalAlignment="Right">
+                                                <Button Command="{Binding UpdateActiveTemplateCommand}"
+                                                        Background="#EFF6FF"
+                                                        BorderBrush="#BFDBFE"
+                                                        BorderThickness="1"
+                                                        Foreground="#1D4ED8"
+                                                        FontSize="11"
+                                                        FontWeight="SemiBold"
+                                                        Padding="8,2"
+                                                        Margin="0,0,6,0"
+                                                        Cursor="Hand"
+                                                        ToolTip="Save current layout changes into active preset (Ctrl+S)">
+                                                    <Button.Resources>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="CornerRadius" Value="5" />
+                                                        </Style>
+                                                    </Button.Resources>
+                                                    <TextBlock Text="Update" />
+                                                </Button>
+
+                                                <Button Command="{Binding SetActiveTemplateDefaultCommand}"
+                                                        Background="#FEFCE8"
+                                                        BorderBrush="#FDE68A"
+                                                        BorderThickness="1"
+                                                        Foreground="#A16207"
+                                                        FontSize="11"
+                                                        FontWeight="SemiBold"
+                                                        Padding="8,2"
+                                                        Margin="0,0,6,0"
+                                                        Cursor="Hand"
+                                                        ToolTip="Make this preset the default on startup">
+                                                    <Button.Resources>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="CornerRadius" Value="5" />
+                                                        </Style>
+                                                    </Button.Resources>
+                                                    <TextBlock Text="★ Set Default" />
+                                                </Button>
+
+                                                <Button Command="{Binding DeleteActiveTemplateCommand}"
+                                                        IsEnabled="{Binding CanDeleteActiveTemplate}"
+                                                        Background="#FEF2F2"
+                                                        BorderBrush="#FECACA"
+                                                        BorderThickness="1"
+                                                        Foreground="#DC2626"
+                                                        FontSize="11"
+                                                        FontWeight="SemiBold"
+                                                        Padding="8,2"
+                                                        Cursor="Hand"
+                                                        ToolTip="Delete active template preset">
+                                                    <Button.Resources>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="CornerRadius" Value="5" />
+                                                        </Style>
+                                                    </Button.Resources>
+                                                    <TextBlock Text="Delete" />
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <local:SearchableSelect ItemsSource="{Binding Templates}"
+                                                                DisplayMemberPath="DisplayTitle"
+                                                                SelectedItem="{Binding SelectedTemplateOption, Mode=TwoWay}"
+                                                                Placeholder="Select barcode template preset…" />
+                                    </StackPanel>
+
+                                    <!-- Col 2: Target Dimensions -->
+                                    <Border Grid.Column="2"
+                                            Background="White"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
+                                            Padding="12,9"
+                                            VerticalAlignment="Center">
+                                        <Grid>
+                                            <StackPanel>
+                                                <TextBlock Text="TARGET DIMENSIONS"
+                                                           FontSize="10.5"
+                                                           FontWeight="Bold"
+                                                           Foreground="#64748B" />
+                                                <TextBlock Text="{Binding TargetDimensionsSummary}"
+                                                           FontSize="13.5"
+                                                           FontWeight="Bold"
+                                                           Foreground="#0F172A"
+                                                           Margin="0,3,0,0" />
+                                            </StackPanel>
+                                            <Border Background="#EEF2FF"
+                                                    CornerRadius="5"
+                                                    Padding="6,2"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Top">
+                                                <TextBlock Text="{Binding OrientationBadgeText}"
+                                                           FontSize="9.5"
+                                                           FontWeight="Bold"
+                                                           Foreground="#4338CA" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Col 3: Print Queue Summary -->
+                                    <Border Grid.Column="4"
+                                            Background="White"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
+                                            Padding="12,9"
+                                            VerticalAlignment="Center">
+                                        <StackPanel>
+                                            <TextBlock Text="PRINT QUEUE SUMMARY"
+                                                       FontSize="10.5"
+                                                       FontWeight="Bold"
+                                                       Foreground="#64748B" />
+                                            <TextBlock Text="{Binding QueueSummaryText}"
+                                                       FontSize="13.5"
+                                                       FontWeight="Bold"
+                                                       Foreground="#1D4ED8"
+                                                       Margin="0,3,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ========================================================= -->
+                    <!-- 3-TAB SEGMENTED NAVIGATION BAR                            -->
+                    <!-- ========================================================= -->
+                    <Border Background="#E2E8F0"
+                            CornerRadius="11"
+                            Padding="4"
+                            HorizontalAlignment="Left"
+                            Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- Tab 1: Print Queue & Items -->
+                            <Button Command="{Binding SwitchTabCommand}"
+                                    CommandParameter="queue"
+                                    Padding="16,8"
+                                    Margin="0,0,4,0"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    ToolTip="Ctrl+1">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="#475569" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsQueueTabActive}" Value="True">
+                                                <Setter Property="Background" Value="White" />
+                                                <Setter Property="Foreground" Value="#1D4ED8" />
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.Resources>
+                                    <Style TargetType="Border">
+                                        <Setter Property="CornerRadius" Value="8" />
+                                    </Style>
+                                </Button.Resources>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="📋 Print Queue &amp; Items" VerticalAlignment="Center" />
+                                    <Border Background="#DBEAFE"
+                                            CornerRadius="10"
+                                            Padding="6,1"
+                                            Margin="7,0,0,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding QueueProductsCount}"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   Foreground="#1E40AF" />
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Tab 2: Label Content & Styling -->
+                            <Button Command="{Binding SwitchTabCommand}"
+                                    CommandParameter="designer"
+                                    Padding="16,8"
+                                    Margin="0,0,4,0"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    ToolTip="Ctrl+2">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="#475569" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDesignerTabActive}" Value="True">
+                                                <Setter Property="Background" Value="White" />
+                                                <Setter Property="Foreground" Value="#1D4ED8" />
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.Resources>
+                                    <Style TargetType="Border">
+                                        <Setter Property="CornerRadius" Value="8" />
+                                    </Style>
+                                </Button.Resources>
+                                <TextBlock Text="🎨 Label Content &amp; Styling" />
+                            </Button>
+
+                            <!-- Tab 3: Paper & Grid Setup -->
+                            <Button Command="{Binding SwitchTabCommand}"
+                                    CommandParameter="paper"
+                                    Padding="16,8"
+                                    BorderThickness="0"
+                                    Cursor="Hand"
+                                    ToolTip="Ctrl+3">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="#475569" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPaperTabActive}" Value="True">
+                                                <Setter Property="Background" Value="White" />
+                                                <Setter Property="Foreground" Value="#1D4ED8" />
+                                                <Setter Property="FontWeight" Value="Bold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.Resources>
+                                    <Style TargetType="Border">
+                                        <Setter Property="CornerRadius" Value="8" />
+                                    </Style>
+                                </Button.Resources>
+                                <TextBlock Text="📐 Paper &amp; Grid Setup" />
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ========================================================= -->
+                    <!-- MAIN 2-COLUMN STUDIO GRID (LEFT CONTROLS + RIGHT PREVIEW) -->
+                    <!-- ========================================================= -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="7*" />
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="5*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- ===================================================== -->
+                        <!-- LEFT COLUMN: ACTIVE TAB CONTENT                       -->
+                        <!-- ===================================================== -->
+                        <Grid Grid.Column="0">
+
+                            <!-- ************************************************* -->
+                            <!-- TAB 1: PRINT QUEUE & ITEMS                        -->
+                            <!-- ************************************************* -->
+                            <Border Background="White"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="16"
+                                    Padding="20"
+                                    Visibility="{Binding IsQueueTabActive, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+
+                                    <!-- Section Header + Bulk Queue Actions -->
+                                    <Grid Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <TextBlock Text="Add Products to Barcode Print Queue"
+                                                       FontSize="15.5"
+                                                       FontWeight="Bold"
+                                                       Foreground="#0F172A" />
+                                            <TextBlock Text="Load from Purchase Invoices (GRN) / Purchase Orders or search products directly (Ctrl+F / F2)."
+                                                       FontSize="12"
+                                                       Foreground="#64748B"
+                                                       Margin="0,2,0,0" />
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding HasQueueItems, Converter={StaticResource BoolToVis}}">
+                                            <Button Command="{Binding FillAllStockQuantitiesCommand}"
+                                                    Background="#EEF2FF"
+                                                    BorderBrush="#C7D2FE"
+                                                    BorderThickness="1"
+                                                    Foreground="#4338CA"
+                                                    FontSize="11.5"
+                                                    FontWeight="SemiBold"
+                                                    Padding="10,5"
+                                                    Margin="0,0,6,0"
+                                                    Cursor="Hand"
+                                                    ToolTip="Set each item's print quantity to its available batch or product stock">
+                                                <Button.Resources>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="CornerRadius" Value="7" />
+                                                    </Style>
+                                                </Button.Resources>
+                                                <TextBlock Text="Fill Stock Qty" />
+                                            </Button>
+
+                                            <Button Command="{Binding ResetAllQuantitiesToOneCommand}"
+                                                    Background="#F8FAFC"
+                                                    BorderBrush="#CBD5E1"
+                                                    BorderThickness="1"
+                                                    Foreground="#334155"
+                                                    FontSize="11.5"
+                                                    FontWeight="SemiBold"
+                                                    Padding="10,5"
+                                                    Margin="0,0,6,0"
+                                                    Cursor="Hand">
+                                                <Button.Resources>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="CornerRadius" Value="7" />
+                                                    </Style>
+                                                </Button.Resources>
+                                                <TextBlock Text="All to 1" />
+                                            </Button>
+
+                                            <Button Command="{Binding ClearQueueCommand}"
+                                                    Background="#FEF2F2"
+                                                    BorderBrush="#FECACA"
+                                                    BorderThickness="1"
+                                                    Foreground="#DC2626"
+                                                    FontSize="11.5"
+                                                    FontWeight="SemiBold"
+                                                    Padding="10,5"
+                                                    Cursor="Hand">
+                                                <Button.Resources>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="CornerRadius" Value="7" />
+                                                    </Style>
+                                                </Button.Resources>
+                                                <TextBlock Text="Clear All" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Load Items from GRN / PO Panel -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#CBD5E1"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14"
+                                            Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,10">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="📦 Load Items from GRN or Purchase Order"
+                                                               FontSize="12.5"
+                                                               FontWeight="Bold"
+                                                               Foreground="#1E293B" />
+                                                </StackPanel>
+
+                                                <!-- Source Switcher -->
+                                                <Border Background="#E2E8F0"
+                                                        CornerRadius="8"
+                                                        Padding="2"
+                                                        HorizontalAlignment="Right">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button Command="{Binding SetImportSourceTypeCommand}"
+                                                                CommandParameter="purchase_invoices"
+                                                                Padding="10,4"
+                                                                BorderThickness="0"
+                                                                FontSize="11.5"
+                                                                Cursor="Hand">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button">
+                                                                    <Setter Property="Background" Value="Transparent" />
+                                                                    <Setter Property="Foreground" Value="#475569" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsImportInvoicesActive}" Value="True">
+                                                                            <Setter Property="Background" Value="White" />
+                                                                            <Setter Property="Foreground" Value="#1D4ED8" />
+                                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                            <Button.Resources>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="CornerRadius" Value="6" />
+                                                                </Style>
+                                                            </Button.Resources>
+                                                            <TextBlock Text="Purchase Invoices (GRN)" />
+                                                        </Button>
+
+                                                        <Button Command="{Binding SetImportSourceTypeCommand}"
+                                                                CommandParameter="purchase_orders"
+                                                                Padding="10,4"
+                                                                BorderThickness="0"
+                                                                FontSize="11.5"
+                                                                Cursor="Hand">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button">
+                                                                    <Setter Property="Background" Value="Transparent" />
+                                                                    <Setter Property="Foreground" Value="#475569" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsImportOrdersActive}" Value="True">
+                                                                            <Setter Property="Background" Value="White" />
+                                                                            <Setter Property="Foreground" Value="#1D4ED8" />
+                                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                            <Button.Resources>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="CornerRadius" Value="6" />
+                                                                </Style>
+                                                            </Button.Resources>
+                                                            <TextBlock Text="Purchase Orders" />
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+
+                                            <!-- 3 Filter Dropdowns: Supplier, Brand, Document -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="3*" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="3*" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="6*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="FILTER BY SUPPLIER"
+                                                               FontSize="10"
+                                                               FontWeight="Bold"
+                                                               Foreground="#64748B"
+                                                               Margin="0,0,0,4" />
+                                                    <local:SearchableSelect ItemsSource="{Binding SupplierFilterOptions}"
+                                                                            DisplayMemberPath="Label"
+                                                                            SelectedItem="{Binding SelectedSupplierFilterOption, Mode=TwoWay}"
+                                                                            Placeholder="All Suppliers" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="FILTER BY BRAND"
+                                                               FontSize="10"
+                                                               FontWeight="Bold"
+                                                               Foreground="#64748B"
+                                                               Margin="0,0,0,4" />
+                                                    <local:SearchableSelect ItemsSource="{Binding BrandFilterOptions}"
+                                                                            DisplayMemberPath="Label"
+                                                                            SelectedItem="{Binding SelectedBrandFilterOption, Mode=TwoWay}"
+                                                                            Placeholder="All Brands" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="{Binding ImportDocumentSelectLabel}"
+                                                               FontSize="10"
+                                                               FontWeight="Bold"
+                                                               Foreground="#64748B"
+                                                               Margin="0,0,0,4" />
+                                                    <local:SearchableSelect ItemsSource="{Binding ImportDocumentOptions}"
+                                                                            DisplayMemberPath="DisplayTitle"
+                                                                            SelectedItem="{Binding SelectedImportDocumentOption, Mode=TwoWay}"
+                                                                            Placeholder="{Binding ImportDocumentPlaceholder}" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Selected Document Items Preview & Importer -->
+                                            <Border Background="White"
+                                                    BorderBrush="#CBD5E1"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="12"
+                                                    Margin="0,12,0,0"
+                                                    Visibility="{Binding HasSelectedImportDocument, Converter={StaticResource BoolToVis}}">
+                                                <StackPanel>
+                                                    <Grid Margin="0,0,0,8">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Button Command="{Binding SelectAllImportLinesCommand}"
+                                                                    Background="#F1F5F9"
+                                                                    BorderBrush="#CBD5E1"
+                                                                    BorderThickness="1"
+                                                                    Foreground="#334155"
+                                                                    FontSize="11"
+                                                                    FontWeight="SemiBold"
+                                                                    Padding="8,3"
+                                                                    Margin="0,0,10,0"
+                                                                    Cursor="Hand">
+                                                                <Button.Resources>
+                                                                    <Style TargetType="Border">
+                                                                        <Setter Property="CornerRadius" Value="5" />
+                                                                    </Style>
+                                                                </Button.Resources>
+                                                                <TextBlock Text="Toggle All" />
+                                                            </Button>
+
+                                                            <TextBlock Text="Quantity Mode:"
+                                                                       FontSize="11.5"
+                                                                       Foreground="#475569"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="0,0,6,0" />
+
+                                                            <Button Command="{Binding SetImportQuantityModeCommand}"
+                                                                    CommandParameter="units"
+                                                                    Padding="8,3"
+                                                                    Margin="0,0,4,0"
+                                                                    FontSize="11"
+                                                                    BorderThickness="1"
+                                                                    Cursor="Hand">
+                                                                <Button.Style>
+                                                                    <Style TargetType="Button">
+                                                                        <Setter Property="Background" Value="#F8FAFC" />
+                                                                        <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                                        <Setter Property="Foreground" Value="#475569" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsImportUnitsMode}" Value="True">
+                                                                                <Setter Property="Background" Value="#DBEAFE" />
+                                                                                <Setter Property="BorderBrush" Value="#93C5FD" />
+                                                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                                                <Setter Property="FontWeight" Value="Bold" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Button.Style>
+                                                                <Button.Resources>
+                                                                    <Style TargetType="Border">
+                                                                        <Setter Property="CornerRadius" Value="5" />
+                                                                    </Style>
+                                                                </Button.Resources>
+                                                                <TextBlock Text="Units" />
+                                                            </Button>
+
+                                                            <Button Command="{Binding SetImportQuantityModeCommand}"
+                                                                    CommandParameter="packs"
+                                                                    Padding="8,3"
+                                                                    FontSize="11"
+                                                                    BorderThickness="1"
+                                                                    Cursor="Hand">
+                                                                <Button.Style>
+                                                                    <Style TargetType="Button">
+                                                                        <Setter Property="Background" Value="#F8FAFC" />
+                                                                        <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                                        <Setter Property="Foreground" Value="#475569" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsImportPacksMode}" Value="True">
+                                                                                <Setter Property="Background" Value="#DBEAFE" />
+                                                                                <Setter Property="BorderBrush" Value="#93C5FD" />
+                                                                                <Setter Property="Foreground" Value="#1E40AF" />
+                                                                                <Setter Property="FontWeight" Value="Bold" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Button.Style>
+                                                                <Button.Resources>
+                                                                    <Style TargetType="Border">
+                                                                        <Setter Property="CornerRadius" Value="5" />
+                                                                    </Style>
+                                                                </Button.Resources>
+                                                                <TextBlock Text="Packs" />
+                                                            </Button>
+                                                        </StackPanel>
+
+                                                        <Button Command="{Binding AddSelectedImportItemsToQueueCommand}"
+                                                                HorizontalAlignment="Right"
+                                                                Background="#16A34A"
+                                                                BorderBrush="#15803D"
+                                                                BorderThickness="1"
+                                                                Foreground="White"
+                                                                FontWeight="Bold"
+                                                                FontSize="11.5"
+                                                                Padding="12,5"
+                                                                Cursor="Hand">
+                                                            <Button.Resources>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="CornerRadius" Value="7" />
+                                                                </Style>
+                                                            </Button.Resources>
+                                                            <TextBlock Text="{Binding AddSelectedImportButtonText}" />
+                                                        </Button>
+                                                    </Grid>
+
+                                                    <Border MaxHeight="210"
+                                                            BorderBrush="#E2E8F0"
+                                                            BorderThickness="1"
+                                                            CornerRadius="8">
+                                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                                            <ItemsControl ItemsSource="{Binding ImportDocumentLines}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border BorderBrush="#F1F5F9"
+                                                                                BorderThickness="0,0,0,1"
+                                                                                Padding="8,6">
+                                                                            <Grid>
+                                                                                <Grid.ColumnDefinitions>
+                                                                                    <ColumnDefinition Width="28" />
+                                                                                    <ColumnDefinition Width="4*" />
+                                                                                    <ColumnDefinition Width="3*" />
+                                                                                    <ColumnDefinition Width="3*" />
+                                                                                    <ColumnDefinition Width="90" />
+                                                                                </Grid.ColumnDefinitions>
+
+                                                                                <CheckBox Grid.Column="0"
+                                                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                                          VerticalAlignment="Center" />
+
+                                                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                                    <TextBlock Text="{Binding ProductName}"
+                                                                                               FontWeight="SemiBold"
+                                                                                               FontSize="12"
+                                                                                               Foreground="#0F172A"
+                                                                                               TextTrimming="CharacterEllipsis" />
+                                                                                    <TextBlock Text="{Binding Barcode}"
+                                                                                               FontFamily="Consolas"
+                                                                                               FontSize="10.5"
+                                                                                               Foreground="#64748B" />
+                                                                                </StackPanel>
+
+                                                                                <TextBlock Grid.Column="2"
+                                                                                           Text="{Binding OrderedSummaryText}"
+                                                                                           FontSize="11"
+                                                                                           Foreground="#475569"
+                                                                                           VerticalAlignment="Center" />
+
+                                                                                <Border Grid.Column="3"
+                                                                                        Background="#F1F5F9"
+                                                                                        CornerRadius="5"
+                                                                                        Padding="6,2"
+                                                                                        HorizontalAlignment="Left"
+                                                                                        VerticalAlignment="Center">
+                                                                                    <TextBlock Text="{Binding BatchExpiryBadgeText}"
+                                                                                               FontSize="10.5"
+                                                                                               Foreground="#334155" />
+                                                                                </Border>
+
+                                                                                <TextBox Grid.Column="4"
+                                                                                         Text="{Binding StickerQty, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                                         Width="74"
+                                                                                         Padding="6,3"
+                                                                                         FontSize="12"
+                                                                                         FontWeight="Bold"
+                                                                                         TextAlignment="Center"
+                                                                                         VerticalAlignment="Center" />
+                                                                            </Grid>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </ScrollViewer>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Fast Product Search & Add Box -->
+                                    <Border Background="#EFF6FF"
+                                            BorderBrush="#BFDBFE"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14,12"
+                                            Margin="0,0,0,14">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,6">
+                                                <TextBlock Text="🔍 Fast Product Search / Barcode Scan (Ctrl+F / F2)"
+                                                           FontSize="12"
+                                                           FontWeight="Bold"
+                                                           Foreground="#1E3A8A" />
+                                                <TextBlock Text="↑/↓ Navigate • Enter ↵ Add to Queue"
+                                                           FontSize="11"
+                                                           Foreground="#3B82F6"
+                                                           HorizontalAlignment="Right" />
+                                            </Grid>
+
+                                            <Grid>
+                                                <TextBox x:Name="ProductSearchTextBox"
+                                                         Text="{Binding ProductSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Padding="12,9"
+                                                         FontSize="13"
+                                                         Background="White"
+                                                         BorderBrush="#93C5FD"
+                                                         BorderThickness="1"
+                                                         GotFocus="ProductSearchTextBox_OnGotFocus"
+                                                         PreviewKeyDown="ProductSearchTextBox_OnPreviewKeyDown" />
+                                                <TextBlock Text="Search product by name, SKU, barcode, formulation, or scan barcode…"
+                                                           Foreground="#94A3B8"
+                                                           FontSize="12.5"
+                                                           Margin="14,0,0,0"
+                                                           VerticalAlignment="Center"
+                                                           IsHitTestVisible="False">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Text, ElementName=ProductSearchTextBox}" Value="">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Grid>
+
+                                            <!-- Live Product Search Dropdown List -->
+                                            <Border Background="White"
+                                                    BorderBrush="#CBD5E1"
+                                                    BorderThickness="1"
+                                                    CornerRadius="8"
+                                                    Margin="0,6,0,0"
+                                                    MaxHeight="210"
+                                                    Visibility="{Binding IsProductDropdownOpen, Converter={StaticResource BoolToVis}}">
+                                                <ListBox x:Name="ProductSearchListBox"
+                                                         ItemsSource="{Binding ProductSearchResults}"
+                                                         SelectedItem="{Binding HighlightedSearchProduct, Mode=TwoWay}"
+                                                         BorderThickness="0"
+                                                         MouseLeftButtonUp="ProductSearchListBox_OnMouseLeftButtonUp">
+                                                    <ListBox.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="4,3">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <StackPanel Grid.Column="0">
+                                                                    <TextBlock Text="{Binding Name}"
+                                                                               FontWeight="SemiBold"
+                                                                               FontSize="12.5"
+                                                                               Foreground="#0F172A" />
+                                                                    <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                                                        <TextBlock Text="{Binding Barcode}"
+                                                                                   FontFamily="Consolas"
+                                                                                   FontSize="11"
+                                                                                   Foreground="#2563EB"
+                                                                                   Margin="0,0,10,0" />
+                                                                        <TextBlock Text="{Binding BrandName}"
+                                                                                   FontSize="11"
+                                                                                   Foreground="#64748B" />
+                                                                    </StackPanel>
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="1"
+                                                                            Orientation="Horizontal"
+                                                                            VerticalAlignment="Center">
+                                                                    <Border Background="#F1F5F9"
+                                                                            CornerRadius="5"
+                                                                            Padding="7,2"
+                                                                            Margin="0,0,6,0">
+                                                                        <TextBlock FontSize="11" Foreground="#334155">
+                                                                            <Run Text="Stock: " />
+                                                                            <Run Text="{Binding Quantity, Mode=OneWay}" FontWeight="Bold" />
+                                                                        </TextBlock>
+                                                                    </Border>
+                                                                    <Border Background="#ECFDF5"
+                                                                            CornerRadius="5"
+                                                                            Padding="7,2">
+                                                                        <TextBlock FontSize="11" FontWeight="Bold" Foreground="#047857">
+                                                                            <Run Text="Rs. " />
+                                                                            <Run Text="{Binding UnitSalePrice, Mode=OneWay, StringFormat=N0}" />
+                                                                        </TextBlock>
+                                                                    </Border>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ListBox.ItemTemplate>
+                                                </ListBox>
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Partial Sheet Reuse Banner (Sheet Mode Only) -->
+                                    <Border Background="#FFFBEB"
+                                            BorderBrush="#FDE68A"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
+                                            Padding="14,10"
+                                            Margin="0,0,0,14"
+                                            Visibility="{Binding IsSheetMode, Converter={StaticResource BoolToVis}}">
+                                        <Grid>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="♻ Partial Sticker Sheet Reuse"
+                                                           FontSize="12.5"
+                                                           FontWeight="Bold"
+                                                           Foreground="#92400E" />
+                                                <TextBlock Text="Skip already-peeled sticker positions at the top of Sheet 1 so zero A4 labels are wasted."
+                                                           FontSize="11.5"
+                                                           Foreground="#B45309" />
+                                            </StackPanel>
+
+                                            <StackPanel Orientation="Horizontal"
+                                                        HorizontalAlignment="Right"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock Text="Skip First:"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#92400E"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,0,8,0" />
+                                                <TextBox Text="{Binding SkipLabelsCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Width="64"
+                                                         Padding="6,4"
+                                                         FontSize="12.5"
+                                                         FontWeight="Bold"
+                                                         TextAlignment="Center"
+                                                         Background="White"
+                                                         BorderBrush="#FCD34D" />
+                                                <TextBlock FontSize="11"
+                                                           Foreground="#B45309"
+                                                           VerticalAlignment="Center"
+                                                           Margin="6,0,0,0">
+                                                    <Run Text="/ " />
+                                                    <Run Text="{Binding LabelsPerSheetCapacity, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Empty Queue Placeholder -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="28"
+                                            Visibility="{Binding IsQueueEmpty, Converter={StaticResource BoolToVis}}">
+                                        <StackPanel HorizontalAlignment="Center">
+                                            <TextBlock Text="🏷"
+                                                       FontSize="32"
+                                                       HorizontalAlignment="Center"
+                                                       Margin="0,0,0,8" />
+                                            <TextBlock Text="Your Barcode Print Queue is Empty"
+                                                       FontSize="14.5"
+                                                       FontWeight="Bold"
+                                                       Foreground="#334155"
+                                                       HorizontalAlignment="Center" />
+                                            <TextBlock Text="Search a product above (Ctrl+F) or load items from a Purchase Invoice (GRN) / Purchase Order to begin printing."
+                                                       FontSize="12"
+                                                       Foreground="#64748B"
+                                                       TextAlignment="Center"
+                                                       Margin="0,4,0,0" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Print Queue Table -->
+                                    <Border BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Visibility="{Binding HasQueueItems, Converter={StaticResource BoolToVis}}">
+                                        <StackPanel>
+                                            <!-- Table Header -->
+                                            <Border Background="#F8FAFC"
+                                                    BorderBrush="#E2E8F0"
+                                                    BorderThickness="0,0,0,1"
+                                                    CornerRadius="12,12,0,0"
+                                                    Padding="12,9">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="3.5*" />
+                                                        <ColumnDefinition Width="4.2*" />
+                                                        <ColumnDefinition Width="1.6*" />
+                                                        <ColumnDefinition Width="130" />
+                                                        <ColumnDefinition Width="74" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="ITEM &amp; BARCODE" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                                    <TextBlock Grid.Column="1" Text="BATCH &amp; EXPIRY SELECTION" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" />
+                                                    <TextBlock Grid.Column="2" Text="PRICE" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" TextAlignment="Right" Margin="0,0,10,0" />
+                                                    <TextBlock Grid.Column="3" Text="PRINT QTY" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" TextAlignment="Center" />
+                                                    <TextBlock Grid.Column="4" Text="ACTION" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" TextAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Queue Rows -->
+                                            <ItemsControl ItemsSource="{Binding PrintQueue}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BorderBrush="#F1F5F9"
+                                                                BorderThickness="0,0,0,1"
+                                                                Padding="12,10">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="White" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsPreviewed}" Value="True">
+                                                                            <Setter Property="Background" Value="#F0F9FF" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="3.5*" />
+                                                                    <ColumnDefinition Width="4.2*" />
+                                                                    <ColumnDefinition Width="1.6*" />
+                                                                    <ColumnDefinition Width="130" />
+                                                                    <ColumnDefinition Width="74" />
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <!-- Col 0: Item & Barcode -->
+                                                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                                    <TextBlock Text="{Binding ProductName}"
+                                                                               FontSize="13"
+                                                                               FontWeight="Bold"
+                                                                               Foreground="#0F172A"
+                                                                               TextWrapping="Wrap" />
+                                                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                                        <Border Background="#F1F5F9"
+                                                                                CornerRadius="5"
+                                                                                Padding="6,2"
+                                                                                Margin="0,0,6,0">
+                                                                            <TextBlock Text="{Binding Barcode}"
+                                                                                       FontFamily="Consolas"
+                                                                                       FontSize="11"
+                                                                                       FontWeight="SemiBold"
+                                                                                       Foreground="#334155" />
+                                                                        </Border>
+                                                                        <Border Background="#ECFDF5"
+                                                                                CornerRadius="5"
+                                                                                Padding="6,2">
+                                                                            <TextBlock Text="{Binding FormattedStockBadge}"
+                                                                                       FontSize="10.5"
+                                                                                       FontWeight="SemiBold"
+                                                                                       Foreground="#047857" />
+                                                                        </Border>
+                                                                    </StackPanel>
+                                                                </StackPanel>
+
+                                                                <!-- Col 1: Batch & Expiry Selection -->
+                                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                                    <local:SearchableSelect ItemsSource="{Binding BatchOptions}"
+                                                                                            DisplayMemberPath="Label"
+                                                                                            SelectedItem="{Binding SelectedBatchOption, Mode=TwoWay}"
+                                                                                            Placeholder="Select batch…" />
+
+                                                                    <!-- Custom Batch & dd-MM-yyyy DatePicker (when Custom selected) -->
+                                                                    <Grid Margin="0,6,0,0"
+                                                                          Visibility="{Binding IsCustomBatchSelected, Converter={StaticResource BoolToVis}}">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*" />
+                                                                            <ColumnDefinition Width="8" />
+                                                                            <ColumnDefinition Width="*" />
+                                                                        </Grid.ColumnDefinitions>
+
+                                                                        <TextBox Grid.Column="0"
+                                                                                 Text="{Binding BatchNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                                 Padding="7,5"
+                                                                                 FontSize="12"
+                                                                                 ToolTip="Custom Batch Number" />
+
+                                                                        <DatePicker Grid.Column="2"
+                                                                                    SelectedDate="{Binding ExpiryDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                                    SelectedDateFormat="Short"
+                                                                                    Loaded="CustomExpiryDatePicker_OnLoaded"
+                                                                                    ToolTip="Custom Expiry Date (dd-MM-yyyy)" />
+                                                                    </Grid>
+
+                                                                    <!-- Quick "Print All (BatchStock)" Button -->
+                                                                    <Button Command="{Binding FillBatchStockQtyCommand}"
+                                                                            HorizontalAlignment="Left"
+                                                                            Margin="0,4,0,0"
+                                                                            Padding="7,2"
+                                                                            Background="#EFF6FF"
+                                                                            BorderBrush="#BFDBFE"
+                                                                            BorderThickness="1"
+                                                                            Foreground="#1D4ED8"
+                                                                            FontSize="10.5"
+                                                                            FontWeight="SemiBold"
+                                                                            Cursor="Hand"
+                                                                            Visibility="{Binding CanPrintAllBatchStock, Converter={StaticResource BoolToVis}}">
+                                                                        <Button.Resources>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="CornerRadius" Value="4" />
+                                                                            </Style>
+                                                                        </Button.Resources>
+                                                                        <TextBlock Text="{Binding PrintAllBatchButtonText}" />
+                                                                    </Button>
+                                                                </StackPanel>
+
+                                                                <!-- Col 2: Price -->
+                                                                <TextBlock Grid.Column="2"
+                                                                           Text="{Binding DisplayPriceText}"
+                                                                           FontSize="12.5"
+                                                                           FontWeight="Bold"
+                                                                           Foreground="#0F172A"
+                                                                           TextAlignment="Right"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="0,0,10,0" />
+
+                                                                <!-- Col 3: Print Qty Stepper -->
+                                                                <StackPanel Grid.Column="3"
+                                                                            Orientation="Horizontal"
+                                                                            HorizontalAlignment="Center"
+                                                                            VerticalAlignment="Center">
+                                                                    <Button Command="{Binding DecrementQtyCommand}"
+                                                                            Width="28"
+                                                                            Height="28"
+                                                                            Background="#F1F5F9"
+                                                                            BorderBrush="#CBD5E1"
+                                                                            BorderThickness="1"
+                                                                            FontWeight="Bold"
+                                                                            Cursor="Hand">
+                                                                        <Button.Resources>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="CornerRadius" Value="6" />
+                                                                            </Style>
+                                                                        </Button.Resources>
+                                                                        <TextBlock Text="−" />
+                                                                    </Button>
+
+                                                                    <TextBox Text="{Binding PrintQty, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                             Width="54"
+                                                                             Height="28"
+                                                                             Margin="4,0"
+                                                                             VerticalContentAlignment="Center"
+                                                                             TextAlignment="Center"
+                                                                             FontWeight="Bold"
+                                                                             FontSize="12.5"
+                                                                             BorderBrush="#CBD5E1" />
+
+                                                                    <Button Command="{Binding IncrementQtyCommand}"
+                                                                            Width="28"
+                                                                            Height="28"
+                                                                            Background="#F1F5F9"
+                                                                            BorderBrush="#CBD5E1"
+                                                                            BorderThickness="1"
+                                                                            FontWeight="Bold"
+                                                                            Cursor="Hand">
+                                                                        <Button.Resources>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="CornerRadius" Value="6" />
+                                                                            </Style>
+                                                                        </Button.Resources>
+                                                                        <TextBlock Text="+" />
+                                                                    </Button>
+                                                                </StackPanel>
+
+                                                                <!-- Col 4: Preview & Delete Actions -->
+                                                                <StackPanel Grid.Column="4"
+                                                                            Orientation="Horizontal"
+                                                                            HorizontalAlignment="Center"
+                                                                            VerticalAlignment="Center">
+                                                                    <Button Command="{Binding PreviewRowCommand}"
+                                                                            Width="30"
+                                                                            Height="28"
+                                                                            Margin="0,0,4,0"
+                                                                            Background="#EFF6FF"
+                                                                            BorderBrush="#BFDBFE"
+                                                                            BorderThickness="1"
+                                                                            Cursor="Hand"
+                                                                            ToolTip="Preview this item on the live sticker canvas">
+                                                                        <Button.Resources>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="CornerRadius" Value="6" />
+                                                                            </Style>
+                                                                        </Button.Resources>
+                                                                        <TextBlock Text="👁" FontSize="12" />
+                                                                    </Button>
+
+                                                                    <Button Command="{Binding RemoveRowCommand}"
+                                                                            Width="30"
+                                                                            Height="28"
+                                                                            Background="#FEF2F2"
+                                                                            BorderBrush="#FECACA"
+                                                                            BorderThickness="1"
+                                                                            Foreground="#DC2626"
+                                                                            Cursor="Hand"
+                                                                            ToolTip="Remove from print queue">
+                                                                        <Button.Resources>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="CornerRadius" Value="6" />
+                                                                            </Style>
+                                                                        </Button.Resources>
+                                                                        <TextBlock Text="✕" FontWeight="Bold" FontSize="11.5" />
+                                                                    </Button>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ************************************************* -->
+                            <!-- TAB 2: LABEL CONTENT & STYLING                    -->
+                            <!-- ************************************************* -->
+                            <Border Background="White"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="16"
+                                    Padding="20"
+                                    Visibility="{Binding IsDesignerTabActive, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock Text="Customize Sticker Elements &amp; Typography"
+                                               FontSize="15.5"
+                                               FontWeight="Bold"
+                                               Foreground="#0F172A" />
+                                    <TextBlock Text="Toggle visible fields, barcode bar density, price format, and pharmaceutical batch/expiry layout."
+                                               FontSize="12"
+                                               Foreground="#64748B"
+                                               Margin="0,2,0,16" />
+
+                                    <!-- 1. Store / Pharmacy Header -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14"
+                                            Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <CheckBox IsChecked="{Binding ShowStoreName, Mode=TwoWay}"
+                                                      Content="Show Business / Pharmacy Store Name"
+                                                      FontWeight="Bold"
+                                                      Foreground="#0F172A" />
+                                            <StackPanel Margin="0,10,0,0"
+                                                        Visibility="{Binding ShowStoreName, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="CUSTOM STORE HEADER OVERRIDE (OPTIONAL)"
+                                                           FontSize="10.5"
+                                                           FontWeight="Bold"
+                                                           Foreground="#64748B"
+                                                           Margin="0,0,0,4" />
+                                                <TextBox Text="{Binding StoreNameOverride, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         Padding="10,7"
+                                                         FontSize="12.5"
+                                                         ToolTip="Leave blank to use store name from Settings" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 2. Product Name & SKU -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14"
+                                            Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <Grid>
+                                                <CheckBox IsChecked="{Binding ShowProductName, Mode=TwoWay}"
+                                                          Content="Show Product Name"
+                                                          FontWeight="Bold"
+                                                          Foreground="#0F172A"
+                                                          VerticalAlignment="Center" />
+
+                                                <StackPanel Orientation="Horizontal"
+                                                            HorizontalAlignment="Right"
+                                                            Visibility="{Binding ShowProductName, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="Max Lines:"
+                                                               FontSize="11.5"
+                                                               Foreground="#475569"
+                                                               VerticalAlignment="Center"
+                                                               Margin="0,0,6,0" />
+                                                    <Button Command="{Binding SetNameLinesCountCommand}"
+                                                            CommandParameter="1"
+                                                            Padding="9,3"
+                                                            Margin="0,0,4,0"
+                                                            FontSize="11"
+                                                            BorderThickness="1"
+                                                            Cursor="Hand">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsNameLines1}" Value="True">
+                                                                        <Setter Property="Background" Value="#DBEAFE" />
+                                                                        <Setter Property="BorderBrush" Value="#2563EB" />
+                                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                        <TextBlock Text="1 Line" />
+                                                    </Button>
+
+                                                    <Button Command="{Binding SetNameLinesCountCommand}"
+                                                            CommandParameter="2"
+                                                            Padding="9,3"
+                                                            FontSize="11"
+                                                            BorderThickness="1"
+                                                            Cursor="Hand">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsNameLines2}" Value="True">
+                                                                        <Setter Property="Background" Value="#DBEAFE" />
+                                                                        <Setter Property="BorderBrush" Value="#2563EB" />
+                                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                        <TextBlock Text="2 Lines" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <CheckBox IsChecked="{Binding ShowProductCode, Mode=TwoWay}"
+                                                      Content="Show Internal Product Code (SKU)"
+                                                      Margin="0,10,0,0"
+                                                      Foreground="#334155" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 3. Barcode Vector Graphic -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14"
+                                            Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <CheckBox IsChecked="{Binding ShowBarcode, Mode=TwoWay}"
+                                                      Content="Show Vector Barcode (Code 128 Auto)"
+                                                      FontWeight="Bold"
+                                                      Foreground="#0F172A" />
+
+                                            <StackPanel Margin="0,10,0,0"
+                                                        Visibility="{Binding ShowBarcode, Converter={StaticResource BoolToVis}}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="16" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,4">
+                                                            <Run Text="Bar Height: " />
+                                                            <Run Text="{Binding BarcodeHeight, Mode=OneWay}" FontWeight="Bold" />
+                                                            <Run Text=" px" />
+                                                        </TextBlock>
+                                                        <Slider Minimum="16"
+                                                                Maximum="50"
+                                                                TickFrequency="1"
+                                                                IsSnapToTickEnabled="True"
+                                                                Value="{Binding BarcodeHeight, Mode=TwoWay}" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="2">
+                                                        <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,4">
+                                                            <Run Text="Bar Width / Density: " />
+                                                            <Run Text="{Binding BarWidth, Mode=OneWay, StringFormat=F1}" FontWeight="Bold" />
+                                                        </TextBlock>
+                                                        <Slider Minimum="1.0"
+                                                                Maximum="2.2"
+                                                                TickFrequency="0.1"
+                                                                IsSnapToTickEnabled="True"
+                                                                Value="{Binding BarWidth, Mode=TwoWay}" />
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <CheckBox IsChecked="{Binding ShowBarcodeText, Mode=TwoWay}"
+                                                          Content="Show Human-Readable Code Digits Under Bars"
+                                                          Margin="0,10,0,0"
+                                                          Foreground="#334155" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 4. Price Tag -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14"
+                                            Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <CheckBox IsChecked="{Binding ShowPrice, Mode=TwoWay}"
+                                                      Content="Show Product Selling Price"
+                                                      FontWeight="Bold"
+                                                      Foreground="#0F172A" />
+
+                                            <Grid Margin="0,10,0,0"
+                                                  Visibility="{Binding ShowPrice, Converter={StaticResource BoolToVis}}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="6*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="4*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="PRICE SOURCE"
+                                                               FontSize="10.5"
+                                                               FontWeight="Bold"
+                                                               Foreground="#64748B"
+                                                               Margin="0,0,0,4" />
+                                                    <local:SearchableSelect ItemsSource="{Binding PriceTypeOptions}"
+                                                                            DisplayMemberPath="Label"
+                                                                            SelectedItem="{Binding SelectedPriceTypeOption, Mode=TwoWay}" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="PRICE PREFIX"
+                                                               FontSize="10.5"
+                                                               FontWeight="Bold"
+                                                               Foreground="#64748B"
+                                                               Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding PricePrefix, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Padding="9,7"
+                                                             FontSize="12.5" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 5. Pharmaceutical Batch & Expiry -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14"
+                                            Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <TextBlock Text="Pharmaceutical Batch &amp; Expiry"
+                                                       FontWeight="Bold"
+                                                       Foreground="#0F172A"
+                                                       Margin="0,0,0,8" />
+
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="1.4*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <CheckBox Grid.Column="0"
+                                                          IsChecked="{Binding ShowBatch, Mode=TwoWay}"
+                                                          Content="Show Batch No"
+                                                          VerticalAlignment="Center" />
+
+                                                <CheckBox Grid.Column="1"
+                                                          IsChecked="{Binding ShowExpiry, Mode=TwoWay}"
+                                                          Content="Show Expiry Date"
+                                                          VerticalAlignment="Center" />
+
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="EXPIRY FORMAT"
+                                                               FontSize="10"
+                                                               FontWeight="Bold"
+                                                               Foreground="#64748B"
+                                                               Margin="0,0,0,3" />
+                                                    <local:SearchableSelect ItemsSource="{Binding ExpiryFormatOptions}"
+                                                                            DisplayMemberPath="Label"
+                                                                            SelectedItem="{Binding SelectedExpiryFormatOption, Mode=TwoWay}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- 6. Footer & Typography -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14">
+                                        <StackPanel>
+                                            <TextBlock Text="CUSTOM FOOTER / PROMO LINE"
+                                                       FontSize="10.5"
+                                                       FontWeight="Bold"
+                                                       Foreground="#64748B"
+                                                       Margin="0,0,0,4" />
+                                            <TextBox Text="{Binding CustomFooter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     Padding="10,7"
+                                                     FontSize="12.5"
+                                                     Margin="0,0,0,12" />
+
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="16" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,4">
+                                                        <Run Text="Base Font Scale: " />
+                                                        <Run Text="{Binding FontScale, Mode=OneWay}" FontWeight="Bold" />
+                                                        <Run Text=" pt" />
+                                                    </TextBlock>
+                                                    <Slider Minimum="8"
+                                                            Maximum="14"
+                                                            TickFrequency="1"
+                                                            IsSnapToTickEnabled="True"
+                                                            Value="{Binding FontScale, Mode=TwoWay}" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="ALIGNMENT"
+                                                               FontSize="10"
+                                                               FontWeight="Bold"
+                                                               Foreground="#64748B"
+                                                               Margin="0,0,0,4" />
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button Command="{Binding SetTextAlignmentModeCommand}"
+                                                                CommandParameter="center"
+                                                                Padding="10,4"
+                                                                Margin="0,0,4,0"
+                                                                BorderThickness="1"
+                                                                Cursor="Hand">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button">
+                                                                    <Setter Property="Background" Value="White" />
+                                                                    <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsTextAlignCenter}" Value="True">
+                                                                            <Setter Property="Background" Value="#DBEAFE" />
+                                                                            <Setter Property="BorderBrush" Value="#2563EB" />
+                                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                            <TextBlock Text="Center" FontSize="11.5" />
+                                                        </Button>
+
+                                                        <Button Command="{Binding SetTextAlignmentModeCommand}"
+                                                                CommandParameter="left"
+                                                                Padding="10,4"
+                                                                BorderThickness="1"
+                                                                Cursor="Hand">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button">
+                                                                    <Setter Property="Background" Value="White" />
+                                                                    <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsTextAlignLeft}" Value="True">
+                                                                            <Setter Property="Background" Value="#DBEAFE" />
+                                                                            <Setter Property="BorderBrush" Value="#2563EB" />
+                                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                            <TextBlock Text="Left" FontSize="11.5" />
+                                                        </Button>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ************************************************* -->
+                            <!-- TAB 3: PAPER & GRID SETUP                         -->
+                            <!-- ************************************************* -->
+                            <Border Background="White"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="16"
+                                    Padding="20"
+                                    Visibility="{Binding IsPaperTabActive, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock Text="Printer Media &amp; Millimeter Calibration"
+                                               FontSize="15.5"
+                                               FontWeight="Bold"
+                                               Foreground="#0F172A" />
+                                    <TextBlock Text="Choose continuous thermal sticker rolls (Xprinter, Zebra, TSC) or multi-column A4/Letter laser sheets."
+                                               FontSize="12"
+                                               Foreground="#64748B"
+                                               Margin="0,2,0,16" />
+
+                                    <!-- Media Type Selector Cards -->
+                                    <Grid Margin="0,0,0,16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Button Grid.Column="0"
+                                                Command="{Binding SetPaperTypeModeCommand}"
+                                                CommandParameter="roll"
+                                                Padding="16,14"
+                                                HorizontalContentAlignment="Left"
+                                                BorderThickness="2"
+                                                Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="#F8FAFC" />
+                                                    <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsRollMode}" Value="True">
+                                                            <Setter Property="Background" Value="#EFF6FF" />
+                                                            <Setter Property="BorderBrush" Value="#2563EB" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <Button.Resources>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="CornerRadius" Value="12" />
+                                                </Style>
+                                            </Button.Resources>
+                                            <StackPanel>
+                                                <TextBlock Text="🧻 Thermal Roll Printer"
+                                                           FontSize="13.5"
+                                                           FontWeight="Bold"
+                                                           Foreground="#0F172A" />
+                                                <TextBlock Text="1-Up die-cut thermal roll stickers (38×25mm, 50×25mm, 60×40mm)"
+                                                           FontSize="11.5"
+                                                           Foreground="#64748B"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <Button Grid.Column="2"
+                                                Command="{Binding SetPaperTypeModeCommand}"
+                                                CommandParameter="sheet"
+                                                Padding="16,14"
+                                                HorizontalContentAlignment="Left"
+                                                BorderThickness="2"
+                                                Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Background" Value="#F8FAFC" />
+                                                    <Setter Property="BorderBrush" Value="#CBD5E1" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSheetMode}" Value="True">
+                                                            <Setter Property="Background" Value="#EFF6FF" />
+                                                            <Setter Property="BorderBrush" Value="#2563EB" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <Button.Resources>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="CornerRadius" Value="12" />
+                                                </Style>
+                                            </Button.Resources>
+                                            <StackPanel>
+                                                <TextBlock Text="📄 A4 / Letter Sticker Sheet"
+                                                           FontSize="13.5"
+                                                           FontWeight="Bold"
+                                                           Foreground="#0F172A" />
+                                                <TextBlock Text="Multi-column adhesive sticker sheets (30-Up, 40-Up, 65-Up) on laser/inkjet"
+                                                           FontSize="11.5"
+                                                           Foreground="#64748B"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Sticker Width, Height & Orientation -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14"
+                                            Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <TextBlock Text="Single Sticker Dimensions &amp; Orientation"
+                                                       FontWeight="Bold"
+                                                       Foreground="#0F172A"
+                                                       Margin="0,0,0,10" />
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="1.4*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="STICKER WIDTH (MM)" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding WidthMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Padding="9,7"
+                                                             FontSize="13"
+                                                             FontWeight="SemiBold" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="STICKER HEIGHT (MM)" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding HeightMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             Padding="9,7"
+                                                             FontSize="13"
+                                                             FontWeight="SemiBold" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="ORIENTATION" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4" />
+                                                    <local:SearchableSelect ItemsSource="{Binding OrientationOptions}"
+                                                                            DisplayMemberPath="Label"
+                                                                            SelectedItem="{Binding SelectedOrientationOption, Mode=TwoWay}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Inner / Page Margins -->
+                                    <Border Background="#F8FAFC"
+                                            BorderBrush="#E2E8F0"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14"
+                                            Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <TextBlock Text="Margins / Inner Padding (mm)"
+                                                       FontWeight="Bold"
+                                                       Foreground="#0F172A"
+                                                       Margin="0,0,0,10" />
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="TOP (MM)" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding MarginTopMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="LEFT (MM)" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding MarginLeftMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="RIGHT (MM)" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding MarginRightMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="6">
+                                                    <TextBlock Text="BOTTOM (MM)" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding MarginBottomMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Sheet Grid Matrix (Sheet Mode Only) -->
+                                    <Border Background="#EFF6FF"
+                                            BorderBrush="#BFDBFE"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14"
+                                            Visibility="{Binding IsSheetMode, Converter={StaticResource BoolToVis}}">
+                                        <StackPanel>
+                                            <TextBlock Text="A4 Sheet Grid Matrix (Columns, Rows &amp; Gaps)"
+                                                       FontWeight="Bold"
+                                                       Foreground="#1E3A8A"
+                                                       Margin="0,0,0,10" />
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="10" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="COLUMNS" FontSize="10" FontWeight="Bold" Foreground="#1E40AF" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding Columns, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Background="White" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="ROWS" FontSize="10" FontWeight="Bold" Foreground="#1E40AF" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding Rows, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Background="White" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="GAP X (MM)" FontSize="10" FontWeight="Bold" Foreground="#1E40AF" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding GapXMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Background="White" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="6">
+                                                    <TextBlock Text="GAP Y (MM)" FontSize="10" FontWeight="Bold" Foreground="#1E40AF" Margin="0,0,0,4" />
+                                                    <TextBox Text="{Binding GapYMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Background="White" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- ===================================================== -->
+                        <!-- RIGHT COLUMN: LIVE CALIBRATED WYSIWYG STICKER PREVIEW -->
+                        <!-- ===================================================== -->
+                        <Border Grid.Column="2"
+                                Background="White"
+                                BorderBrush="#E2E8F0"
+                                BorderThickness="1"
+                                CornerRadius="16"
+                                Padding="18"
+                                VerticalAlignment="Top">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Live Calibrated Preview"
+                                                   FontSize="15"
+                                                   FontWeight="Bold"
+                                                   Foreground="#0F172A" />
+                                        <TextBlock Text="1:1 physical millimeter aspect ratio"
+                                                   FontSize="11.5"
+                                                   Foreground="#64748B" />
+                                    </StackPanel>
+
+                                    <!-- Zoom Selector (100% / 150% / 200%) -->
+                                    <Border Background="#F1F5F9"
+                                            CornerRadius="8"
+                                            Padding="2"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Command="{Binding SetPreviewZoomCommand}"
+                                                    CommandParameter="100"
+                                                    Padding="8,3"
+                                                    BorderThickness="0"
+                                                    FontSize="11"
+                                                    Cursor="Hand">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsZoom100}" Value="True">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="FontWeight" Value="Bold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="100%" />
+                                            </Button>
+
+                                            <Button Command="{Binding SetPreviewZoomCommand}"
+                                                    CommandParameter="150"
+                                                    Padding="8,3"
+                                                    BorderThickness="0"
+                                                    FontSize="11"
+                                                    Cursor="Hand">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsZoom150}" Value="True">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="FontWeight" Value="Bold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="150%" />
+                                            </Button>
+
+                                            <Button Command="{Binding SetPreviewZoomCommand}"
+                                                    CommandParameter="200"
+                                                    Padding="8,3"
+                                                    BorderThickness="0"
+                                                    FontSize="11"
+                                                    Cursor="Hand">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsZoom200}" Value="True">
+                                                                <Setter Property="Background" Value="White" />
+                                                                <Setter Property="FontWeight" Value="Bold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="200%" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Dark Checkered / Slate Canvas Stage -->
+                                <Border Background="#0F172A"
+                                        CornerRadius="14"
+                                        MinHeight="280"
+                                        Padding="20">
+                                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <Grid HorizontalAlignment="Center"
+                                              VerticalAlignment="Center">
+                                            <!-- Physical Die-Cut White Sticker Card -->
+                                            <Border Width="{Binding StickerWidthDip}"
+                                                    Height="{Binding StickerHeightDip}"
+                                                    Background="White"
+                                                    BorderBrush="#CBD5E1"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="{Binding StickerPaddingThickness}"
+                                                    ClipToBounds="True">
+                                                <Border.LayoutTransform>
+                                                    <ScaleTransform ScaleX="{Binding PreviewScaleFactor}"
+                                                                    ScaleY="{Binding PreviewScaleFactor}" />
+                                                </Border.LayoutTransform>
+
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <!-- Store Name -->
+                                                    <TextBlock Text="{Binding PreviewStoreNameText}"
+                                                               FontSize="{Binding StoreFontSize}"
+                                                               FontWeight="Bold"
+                                                               Foreground="Black"
+                                                               TextAlignment="{Binding PreviewTextAlignment}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Visibility="{Binding ShowStoreName, Converter={StaticResource BoolToVis}}" />
+
+                                                    <!-- Product Name -->
+                                                    <TextBlock Text="{Binding PreviewProductNameText}"
+                                                               FontSize="{Binding ProductFontSize}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="Black"
+                                                               TextAlignment="{Binding PreviewTextAlignment}"
+                                                               TextWrapping="Wrap"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               MaxHeight="{Binding ProductNameMaxHeight}"
+                                                               Margin="0,1,0,0"
+                                                               Visibility="{Binding ShowProductName, Converter={StaticResource BoolToVis}}" />
+
+                                                    <!-- Product SKU Code -->
+                                                    <TextBlock Text="{Binding PreviewProductCodeText}"
+                                                               FontSize="{Binding CodeSkuFontSize}"
+                                                               FontFamily="Consolas"
+                                                               Foreground="#1E293B"
+                                                               TextAlignment="{Binding PreviewTextAlignment}"
+                                                               Visibility="{Binding ShowProductCode, Converter={StaticResource BoolToVis}}" />
+
+                                                    <!-- Pure Vector Code 128 Barcode -->
+                                                    <local:BarcodeVectorControl Value="{Binding PreviewBarcodeValue}"
+                                                                                BarHeight="{Binding BarcodeHeightDip}"
+                                                                                BarWidth="{Binding BarWidth}"
+                                                                                ShowText="{Binding ShowBarcodeText}"
+                                                                                CodeFontSize="{Binding BarcodeCodeFontSize}"
+                                                                                HorizontalAlignment="{Binding PreviewHorizontalAlignment}"
+                                                                                Margin="0,2,0,1"
+                                                                                Visibility="{Binding ShowBarcode, Converter={StaticResource BoolToVis}}" />
+
+                                                    <!-- Batch, Expiry & Price Line -->
+                                                    <WrapPanel HorizontalAlignment="{Binding PreviewHorizontalAlignment}"
+                                                               Margin="0,1,0,0"
+                                                               Visibility="{Binding ShowPreviewBatchOrExpiryRow, Converter={StaticResource BoolToVis}}">
+                                                        <TextBlock Text="{Binding PreviewBatchText}"
+                                                                   FontSize="{Binding MetaFontSize}"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="Black"
+                                                                   Margin="0,0,5,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Visibility="{Binding ShowPreviewBatchElement, Converter={StaticResource BoolToVis}}" />
+
+                                                        <TextBlock Text="{Binding PreviewExpiryText}"
+                                                                   FontSize="{Binding MetaFontSize}"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="Black"
+                                                                   Margin="0,0,5,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Visibility="{Binding ShowPreviewExpiryElement, Converter={StaticResource BoolToVis}}" />
+
+                                                        <TextBlock Text="{Binding PreviewPriceText}"
+                                                                   FontSize="{Binding PriceFontSize}"
+                                                                   FontWeight="ExtraBold"
+                                                                   Foreground="Black"
+                                                                   VerticalAlignment="Center"
+                                                                   Visibility="{Binding ShowPrice, Converter={StaticResource BoolToVis}}" />
+                                                    </WrapPanel>
+
+                                                    <!-- Custom Footer -->
+                                                    <TextBlock Text="{Binding CustomFooter}"
+                                                               FontSize="{Binding FooterFontSize}"
+                                                               Foreground="Black"
+                                                               TextAlignment="{Binding PreviewTextAlignment}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Visibility="{Binding ShowPreviewFooterElement, Converter={StaticResource BoolToVis}}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </ScrollViewer>
+                                </Border>
+
+                                <!-- Active Queue Item Switcher Footer -->
+                                <Grid Margin="0,12,0,0">
+                                    <TextBlock Text="{Binding PreviewActiveItemIndicator}"
+                                               FontSize="11.5"
+                                               FontWeight="SemiBold"
+                                               Foreground="#475569"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Right"
+                                                Visibility="{Binding HasMultipleQueueItems, Converter={StaticResource BoolToVis}}">
+                                        <Button Command="{Binding PreviewPreviousItemCommand}"
+                                                Padding="8,3"
+                                                Margin="0,0,4,0"
+                                                Background="#F8FAFC"
+                                                BorderBrush="#CBD5E1"
+                                                BorderThickness="1"
+                                                FontSize="11"
+                                                Cursor="Hand">
+                                            <TextBlock Text="◀ Prev" />
+                                        </Button>
+                                        <Button Command="{Binding PreviewNextItemCommand}"
+                                                Padding="8,3"
+                                                Background="#F8FAFC"
+                                                BorderBrush="#CBD5E1"
+                                                BorderThickness="1"
+                                                FontSize="11"
+                                                Cursor="Hand">
+                                            <TextBlock Text="Next ▶" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Keyboard Shortcuts Cheat Sheet Card -->
+                                <Border Background="#F8FAFC"
+                                        BorderBrush="#E2E8F0"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="12,10"
+                                        Margin="0,14,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="⚡ Studio Keyboard Shortcuts"
+                                                   FontSize="11.5"
+                                                   FontWeight="Bold"
+                                                   Foreground="#334155"
+                                                   Margin="0,0,0,4" />
+                                        <TextBlock Text="Ctrl+P Print Stickers  •  Ctrl+F / F2 Search Product  •  Ctrl+S Update Preset  •  Ctrl+N Save New Preset  •  Ctrl+1/2/3 Switch Tabs"
+                                                   FontSize="11"
+                                                   Foreground="#64748B"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <!-- ================================================================= -->
+        <!-- SAVE AS CUSTOM PRESET MODAL OVERLAY                               -->
+        <!-- ================================================================= -->
+        <Border Background="#770F172A"
+                Visibility="{Binding IsSavePresetModalOpen, Converter={StaticResource BoolToVis}}">
+            <Border Background="White"
+                    BorderBrush="#CBD5E1"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    Width="440"
+                    Padding="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Save Custom Barcode Template Preset"
+                               FontSize="17"
+                               FontWeight="Bold"
+                               Foreground="#0F172A" />
+                    <TextBlock Text="Save your current millimeter dimensions, grid setup, and label styling for instant reuse."
+                               FontSize="12"
+                               Foreground="#64748B"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,16" />
+
+                    <TextBlock Text="TEMPLATE PRESET NAME"
+                               FontSize="10.5"
+                               FontWeight="Bold"
+                               Foreground="#475569"
+                               Margin="0,0,0,5" />
+                    <TextBox x:Name="NewPresetNameTextBox"
+                             Text="{Binding NewPresetName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="10,8"
+                             FontSize="13.5"
+                             Margin="0,0,0,12" />
+
+                    <CheckBox IsChecked="{Binding NewPresetIsDefault, Mode=TwoWay}"
+                              Content="Set as default barcode template on startup"
+                              Foreground="#334155"
+                              Margin="0,0,0,18" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Command="{Binding CloseSavePresetModalCommand}"
+                                Padding="14,8"
+                                Margin="0,0,8,0"
+                                Background="#F8FAFC"
+                                BorderBrush="#CBD5E1"
+                                BorderThickness="1"
+                                Foreground="#334155"
+                                FontWeight="SemiBold"
+                                Cursor="Hand">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="8" />
+                                </Style>
+                            </Button.Resources>
+                            <TextBlock Text="Cancel (Esc)" />
+                        </Button>
+
+                        <Button Command="{Binding ConfirmSaveNewPresetCommand}"
+                                Padding="16,8"
+                                Background="#2563EB"
+                                BorderBrush="#1D4ED8"
+                                BorderThickness="1"
+                                Foreground="White"
+                                FontWeight="Bold"
+                                Cursor="Hand">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="8" />
+                                </Style>
+                            </Button.Resources>
+                            <TextBlock Text="Save Preset (Enter)" />
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

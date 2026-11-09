@@ -52,6 +52,7 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
         await EnsureUserColumnsExistAsync(db, cancellationToken);
         await EnsureRegularCustomerColumnsExistAsync(db, cancellationToken);
         await EnsureProductSupplierColumnsExistAsync(db, cancellationToken);
+        await EnsureBarcodeTemplateColumnsExistAsync(db, cancellationToken);
 
         var now = DateTime.UtcNow;
 
@@ -609,6 +610,57 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
                 alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"created_at\" TEXT NULL;");
             if (!existingCols.Contains("updated_at"))
                 alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"updated_at\" TEXT NULL;");
+
+            foreach (var sql in alterCommands)
+            {
+                await using var alterCmd = conn.CreateCommand();
+                alterCmd.CommandText = sql;
+                await alterCmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await conn.CloseAsync();
+            }
+        }
+    }
+
+    private static async Task EnsureBarcodeTemplateColumnsExistAsync(KarobarDbContext db, CancellationToken cancellationToken)
+    {
+        var conn = db.Database.GetDbConnection();
+        var shouldClose = conn.State != System.Data.ConnectionState.Open;
+        if (shouldClose)
+        {
+            await conn.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            var existingCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA table_info(\"barcode_templates\");";
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    existingCols.Add(reader.GetString(1));
+                }
+            }
+
+            if (existingCols.Count == 0)
+                return;
+
+            var alterCommands = new List<string>();
+            if (!existingCols.Contains("orientation"))
+                alterCommands.Add("ALTER TABLE \"barcode_templates\" ADD COLUMN \"orientation\" TEXT NOT NULL DEFAULT 'landscape';");
+            if (!existingCols.Contains("margin_right_mm"))
+                alterCommands.Add("ALTER TABLE \"barcode_templates\" ADD COLUMN \"margin_right_mm\" TEXT NOT NULL DEFAULT '1';");
+            if (!existingCols.Contains("margin_bottom_mm"))
+                alterCommands.Add("ALTER TABLE \"barcode_templates\" ADD COLUMN \"margin_bottom_mm\" TEXT NOT NULL DEFAULT '1';");
+            if (!existingCols.Contains("layout_options"))
+                alterCommands.Add("ALTER TABLE \"barcode_templates\" ADD COLUMN \"layout_options\" TEXT NULL;");
 
             foreach (var sql in alterCommands)
             {

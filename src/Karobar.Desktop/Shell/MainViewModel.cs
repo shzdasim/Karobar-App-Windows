@@ -10,6 +10,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IAuthService _authService;
     private readonly IDatabaseInitializerService _dbInitializer;
     private bool _isDbInitialized;
+    private bool _isBarcodeStudioLoaded;
 
     // ------------------------------------------------------------------------
     // Authentication State
@@ -105,6 +106,8 @@ public partial class MainViewModel : ObservableObject
         string.Equals(CurrentPath, "/products/create", StringComparison.OrdinalIgnoreCase);
     public bool IsProductBatchesPage =>
         string.Equals(CurrentPath, "/product-batches", StringComparison.OrdinalIgnoreCase);
+    public bool IsBarcodeStudioPage =>
+        string.Equals(CurrentPath, "/barcode-labels", StringComparison.OrdinalIgnoreCase);
     public bool IsOtherPage =>
         !IsDashboardPage &&
         !IsCategoriesPage &&
@@ -112,7 +115,8 @@ public partial class MainViewModel : ObservableObject
         !IsSuppliersPage &&
         !IsCustomersPage &&
         !IsProductsPage &&
-        !IsProductBatchesPage;
+        !IsProductBatchesPage &&
+        !IsBarcodeStudioPage;
 
     public ToastNotificationService ToastService { get; }
     public DashboardViewModel Dashboard { get; }
@@ -122,6 +126,7 @@ public partial class MainViewModel : ObservableObject
     public CustomersViewModel Customers { get; }
     public ProductsViewModel Products { get; }
     public ProductBatchesViewModel ProductBatches { get; }
+    public BarcodeStudioViewModel BarcodeStudio { get; }
 
     public ObservableCollection<SidebarSectionViewModel> Sections { get; } = [];
     public ObservableCollection<SidebarItemViewModel> FavoriteItems { get; } = [];
@@ -134,6 +139,7 @@ public partial class MainViewModel : ObservableObject
         ISupplierService supplierService,
         ICustomerService customerService,
         IProductService productService,
+        IBarcodeStudioService barcodeStudioService,
         ToastNotificationService toastService)
     {
         _authService = authService;
@@ -144,8 +150,9 @@ public partial class MainViewModel : ObservableObject
         Brands = new BrandsViewModel(brandService, authService, toastService, Navigate);
         Suppliers = new SuppliersViewModel(supplierService, authService, toastService, Navigate);
         Customers = new CustomersViewModel(customerService, authService, toastService, Navigate);
-        Products = new ProductsViewModel(productService, authService, toastService);
+        Products = new ProductsViewModel(productService, authService, toastService, Navigate);
         ProductBatches = new ProductBatchesViewModel(productService, toastService, Navigate);
+        BarcodeStudio = new BarcodeStudioViewModel(barcodeStudioService);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");
@@ -178,6 +185,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsCustomersPage));
         OnPropertyChanged(nameof(IsProductsPage));
         OnPropertyChanged(nameof(IsProductBatchesPage));
+        OnPropertyChanged(nameof(IsBarcodeStudioPage));
         OnPropertyChanged(nameof(IsOtherPage));
     }
 
@@ -313,6 +321,7 @@ public partial class MainViewModel : ObservableObject
         long? editProductId = null;
         long? batchProductId = null;
         long? batchId = null;
+        string? barcodeRouteWithQuery = null;
 
         if (targetPath.StartsWith("/products/edit/", StringComparison.OrdinalIgnoreCase))
         {
@@ -344,6 +353,11 @@ public partial class MainViewModel : ObservableObject
                 }
             }
             targetPath = "/product-batches";
+        }
+        else if (targetPath.StartsWith("/barcode-labels?", StringComparison.OrdinalIgnoreCase))
+        {
+            barcodeRouteWithQuery = targetPath;
+            targetPath = "/barcode-labels";
         }
 
         CurrentPath = targetPath;
@@ -448,6 +462,18 @@ public partial class MainViewModel : ObservableObject
         else if (string.Equals(targetPath, "/product-batches", StringComparison.OrdinalIgnoreCase))
         {
             _ = ProductBatches.OpenWorkbenchAsync(batchProductId, batchId);
+        }
+        else if (string.Equals(targetPath, "/barcode-labels", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_isBarcodeStudioLoaded)
+            {
+                _isBarcodeStudioLoaded = true;
+                _ = BarcodeStudio.InitializeAsync(barcodeRouteWithQuery);
+            }
+            else if (!string.IsNullOrWhiteSpace(barcodeRouteWithQuery))
+            {
+                _ = BarcodeStudio.ApplyNavigationQueryAsync(barcodeRouteWithQuery);
+            }
         }
     }
 

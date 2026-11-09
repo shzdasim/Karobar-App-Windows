@@ -30,6 +30,7 @@ public partial class MainWindow : Window
 
     private IPageKeyboardHandler? GetActivePageHandler()
     {
+        if (_viewModel.IsBarcodeStudioPage) return BarcodeStudioPageView;
         if (_viewModel.IsProductBatchesPage) return ProductBatchesPageView;
         if (_viewModel.IsProductsPage) return ProductsPageView;
         if (_viewModel.IsCustomersPage) return CustomersPageView;
@@ -135,6 +136,15 @@ public partial class MainWindow : Window
             }
         }
 
+        // 7b. Print Labels: Ctrl+P (when on Barcode Studio)
+        if (isCtrl && key == Key.P && _viewModel.IsBarcodeStudioPage)
+        {
+            FlushFocusedTextBoxBinding();
+            BarcodeStudioPageView.ExecutePrintLabels();
+            e.Handled = true;
+            return;
+        }
+
         // 8. Global Workspace & Quick-Jump Shortcuts
         if ((isCtrl && key == Key.K) || (isAlt && key == Key.K))
         {
@@ -153,6 +163,14 @@ public partial class MainWindow : Window
         {
             _viewModel.Navigate("/products");
             ProductsPageView.FocusSearchInput();
+            e.Handled = true;
+            return;
+        }
+
+        if (isAlt && key == Key.B)
+        {
+            _viewModel.Navigate("/barcode-labels");
+            BarcodeStudioPageView.HandleSearchShortcut();
             e.Handled = true;
             return;
         }

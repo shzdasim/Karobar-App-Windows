@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using FluentAssertions;
+using Karobar.Application.Barcodes;
 using Karobar.Application.Interfaces;
 using Karobar.Domain.Constants;
 using Karobar.Domain.Formulas;
@@ -672,6 +673,115 @@ public sealed class Phase1FoundationTests
         finally
         {
             if (File.Exists(csvPath)) try { File.Delete(csvPath); } catch { }
+            if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task BarcodeStudioService_And_Code128Encoder_ShouldSupportTemplates_FefoQueueLookup_AndScanner()
+    {
+        // 1. Pure Vector Code 128 Encoder Verification
+        var numericValues = Code128Encoder.EncodeValues("896400012345");
+        numericValues.First().Should().Be(105); // Start Mode C (4+ leading digits)
+        numericValues.Last().Should().Be(106);  // Stop pattern
+
+        var alphaGeo = Code128Encoder.BuildGeometry("PRD-0042", barWidth: 1.3, barHeight: 28, quietZoneModules: 4);
+        alphaGeo.CleanText.Should().Be("PRD-0042");
+        alphaGeo.Bars.Should().NotBeEmpty();
+        alphaGeo.TotalWidth.Should().BeGreaterThan(40);
+
+        // 2. BarcodeStudioService Integration Verification
+        var tempDir = Path.Combine(Path.GetTempPath(), "karobar_barcode_test_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddKarobarInfrastructure(tempDir);
+
+            await using var provider = services.BuildServiceProvider();
+            var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
+            var products = provider.GetRequiredService<IProductService>();
+            var barcodes = provider.GetRequiredService<IBarcodeStudioService>();
+
+            await dbInit.InitializeAndSeedAsync();
+
+            var boot = await barcodes.GetStudioBootstrapAsync();
+            boot.Templates.Should().HaveCountGreaterThanOrEqualTo(6);
+            boot.Templates.Should().Contain(t => t.IsDefault);
+
+            // Save custom preset
+            var customPreset = await barcodes.SaveTemplateAsync(new BarcodeTemplateSaveRequest
+            {
+                Name = "Pharmacy 45x30mm Custom",
+                PaperType = "roll",
+                WidthMm = 45m,
+                HeightMm = 30m,
+                Orientation = "landscape",
+                IsDefault = true,
+                Options = new BarcodeLayoutOptionsDto
+                {
+                    ShowStoreName = true,
+                    StoreNameOverride = "Al-Shifa Pharmacy",
+                    ShowBatch = true,
+                    ShowExpiry = true,
+                    ExpiryFormat = "DD-MM-YYYY",
+                    PricePrefix = "MRP:"
+                }
+            });
+            customPreset.IsDefault.Should().BeTrue();
+            customPreset.Options.StoreNameOverride.Should().Be("Al-Shifa Pharmacy");
+            customPreset.Options.ExpiryFormat.Should().Be("DD-MM-YYYY");
+
+            // Create product with 2 batches + unassigned stock
+            var prodCreate = await products.CreateProductAsync(new ProductUpsertRequest
+            {
+                ProductCode = "PRD-0042",
+                Barcode = "896400099988",
+                Name = "Brufen 400mg Tablets",
+                PackSize = 30,
+                Quantity = 100,
+                PackPurchasePrice = 150m,
+                UnitPurchasePrice = 5m,
+                PackSalePrice = 210m,
+                UnitSalePrice = 7m,
+                AvgPrice = 5m
+            });
+            prodCreate.Succeeded.Should().BeTrue();
+            var prodId = prodCreate.EntityId!.Value;
+
+            await products.SaveProductBatchAsync(prodId, new BatchSaveRequest
+            {
+                BatchNumber = "BR-LATE",
+                ExpiryDate = DateTime.Today.AddMonths(10),
+                Quantity = 40
+            });
+            await products.SaveProductBatchAsync(prodId, new BatchSaveRequest
+            {
+                BatchNumber = "BR-FEFO",
+                ExpiryDate = DateTime.Today.AddMonths(3),
+                Quantity = 35
+            });
+
+            var searchRes = await barcodes.SearchProductsAsync("Brufen");
+            searchRes.Should().ContainSingle(p => p.Id == prodId);
+            var lookup = searchRes.Single(p => p.Id == prodId);
+            lookup.UnassignedQuantity.Should().Be(25); // 100 - (40 + 35)
+            lookup.Batches.First().BatchNumber.Should().Be("BR-FEFO");
+            lookup.Batches.First().IsFefo.Should().BeTrue();
+
+            // Scanner lookup & weight-embedded EAN-13 lookup (20 00042 00750 5 -> 0.750kg of PRD-0042)
+            var directScan = await barcodes.ScanProductAsync("896400099988");
+            directScan.Found.Should().BeTrue();
+            directScan.SelectedBatch?.BatchNumber.Should().Be("BR-FEFO");
+
+            var weightScan = await barcodes.ScanProductAsync("2000042007505");
+            weightScan.Found.Should().BeTrue();
+            weightScan.IsWeightBarcode.Should().BeTrue();
+            weightScan.WeightGrams.Should().Be(750);
+            weightScan.ParsedQuantity.Should().Be(0.75m);
+        }
+        finally
+        {
             if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
         }
     }

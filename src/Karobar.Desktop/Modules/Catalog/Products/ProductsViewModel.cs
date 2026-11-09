@@ -44,6 +44,7 @@ public partial class ProductsViewModel : ObservableObject
     private readonly IProductService _productService;
     private readonly IAuthService _authService;
     private readonly IToastNotificationService _toast;
+    private readonly Action<string>? _navigate;
 
     private bool _isCalculatingPrices;
     private bool _suppressSelectionCallback;
@@ -592,11 +593,13 @@ public partial class ProductsViewModel : ObservableObject
     public ProductsViewModel(
         IProductService productService,
         IAuthService authService,
-        IToastNotificationService toast)
+        IToastNotificationService toast,
+        Action<string>? navigate = null)
     {
         _productService = productService;
         _authService = authService;
         _toast = toast;
+        _navigate = navigate;
 
         _formSelectedNarcotic = NarcoticOptions[0];
         _selectedBatchStatusOption = BatchStatusOptions[0];
@@ -1857,6 +1860,20 @@ public partial class ProductsViewModel : ObservableObject
     // =========================================================================
     // BULK EDIT MODAL COMMANDS
     // =========================================================================
+
+    [RelayCommand]
+    private void PrintSelectedBarcodes()
+    {
+        var selectedIds = ProductRows.Where(r => r.IsSelected).Select(r => r.Item.Id).ToList();
+        if (selectedIds.Count > 0)
+        {
+            _navigate?.Invoke($"/barcode-labels?product_ids={string.Join(",", selectedIds)}");
+        }
+        else
+        {
+            _navigate?.Invoke("/barcode-labels");
+        }
+    }
 
     [RelayCommand]
     private void OpenBulkEditModal()

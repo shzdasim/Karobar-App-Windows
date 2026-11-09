@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddSingleton<ISupplierService, SupplierService>();
         services.AddSingleton<ICustomerService, CustomerService>();
         services.AddSingleton<IProductService, ProductService>();
+        services.AddSingleton<IBarcodeStudioService, BarcodeStudioService>();
         services.AddSingleton<ILedgerRebuildService, LedgerRebuildService>();
         services.AddSingleton<ILegacyKarobarImporterService, LegacyKarobarImporterService>();
 

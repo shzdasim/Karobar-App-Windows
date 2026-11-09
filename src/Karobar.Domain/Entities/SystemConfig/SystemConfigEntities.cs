@@ -334,6 +334,9 @@ public class BarcodeTemplate
     [Column("label_height_mm")]
     public decimal LabelHeightMm { get; set; } = 25;
 
+    [Column("orientation")]
+    public string Orientation { get; set; } = "landscape";
+
     [Column("columns")]
     public int Columns { get; set; } = 1;
 
@@ -351,6 +354,12 @@ public class BarcodeTemplate
 
     [Column("margin_left_mm")]
     public decimal MarginLeftMm { get; set; } = 1;
+
+    [Column("margin_right_mm")]
+    public decimal MarginRightMm { get; set; } = 1;
+
+    [Column("margin_bottom_mm")]
+    public decimal MarginBottomMm { get; set; } = 1;
 
     [Column("barcode_format")]
     public string BarcodeFormat { get; set; } = "CODE128";
@@ -375,6 +384,9 @@ public class BarcodeTemplate
 
     [Column("show_code")]
     public bool ShowCode { get; set; } = true;
+
+    [Column("layout_options")]
+    public string? LayoutOptions { get; set; }
 
     [Column("is_default")]
     public bool IsDefault { get; set; }
