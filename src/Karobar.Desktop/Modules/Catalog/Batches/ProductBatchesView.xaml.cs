@@ -96,7 +96,11 @@ public partial class ProductBatchesView : UserControl, IPageKeyboardHandler
     {
         if (ExpiryDatePicker.Template?.FindName("PART_TextBox", ExpiryDatePicker) is DatePickerTextBox dpTextBox)
         {
-            dpTextBox.Watermark = "dd-MM-yyyy";
+            dpTextBox.ApplyTemplate();
+            if (dpTextBox.Template?.FindName("PART_Watermark", dpTextBox) is ContentControl watermark)
+            {
+                watermark.Content = "dd-MM-yyyy";
+            }
         }
     }
 
