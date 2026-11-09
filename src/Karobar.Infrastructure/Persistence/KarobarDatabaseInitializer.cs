@@ -31,6 +31,7 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
         Directory.CreateDirectory(dataDir);
         Directory.CreateDirectory(StorageDirectoryPath);
         Directory.CreateDirectory(Path.Combine(StorageDirectoryPath, "logos"));
+        Directory.CreateDirectory(Path.Combine(StorageDirectoryPath, "products"));
         Directory.CreateDirectory(Path.Combine(StorageDirectoryPath, "backups"));
 
         DatabaseFilePath = Path.Combine(dataDir, "karobar.db");
@@ -50,6 +51,7 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
         // Safely upgrade 'users' table in-place if an older database file exists without 'username'
         await EnsureUserColumnsExistAsync(db, cancellationToken);
         await EnsureRegularCustomerColumnsExistAsync(db, cancellationToken);
+        await EnsureProductSupplierColumnsExistAsync(db, cancellationToken);
 
         var now = DateTime.UtcNow;
 
@@ -548,6 +550,65 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
                 alterCommands.Add("ALTER TABLE \"customer_regular_items\" ADD COLUMN \"unit_quantity\" INTEGER NOT NULL DEFAULT 1;");
             if (!existingCols.Contains("dosage_notes"))
                 alterCommands.Add("ALTER TABLE \"customer_regular_items\" ADD COLUMN \"dosage_notes\" TEXT NULL;");
+
+            foreach (var sql in alterCommands)
+            {
+                await using var alterCmd = conn.CreateCommand();
+                alterCmd.CommandText = sql;
+                await alterCmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await conn.CloseAsync();
+            }
+        }
+    }
+
+    private static async Task EnsureProductSupplierColumnsExistAsync(KarobarDbContext db, CancellationToken cancellationToken)
+    {
+        var conn = db.Database.GetDbConnection();
+        var shouldClose = conn.State != System.Data.ConnectionState.Open;
+        if (shouldClose)
+        {
+            await conn.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            var existingCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA table_info(\"product_suppliers\");";
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    existingCols.Add(reader.GetString(1));
+                }
+            }
+
+            if (existingCols.Count == 0)
+                return;
+
+            var alterCommands = new List<string>();
+            if (!existingCols.Contains("supplier_sku"))
+                alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"supplier_sku\" TEXT NULL;");
+            if (!existingCols.Contains("last_purchase_price"))
+                alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"last_purchase_price\" TEXT NULL;");
+            if (!existingCols.Contains("lead_time_days"))
+                alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"lead_time_days\" INTEGER NULL;");
+            if (!existingCols.Contains("min_order_qty"))
+                alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"min_order_qty\" INTEGER NOT NULL DEFAULT 1;");
+            if (!existingCols.Contains("is_preferred"))
+                alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"is_preferred\" INTEGER NOT NULL DEFAULT 0;");
+            if (!existingCols.Contains("notes"))
+                alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"notes\" TEXT NULL;");
+            if (!existingCols.Contains("created_at"))
+                alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"created_at\" TEXT NULL;");
+            if (!existingCols.Contains("updated_at"))
+                alterCommands.Add("ALTER TABLE \"product_suppliers\" ADD COLUMN \"updated_at\" TEXT NULL;");
 
             foreach (var sql in alterCommands)
             {

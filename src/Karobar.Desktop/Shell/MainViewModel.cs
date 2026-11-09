@@ -100,12 +100,16 @@ public partial class MainViewModel : ObservableObject
     public bool IsCustomersPage =>
         string.Equals(CurrentPath, "/customers", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(CurrentPath, "/customers/create", StringComparison.OrdinalIgnoreCase);
+    public bool IsProductsPage =>
+        string.Equals(CurrentPath, "/products", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/products/create", StringComparison.OrdinalIgnoreCase);
     public bool IsOtherPage =>
         !IsDashboardPage &&
         !IsCategoriesPage &&
         !IsBrandsPage &&
         !IsSuppliersPage &&
-        !IsCustomersPage;
+        !IsCustomersPage &&
+        !IsProductsPage;
 
     public ToastNotificationService ToastService { get; }
     public DashboardViewModel Dashboard { get; }
@@ -113,6 +117,7 @@ public partial class MainViewModel : ObservableObject
     public BrandsViewModel Brands { get; }
     public SuppliersViewModel Suppliers { get; }
     public CustomersViewModel Customers { get; }
+    public ProductsViewModel Products { get; }
 
     public ObservableCollection<SidebarSectionViewModel> Sections { get; } = [];
     public ObservableCollection<SidebarItemViewModel> FavoriteItems { get; } = [];
@@ -124,6 +129,7 @@ public partial class MainViewModel : ObservableObject
         IBrandService brandService,
         ISupplierService supplierService,
         ICustomerService customerService,
+        IProductService productService,
         ToastNotificationService toastService)
     {
         _authService = authService;
@@ -134,6 +140,7 @@ public partial class MainViewModel : ObservableObject
         Brands = new BrandsViewModel(brandService, authService, toastService, Navigate);
         Suppliers = new SuppliersViewModel(supplierService, authService, toastService, Navigate);
         Customers = new CustomersViewModel(customerService, authService, toastService, Navigate);
+        Products = new ProductsViewModel(productService, authService, toastService);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");
@@ -164,6 +171,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsBrandsPage));
         OnPropertyChanged(nameof(IsSuppliersPage));
         OnPropertyChanged(nameof(IsCustomersPage));
+        OnPropertyChanged(nameof(IsProductsPage));
         OnPropertyChanged(nameof(IsOtherPage));
     }
 
@@ -377,6 +385,14 @@ public partial class MainViewModel : ObservableObject
         else if (string.Equals(targetPath, "/customers/create", StringComparison.OrdinalIgnoreCase))
         {
             _ = Customers.OpenCreateModeAsync();
+        }
+        else if (string.Equals(targetPath, "/products", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Products.OpenDirectoryModeAsync();
+        }
+        else if (string.Equals(targetPath, "/products/create", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Products.OpenCreateProductAsync();
         }
     }
 

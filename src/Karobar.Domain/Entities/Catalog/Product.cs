@@ -106,6 +106,30 @@ public class ProductSupplier
 
     [Column("supplier_id")]
     public long SupplierId { get; set; }
+
+    [Column("supplier_sku")]
+    public string? SupplierSku { get; set; }
+
+    [Column("last_purchase_price")]
+    public decimal? LastPurchasePrice { get; set; }
+
+    [Column("lead_time_days")]
+    public int? LeadTimeDays { get; set; }
+
+    [Column("min_order_qty")]
+    public int MinOrderQty { get; set; } = 1;
+
+    [Column("is_preferred")]
+    public bool IsPreferred { get; set; }
+
+    [Column("notes")]
+    public string? Notes { get; set; }
+
+    [Column("created_at")]
+    public DateTime? CreatedAt { get; set; }
+
+    [Column("updated_at")]
+    public DateTime? UpdatedAt { get; set; }
 }
 
 [Table("supplier_product_positions")]

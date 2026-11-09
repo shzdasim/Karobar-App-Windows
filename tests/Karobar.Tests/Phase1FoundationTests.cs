@@ -514,4 +514,149 @@ public sealed class Phase1FoundationTests
             if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
         }
     }
+
+    [Fact]
+    public async Task ProductService_ShouldSupportCrud_BatchesFefo_StorageLocations_MultiSupplier_Substitutes_AndCsvImportExport()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "karobar_prod_test_" + Guid.NewGuid().ToString("N"));
+        var csvPath = Path.Combine(Path.GetTempPath(), $"prod_import_{Guid.NewGuid():N}.csv");
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddKarobarInfrastructure(tempDir);
+
+            await using var provider = services.BuildServiceProvider();
+            var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
+            var categories = provider.GetRequiredService<ICategoryService>();
+            var brands = provider.GetRequiredService<IBrandService>();
+            var suppliers = provider.GetRequiredService<ISupplierService>();
+            var products = provider.GetRequiredService<IProductService>();
+
+            await dbInit.InitializeAndSeedAsync();
+
+            var cat = await categories.CreateAsync("Analgesics");
+            var br1 = await brands.CreateAsync(new BrandUpsertRequest { Name = "GSK" });
+            var br2 = await brands.CreateAsync(new BrandUpsertRequest { Name = "Getz Pharma" });
+            var sup1 = await suppliers.CreateAsync(new SupplierUpsertRequest { Name = "M&P Distributors", Phone = "0300-1112222" });
+            var sup2 = await suppliers.CreateAsync(new SupplierUpsertRequest { Name = "Premier Pharma", Phone = "0321-3334444" });
+
+            var codes = await products.GenerateNewCodeAndBarcodeAsync();
+            codes.ProductCode.Should().StartWith("PRD-");
+            codes.Barcode.Should().StartWith("PRD");
+
+            var createRes = await products.CreateProductAsync(new ProductUpsertRequest
+            {
+                ProductCode = codes.ProductCode,
+                Barcode = codes.Barcode,
+                Name = "Panadol 500mg Tabs",
+                Formulation = "Paracetamol 500mg",
+                PackSize = 10,
+                Quantity = 100,
+                PackPurchasePrice = 35m,
+                UnitPurchasePrice = 3.5m,
+                PackSalePrice = 50m,
+                UnitSalePrice = 5.0m,
+                AvgPrice = 3.5m,
+                Margin = 30m,
+                CategoryId = cat.Id,
+                BrandId = br1.Id,
+                SupplierId = sup1.Id,
+                Rack = "A-1"
+            });
+
+            createRes.Succeeded.Should().BeTrue();
+            var p1Id = createRes.ProductId!.Value;
+
+            // Allocate 60 units to Batch B-001 (expiring in 6 months) and 40 units to Batch B-002 (expiring in 3 months)
+            var b1Res = await products.SaveProductBatchAsync(p1Id, new BatchSaveRequest
+            {
+                BatchNumber = "B-001",
+                ExpiryDate = DateTime.Today.AddMonths(6),
+                Quantity = 60,
+                Rack = "A-1"
+            });
+            b1Res.Succeeded.Should().BeTrue();
+
+            var b2Res = await products.SaveProductBatchAsync(p1Id, new BatchSaveRequest
+            {
+                BatchNumber = "B-002",
+                ExpiryDate = DateTime.Today.AddMonths(3),
+                Quantity = 40,
+                Rack = "A-1"
+            });
+            b2Res.Succeeded.Should().BeTrue();
+
+            // FEFO check: B-002 expires sooner (3 months) so it should be the FEFO recommended batch
+            var batchSummary = await products.GetProductBatchesAsync(p1Id);
+            batchSummary.TotalStock.Should().Be(100);
+            batchSummary.BatchedStock.Should().Be(100);
+            batchSummary.UnassignedStock.Should().Be(0);
+            batchSummary.Batches.First().BatchNumber.Should().Be("B-002");
+            batchSummary.Batches.First().IsFefoRecommended.Should().BeTrue();
+
+            // Link secondary supplier
+            var supLinkRes = await products.SaveProductSupplierAsync(p1Id, new ProductSupplierSaveRequest
+            {
+                SupplierId = sup2.Id,
+                SupplierSku = "PREM-PAN-500",
+                LastPurchasePrice = 3.4m,
+                LeadTimeDays = 2,
+                MinOrderQty = 5,
+                IsPreferred = false
+            });
+            supLinkRes.Succeeded.Should().BeTrue();
+
+            var linkedSuppliers = await products.GetProductSuppliersAsync(p1Id);
+            linkedSuppliers.Should().HaveCount(2);
+
+            // Create substitute product with same formulation
+            var codes2 = await products.GenerateNewCodeAndBarcodeAsync();
+            var subCreate = await products.CreateProductAsync(new ProductUpsertRequest
+            {
+                ProductCode = codes2.ProductCode,
+                Barcode = codes2.Barcode,
+                Name = "Calpol 500mg Tabs",
+                Formulation = "Paracetamol 500mg",
+                PackSize = 10,
+                Quantity = 50,
+                PackPurchasePrice = 30m,
+                UnitPurchasePrice = 3.0m,
+                PackSalePrice = 45m,
+                UnitSalePrice = 4.5m,
+                AvgPrice = 3.0m,
+                CategoryId = cat.Id,
+                BrandId = br2.Id,
+                SupplierId = sup2.Id
+            });
+            subCreate.Succeeded.Should().BeTrue();
+
+            var subLookup = await products.GetSubstituteProductsAsync(p1Id);
+            subLookup.MatchType.Should().Be("formulation");
+            subLookup.Substitutes.Should().ContainSingle(s => s.Name == "Calpol 500mg Tabs" && s.IsExactFormulation);
+
+            // CSV Import & Export
+            await File.WriteAllTextAsync(csvPath,
+                "product_code,name,pack_size,unit_purchase_price,unit_sale_price,category,brand,supplier,quantity,barcode,narcotic,formulation\n" +
+                "PRD-0999,Augmentin 625mg,6,40,55,Antibiotics,GSK,M&P Distributors,30,8999000111222,no,Co-Amoxiclav 625mg\n");
+
+            var csvVal = await products.ValidateCsvImportAsync(csvPath, ",", createMissingRefs: true);
+            csvVal.Ok.Should().BeTrue();
+            csvVal.ValidRows.Should().Be(1);
+
+            var csvCommit = await products.CommitCsvImportAsync(csvPath, insertValidOnly: true, ",", createMissingRefs: true);
+            csvCommit.Succeeded.Should().BeTrue();
+            csvCommit.NewCount.Should().Be(1);
+
+            var csvExport = await products.ExportProductsCsvAsync();
+            csvExport.Should().Contain("Panadol 500mg Tabs");
+            csvExport.Should().Contain("Augmentin 625mg");
+        }
+        finally
+        {
+            if (File.Exists(csvPath)) try { File.Delete(csvPath); } catch { }
+            if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
 }

@@ -915,7 +915,12 @@
                         <views:CustomersView DataContext="{Binding Customers}" />
                     </Grid>
 
-                    <!-- F. Inner Page Host for any other Sidebar/Topbar Route -->
+                    <!-- F. Products Page (When CurrentPath == "/products" or "/products/create") -->
+                    <Grid Visibility="{Binding IsProductsPage, Converter={StaticResource BoolToVis}}">
+                        <views:ProductsView DataContext="{Binding Products}" />
+                    </Grid>
+
+                    <!-- G. Inner Page Host for any other Sidebar/Topbar Route -->
                     <Border Visibility="{Binding IsOtherPage, Converter={StaticResource BoolToVis}}"
                             Background="#FFFFFF"
                             BorderBrush="#E2E8F0"
