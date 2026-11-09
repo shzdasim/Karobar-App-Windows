@@ -141,7 +141,10 @@ public partial class ProductBatchesViewModel : ObservableObject
     private string _formBatchNumber = string.Empty;
 
     [ObservableProperty]
-    private string _formExpiryDate = DateTime.Today.AddMonths(12).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    private DateTime? _formExpiryDateValue = DateTime.Today.AddMonths(12);
+
+    [ObservableProperty]
+    private string _formExpiryDate = DateTime.Today.AddMonths(12).ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
 
     [ObservableProperty]
     private string _formQuantity = string.Empty;
@@ -740,9 +743,11 @@ public partial class ProductBatchesViewModel : ObservableObject
                          ?? ActiveStorageLocations.FirstOrDefault(l => l.IsDefault)
                          ?? ActiveStorageLocations.FirstOrDefault();
 
+        var defaultExpiry = DateTime.Today.AddMonths(12);
         EditingBatchId = null;
         FormBatchNumber = string.Empty;
-        FormExpiryDate = DateTime.Today.AddMonths(12).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        FormExpiryDateValue = defaultExpiry;
+        FormExpiryDate = defaultExpiry.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
         FormSelectedLocation = defaultLoc;
         FormRack = !string.IsNullOrWhiteSpace(p?.Rack)
             ? p!.Rack!
@@ -767,9 +772,11 @@ public partial class ProductBatchesViewModel : ObservableObject
 
     private void PopulateFormFromBatch(ProductBatchItemDto batch)
     {
+        var exp = batch.ExpiryDate ?? DateTime.Today.AddMonths(12);
         EditingBatchId = batch.Id;
         FormBatchNumber = batch.BatchNumber;
-        FormExpiryDate = (batch.ExpiryDate ?? DateTime.Today.AddMonths(12)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        FormExpiryDateValue = exp;
+        FormExpiryDate = exp.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
         FormQuantity = batch.Quantity.ToString(CultureInfo.InvariantCulture);
 
         var targetLoc = ActiveStorageLocations.FirstOrDefault(l => l.Id == batch.StorageLocationId)
@@ -784,6 +791,14 @@ public partial class ProductBatchesViewModel : ObservableObject
         FormUnitSalePrice = mrp.ToString("0.00", CultureInfo.InvariantCulture);
 
         MatchingExistingBatch = null;
+    }
+
+    partial void OnFormExpiryDateValueChanged(DateTime? value)
+    {
+        if (value.HasValue)
+        {
+            FormExpiryDate = value.Value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+        }
     }
 
     [RelayCommand]
@@ -817,7 +832,9 @@ public partial class ProductBatchesViewModel : ObservableObject
         if (!int.TryParse(monthsStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var months) || months <= 0)
             months = 12;
 
-        FormExpiryDate = DateTime.Today.AddMonths(months).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var targetDate = DateTime.Today.AddMonths(months);
+        FormExpiryDateValue = targetDate;
+        FormExpiryDate = targetDate.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
         RequestFocusQuantity?.Invoke();
     }
 
@@ -859,9 +876,19 @@ public partial class ProductBatchesViewModel : ObservableObject
             return;
         }
 
-        if (!DateTime.TryParse(FormExpiryDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var expiryDate))
+        DateTime expiryDate;
+        if (FormExpiryDateValue.HasValue)
         {
-            _toast.ShowError("Please enter a valid Expiry Date (YYYY-MM-DD).");
+            expiryDate = FormExpiryDateValue.Value.Date;
+        }
+        else if (!DateTime.TryParseExact(
+                     FormExpiryDate.Trim(),
+                     ["dd-MM-yyyy", "d-M-yyyy", "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd"],
+                     CultureInfo.InvariantCulture,
+                     DateTimeStyles.None,
+                     out expiryDate))
+        {
+            _toast.ShowError("Please select or enter a valid Expiry Date (DD-MM-YYYY).");
             return;
         }
 

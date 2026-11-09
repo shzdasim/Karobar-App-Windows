@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Karobar.Application.Interfaces;
@@ -69,6 +71,73 @@ public partial class ProductBatchesView : UserControl, IPageKeyboardHandler
             Keyboard.Focus(target);
             target.SelectAll();
         }, DispatcherPriority.Input);
+    }
+
+    private void FocusExpiryDatePicker()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            ExpiryDatePicker.ApplyTemplate();
+            if (ExpiryDatePicker.Template?.FindName("PART_TextBox", ExpiryDatePicker) is DatePickerTextBox dpTextBox)
+            {
+                dpTextBox.Focus();
+                Keyboard.Focus(dpTextBox);
+                dpTextBox.SelectAll();
+            }
+            else
+            {
+                ExpiryDatePicker.Focus();
+                Keyboard.Focus(ExpiryDatePicker);
+            }
+        }, DispatcherPriority.Input);
+    }
+
+    private void ExpiryDatePicker_OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (ExpiryDatePicker.Template?.FindName("PART_TextBox", ExpiryDatePicker) is DatePickerTextBox dpTextBox)
+        {
+            dpTextBox.Watermark = "dd-MM-yyyy";
+        }
+    }
+
+    private void ExpiryDatePicker_OnCalendarClosed(object sender, RoutedEventArgs e)
+    {
+        if (ExpiryDatePicker.SelectedDate.HasValue)
+        {
+            FocusAndSelect(QuantityTextBox);
+        }
+    }
+
+    private void SyncExpiryDatePickerText()
+    {
+        if (ExpiryDatePicker.Template?.FindName("PART_TextBox", ExpiryDatePicker) is DatePickerTextBox dpTextBox &&
+            !string.IsNullOrWhiteSpace(dpTextBox.Text))
+        {
+            if (DateTime.TryParseExact(
+                    dpTextBox.Text.Trim(),
+                    ["dd-MM-yyyy", "d-M-yyyy", "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd"],
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var parsed))
+            {
+                ExpiryDatePicker.SelectedDate = parsed;
+            }
+        }
+    }
+
+    private void ExpiryDatePicker_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        SyncExpiryDatePickerText();
+    }
+
+    private void ExpiryDatePicker_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None)
+            return;
+
+        e.Handled = true;
+        SyncExpiryDatePickerText();
+        FocusAndSelect(QuantityTextBox);
     }
 
     private async void ProductSearchTextBox_OnGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -152,11 +221,7 @@ public partial class ProductBatchesView : UserControl, IPageKeyboardHandler
 
         if (ReferenceEquals(current, BatchNumberTextBox))
         {
-            FocusAndSelect(ExpiryDateTextBox);
-        }
-        else if (ReferenceEquals(current, ExpiryDateTextBox))
-        {
-            FocusAndSelect(QuantityTextBox);
+            FocusExpiryDatePicker();
         }
         else if (ReferenceEquals(current, QuantityTextBox))
         {
@@ -292,6 +357,7 @@ public partial class ProductBatchesView : UserControl, IPageKeyboardHandler
 
         if (vm.SaveBatchCommand.CanExecute(null))
         {
+            SyncExpiryDatePickerText();
             vm.SaveBatchCommand.Execute(null);
             return true;
         }

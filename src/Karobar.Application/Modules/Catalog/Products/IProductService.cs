@@ -383,7 +383,7 @@ public sealed class ProductBatchItemDto
     public long ProductId { get; set; }
     public string BatchNumber { get; set; } = string.Empty;
     public DateTime? ExpiryDate { get; set; }
-    public string ExpiryDateFormatted => ExpiryDate?.ToString("yyyy-MM-dd") ?? "N/A";
+    public string ExpiryDateFormatted => ExpiryDate?.ToString("dd-MM-yyyy") ?? "N/A";
     public int Quantity { get; set; }
     public long? StorageLocationId { get; set; }
     public string StorageLocationName { get; set; } = "Shop Counter";
@@ -501,7 +501,7 @@ public sealed class GlobalBatchDirectoryRowDto
 
     public string BatchNumber { get; set; } = string.Empty;
     public DateTime? ExpiryDate { get; set; }
-    public string ExpiryDateFormatted => ExpiryDate?.ToString("yyyy-MM-dd") ?? "N/A";
+    public string ExpiryDateFormatted => ExpiryDate?.ToString("dd-MM-yyyy") ?? "N/A";
     public int? DaysRemaining { get; set; }
     public int EffectiveWarningDays { get; set; } = 90;
     public string ExpiryStatus { get; set; } = "safe"; // expired | critical | warning | safe

@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Windows;
+using System.Windows.Markup;
 using Karobar.Application.Interfaces;
 using Karobar.Desktop.ViewModels;
 using Karobar.Infrastructure;
@@ -13,6 +15,15 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        // Configure Day-Month-Year (dd-MM-yyyy) date format app-wide for all WPF DatePickers and bindings
+        var culture = (CultureInfo)CultureInfo.GetCultureInfo("en-GB").Clone();
+        culture.DateTimeFormat.ShortDatePattern = "dd-MM-yyyy";
+        culture.DateTimeFormat.DateSeparator = "-";
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+        Thread.CurrentThread.CurrentCulture = culture;
+        Thread.CurrentThread.CurrentUICulture = culture;
+
         base.OnStartup(e);
 
         try
