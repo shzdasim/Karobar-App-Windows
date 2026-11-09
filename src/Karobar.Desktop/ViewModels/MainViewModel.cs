@@ -178,9 +178,9 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task LogoutAsync()
+    public void Logout()
     {
-        await _authService.LogoutAsync();
+        _authService.Logout();
         Password = string.Empty;
         HasError = false;
         ErrorMessage = string.Empty;
