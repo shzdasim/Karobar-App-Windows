@@ -190,9 +190,9 @@
                         </Button>
 
                         <Button Style="{StaticResource SecondaryBtn}" Command="{Binding OpenManageLocationsModalCommand}" Content="🏪 Locations" Margin="0,0,8,0" ToolTip="Manage Shop, Godown &amp; Fridge Storage Locations" />
-                        <Button Style="{StaticResource SecondaryBtn}" Command="{Binding OpenCsvImportModalCommand}" Content="⬆ Import CSV" Margin="0,0,8,0" />
-                        <Button Style="{StaticResource SecondaryBtn}" Command="{Binding ExportCsvCommand}" Content="⬇ Export CSV" Margin="0,0,10,0" />
-                        <Button Style="{StaticResource PrimaryBtn}" Command="{Binding OpenCreateProductCommand}" Content="+ Add Product" />
+                        <Button Style="{StaticResource SecondaryBtn}" Command="{Binding OpenCsvImportModalCommand}" Content="⬆ Import CSV" Margin="0,0,8,0" ToolTip="Import Products from CSV (Ctrl+I)" />
+                        <Button Style="{StaticResource SecondaryBtn}" Command="{Binding ExportCsvCommand}" Content="⬇ Export CSV" Margin="0,0,10,0" ToolTip="Export Products to CSV (Ctrl+E)" />
+                        <Button Style="{StaticResource PrimaryBtn}" Command="{Binding OpenCreateProductCommand}" Content="+ Add Product" ToolTip="Create New Product (Ctrl+N or Alt+N)" />
                     </WrapPanel>
                 </Grid>
             </Border>
@@ -609,7 +609,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Style="{StaticResource SecondaryBtn}" Command="{Binding BackToDirectoryCommand}" Content="← Back" Margin="0,0,14,0" />
+                        <Button Style="{StaticResource SecondaryBtn}" Command="{Binding BackToDirectoryCommand}" Content="← Back" Margin="0,0,14,0" ToolTip="Back to Products Directory (Esc or Alt+C)" />
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="{Binding FormHeadingTitle}" FontSize="18" FontWeight="Bold" Foreground="#0F172A" />
                             <TextBlock Text="{Binding FormHeadingSubtitle}" FontSize="12" Foreground="#64748B" />
@@ -618,7 +618,7 @@
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Style="{StaticResource SecondaryBtn}" Command="{Binding SaveAndCloseProductCommand}" Content="Save &amp; Return" Margin="0,0,8,0" />
-                        <Button x:Name="SaveProductBtn" Style="{StaticResource PrimaryBtn}" Command="{Binding SaveProductCommand}" Content="{Binding SaveButtonLabel}" />
+                        <Button x:Name="SaveProductBtn" Style="{StaticResource PrimaryBtn}" Command="{Binding SaveProductCommand}" Content="{Binding SaveButtonLabel}" ToolTip="Save Product (Ctrl+S or Alt+S)" />
                     </StackPanel>
                 </Grid>
             </Border>

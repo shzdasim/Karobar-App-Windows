@@ -8,6 +8,7 @@
         MinWidth="1024"
         MinHeight="680"
         WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="MainWindow_OnPreviewKeyDown"
         Background="#F2F5FA">
 
     <Window.Resources>
@@ -892,32 +893,32 @@
                 <Grid Grid.Row="2">
                     <!-- A. Dashboard Page (Default when CurrentPath == "/dashboard") -->
                     <Grid Visibility="{Binding IsDashboardPage, Converter={StaticResource BoolToVis}}">
-                        <views:DashboardView DataContext="{Binding Dashboard}" />
+                        <views:DashboardView x:Name="DashboardPageView" DataContext="{Binding Dashboard}" />
                     </Grid>
 
                     <!-- B. Categories Page (When CurrentPath == "/categories") -->
                     <Grid Visibility="{Binding IsCategoriesPage, Converter={StaticResource BoolToVis}}">
-                        <views:CategoriesView DataContext="{Binding Categories}" />
+                        <views:CategoriesView x:Name="CategoriesPageView" DataContext="{Binding Categories}" />
                     </Grid>
 
                     <!-- C. Brands Page (When CurrentPath == "/brands" or "/brands/create") -->
                     <Grid Visibility="{Binding IsBrandsPage, Converter={StaticResource BoolToVis}}">
-                        <views:BrandsView DataContext="{Binding Brands}" />
+                        <views:BrandsView x:Name="BrandsPageView" DataContext="{Binding Brands}" />
                     </Grid>
 
                     <!-- D. Suppliers Page (When CurrentPath == "/suppliers" or "/suppliers/create") -->
                     <Grid Visibility="{Binding IsSuppliersPage, Converter={StaticResource BoolToVis}}">
-                        <views:SuppliersView DataContext="{Binding Suppliers}" />
+                        <views:SuppliersView x:Name="SuppliersPageView" DataContext="{Binding Suppliers}" />
                     </Grid>
 
                     <!-- E. Customers Page (When CurrentPath == "/customers" or "/customers/create") -->
                     <Grid Visibility="{Binding IsCustomersPage, Converter={StaticResource BoolToVis}}">
-                        <views:CustomersView DataContext="{Binding Customers}" />
+                        <views:CustomersView x:Name="CustomersPageView" DataContext="{Binding Customers}" />
                     </Grid>
 
                     <!-- F. Products Page (When CurrentPath == "/products" or "/products/create") -->
                     <Grid Visibility="{Binding IsProductsPage, Converter={StaticResource BoolToVis}}">
-                        <views:ProductsView DataContext="{Binding Products}" />
+                        <views:ProductsView x:Name="ProductsPageView" DataContext="{Binding Products}" />
                     </Grid>
 
                     <!-- G. Inner Page Host for any other Sidebar/Topbar Route -->

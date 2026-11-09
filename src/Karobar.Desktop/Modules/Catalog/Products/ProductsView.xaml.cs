@@ -1,14 +1,197 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
+using Karobar.Desktop.Core.Navigation;
+using Karobar.Desktop.ViewModels;
 
 namespace Karobar.Desktop.Views;
 
-public partial class ProductsView : UserControl
+public partial class ProductsView : UserControl, IPageKeyboardHandler
 {
     public ProductsView()
     {
         InitializeComponent();
+    }
+
+    public void FocusSearchInput()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            SearchProductsBox.Focus();
+            Keyboard.Focus(SearchProductsBox);
+            SearchProductsBox.SelectAll();
+        }, DispatcherPriority.Input);
+    }
+
+    public bool HandleNewShortcut()
+    {
+        if (DataContext is not ProductsViewModel vm || !vm.IsDirectoryMode)
+            return false;
+
+        if (vm.OpenCreateProductCommand.CanExecute(null))
+        {
+            vm.OpenCreateProductCommand.Execute(null);
+            Dispatcher.BeginInvoke(() =>
+            {
+                FormNameBox.Focus();
+                Keyboard.Focus(FormNameBox);
+                FormNameBox.SelectAll();
+            }, DispatcherPriority.Background);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool HandleSaveShortcut()
+    {
+        if (DataContext is not ProductsViewModel vm)
+            return false;
+
+        if (vm.IsDeleteModalOpen)
+        {
+            if (vm.ConfirmDeleteWithPasswordCommand.CanExecute(null))
+                vm.ConfirmDeleteWithPasswordCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsBulkEditModalOpen)
+        {
+            if (vm.ConfirmBulkEditCommand.CanExecute(null))
+                vm.ConfirmBulkEditCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsMoveBatchModalOpen)
+        {
+            if (vm.ConfirmMoveBatchCommand.CanExecute(null))
+                vm.ConfirmMoveBatchCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsManageLocationsModalOpen)
+        {
+            if (vm.SaveStorageLocationCommand.CanExecute(null))
+                vm.SaveStorageLocationCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsFormMode && vm.SaveProductCommand.CanExecute(null))
+        {
+            vm.SaveProductCommand.Execute(null);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool HandleSearchShortcut()
+    {
+        if (DataContext is not ProductsViewModel vm || !vm.IsDirectoryMode)
+            return false;
+
+        FocusSearchInput();
+        return true;
+    }
+
+    public bool HandleEscapeShortcut()
+    {
+        if (DataContext is not ProductsViewModel vm)
+            return false;
+
+        if (vm.IsDeleteModalOpen)
+        {
+            vm.CloseDeleteModalCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsBulkEditModalOpen)
+        {
+            vm.CloseBulkEditModalCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsCsvImportModalOpen)
+        {
+            vm.CloseCsvImportModalCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsSubstituteModalOpen)
+        {
+            vm.CloseSubstituteModalCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsMoveBatchModalOpen)
+        {
+            vm.CloseMoveBatchModalCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsManageLocationsModalOpen)
+        {
+            vm.CloseManageLocationsModalCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsFormMode)
+        {
+            if (vm.BackToDirectoryCommand.CanExecute(null))
+                vm.BackToDirectoryCommand.Execute(null);
+            return true;
+        }
+
+        if (vm.IsDirectoryMode && !string.IsNullOrEmpty(vm.SearchText))
+        {
+            vm.ClearSearchCommand.Execute(null);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool HandleRefreshShortcut()
+    {
+        if (DataContext is not ProductsViewModel vm)
+            return false;
+
+        if (vm.IsDirectoryMode)
+        {
+            _ = vm.LoadProductsPageAsync(resetPage: false);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool HandleImportShortcut()
+    {
+        if (DataContext is not ProductsViewModel vm || !vm.IsDirectoryMode)
+            return false;
+
+        if (vm.OpenCsvImportModalCommand.CanExecute(null))
+        {
+            vm.OpenCsvImportModalCommand.Execute(null);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool HandleExportShortcut()
+    {
+        if (DataContext is not ProductsViewModel vm || !vm.IsDirectoryMode)
+            return false;
+
+        if (vm.ExportCsvCommand.CanExecute(null))
+        {
+            vm.ExportCsvCommand.Execute(null);
+            return true;
+        }
+
+        return false;
     }
 
     private FrameworkElement[] GetProductFormSequence() =>
