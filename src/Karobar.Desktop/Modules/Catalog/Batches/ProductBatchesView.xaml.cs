@@ -356,4 +356,8 @@ public partial class ProductBatchesView : UserControl, IPageKeyboardHandler
 
         return false;
     }
+
+    public bool HandleImportShortcut() => false;
+
+    public bool HandleExportShortcut() => false;
 }
