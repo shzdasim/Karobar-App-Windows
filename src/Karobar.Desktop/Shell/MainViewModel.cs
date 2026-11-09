@@ -108,6 +108,9 @@ public partial class MainViewModel : ObservableObject
         string.Equals(CurrentPath, "/product-batches", StringComparison.OrdinalIgnoreCase);
     public bool IsBarcodeStudioPage =>
         string.Equals(CurrentPath, "/barcode-labels", StringComparison.OrdinalIgnoreCase);
+    public bool IsPurchaseInvoicesPage =>
+        string.Equals(CurrentPath, "/purchase-invoices", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/purchase-invoices/create", StringComparison.OrdinalIgnoreCase);
     public bool IsOtherPage =>
         !IsDashboardPage &&
         !IsCategoriesPage &&
@@ -116,7 +119,8 @@ public partial class MainViewModel : ObservableObject
         !IsCustomersPage &&
         !IsProductsPage &&
         !IsProductBatchesPage &&
-        !IsBarcodeStudioPage;
+        !IsBarcodeStudioPage &&
+        !IsPurchaseInvoicesPage;
 
     public ToastNotificationService ToastService { get; }
     public DashboardViewModel Dashboard { get; }
@@ -127,6 +131,7 @@ public partial class MainViewModel : ObservableObject
     public ProductsViewModel Products { get; }
     public ProductBatchesViewModel ProductBatches { get; }
     public BarcodeStudioViewModel BarcodeStudio { get; }
+    public PurchaseInvoicesViewModel PurchaseInvoices { get; }
 
     public ObservableCollection<SidebarSectionViewModel> Sections { get; } = [];
     public ObservableCollection<SidebarItemViewModel> FavoriteItems { get; } = [];
@@ -140,6 +145,7 @@ public partial class MainViewModel : ObservableObject
         ICustomerService customerService,
         IProductService productService,
         IBarcodeStudioService barcodeStudioService,
+        IPurchaseInvoiceService purchaseInvoiceService,
         ToastNotificationService toastService)
     {
         _authService = authService;
@@ -153,6 +159,7 @@ public partial class MainViewModel : ObservableObject
         Products = new ProductsViewModel(productService, authService, toastService, Navigate);
         ProductBatches = new ProductBatchesViewModel(productService, toastService, Navigate);
         BarcodeStudio = new BarcodeStudioViewModel(barcodeStudioService);
+        PurchaseInvoices = new PurchaseInvoicesViewModel(purchaseInvoiceService, toastService, Navigate);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");
@@ -186,6 +193,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsProductsPage));
         OnPropertyChanged(nameof(IsProductBatchesPage));
         OnPropertyChanged(nameof(IsBarcodeStudioPage));
+        OnPropertyChanged(nameof(IsPurchaseInvoicesPage));
         OnPropertyChanged(nameof(IsOtherPage));
     }
 
@@ -322,6 +330,9 @@ public partial class MainViewModel : ObservableObject
         long? batchProductId = null;
         long? batchId = null;
         string? barcodeRouteWithQuery = null;
+        long? editPurchaseInvoiceId = null;
+        long? detailPurchaseInvoiceId = null;
+        long? createFromPoId = null;
 
         if (targetPath.StartsWith("/products/edit/", StringComparison.OrdinalIgnoreCase))
         {
@@ -331,6 +342,40 @@ public partial class MainViewModel : ObservableObject
                 editProductId = pid;
             }
             targetPath = "/products";
+        }
+        else if (targetPath.StartsWith("/purchase-invoices/edit/", StringComparison.OrdinalIgnoreCase))
+        {
+            var idPart = targetPath["/purchase-invoices/edit/".Length..].Trim();
+            if (long.TryParse(idPart, out var piId) && piId > 0)
+            {
+                editPurchaseInvoiceId = piId;
+            }
+            targetPath = "/purchase-invoices";
+        }
+        else if (targetPath.StartsWith("/purchase-invoices/create?", StringComparison.OrdinalIgnoreCase))
+        {
+            var queryPart = targetPath["/purchase-invoices/create?".Length..];
+            foreach (var pair in queryPart.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var kv = pair.Split('=', 2);
+                if (kv.Length == 2 &&
+                    string.Equals(kv[0], "purchase_order_id", StringComparison.OrdinalIgnoreCase) &&
+                    long.TryParse(kv[1], out var poId) && poId > 0)
+                {
+                    createFromPoId = poId;
+                }
+            }
+            targetPath = "/purchase-invoices/create";
+        }
+        else if (targetPath.StartsWith("/purchase-invoices/", StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(targetPath, "/purchase-invoices/create", StringComparison.OrdinalIgnoreCase))
+        {
+            var idPart = targetPath["/purchase-invoices/".Length..].Trim();
+            if (long.TryParse(idPart, out var piId) && piId > 0)
+            {
+                detailPurchaseInvoiceId = piId;
+                targetPath = "/purchase-invoices";
+            }
         }
         else if (targetPath.StartsWith("/product-batches?", StringComparison.OrdinalIgnoreCase))
         {
@@ -474,6 +519,25 @@ public partial class MainViewModel : ObservableObject
             {
                 _ = BarcodeStudio.ApplyNavigationQueryAsync(barcodeRouteWithQuery);
             }
+        }
+        else if (string.Equals(targetPath, "/purchase-invoices", StringComparison.OrdinalIgnoreCase))
+        {
+            if (editPurchaseInvoiceId.HasValue)
+            {
+                _ = PurchaseInvoices.OpenEditModeAsync(editPurchaseInvoiceId.Value);
+            }
+            else if (detailPurchaseInvoiceId.HasValue)
+            {
+                _ = PurchaseInvoices.OpenDetailModeAsync(detailPurchaseInvoiceId.Value);
+            }
+            else
+            {
+                _ = PurchaseInvoices.OpenDirectoryModeAsync();
+            }
+        }
+        else if (string.Equals(targetPath, "/purchase-invoices/create", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = PurchaseInvoices.OpenCreateModeAsync(createFromPoId);
         }
     }
 

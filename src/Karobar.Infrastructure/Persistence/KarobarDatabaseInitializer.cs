@@ -53,6 +53,7 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
         await EnsureRegularCustomerColumnsExistAsync(db, cancellationToken);
         await EnsureProductSupplierColumnsExistAsync(db, cancellationToken);
         await EnsureBarcodeTemplateColumnsExistAsync(db, cancellationToken);
+        await EnsurePurchaseInvoiceColumnsExistAsync(db, cancellationToken);
 
         var now = DateTime.UtcNow;
 
@@ -661,6 +662,69 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
                 alterCommands.Add("ALTER TABLE \"barcode_templates\" ADD COLUMN \"margin_bottom_mm\" TEXT NOT NULL DEFAULT '1';");
             if (!existingCols.Contains("layout_options"))
                 alterCommands.Add("ALTER TABLE \"barcode_templates\" ADD COLUMN \"layout_options\" TEXT NULL;");
+
+            foreach (var sql in alterCommands)
+            {
+                await using var alterCmd = conn.CreateCommand();
+                alterCmd.CommandText = sql;
+                await alterCmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await conn.CloseAsync();
+            }
+        }
+    }
+
+    private static async Task EnsurePurchaseInvoiceColumnsExistAsync(KarobarDbContext db, CancellationToken cancellationToken)
+    {
+        var conn = db.Database.GetDbConnection();
+        var shouldClose = conn.State != System.Data.ConnectionState.Open;
+        if (shouldClose)
+        {
+            await conn.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            static async Task<HashSet<string>> GetTableColsAsync(System.Data.Common.DbConnection connection, string tableName, CancellationToken ct)
+            {
+                var cols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                await using var cmd = connection.CreateCommand();
+                cmd.CommandText = $"PRAGMA table_info(\"{tableName}\");";
+                await using var reader = await cmd.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    cols.Add(reader.GetString(1));
+                }
+                return cols;
+            }
+
+            var alterCommands = new List<string>();
+
+            var piCols = await GetTableColsAsync(conn, "purchase_invoices", cancellationToken);
+            if (piCols.Count > 0 && !piCols.Contains("invoice_amount"))
+                alterCommands.Add("ALTER TABLE \"purchase_invoices\" ADD COLUMN \"invoice_amount\" TEXT NOT NULL DEFAULT '0';");
+
+            var piiCols = await GetTableColsAsync(conn, "purchase_invoice_items", cancellationToken);
+            if (piiCols.Count > 0 && !piiCols.Contains("purchase_order_item_id"))
+                alterCommands.Add("ALTER TABLE \"purchase_invoice_items\" ADD COLUMN \"purchase_order_item_id\" INTEGER NULL;");
+
+            var poCols = await GetTableColsAsync(conn, "purchase_orders", cancellationToken);
+            if (poCols.Count > 0)
+            {
+                if (!poCols.Contains("received_by"))
+                    alterCommands.Add("ALTER TABLE \"purchase_orders\" ADD COLUMN \"received_by\" INTEGER NULL;");
+                if (!poCols.Contains("received_at"))
+                    alterCommands.Add("ALTER TABLE \"purchase_orders\" ADD COLUMN \"received_at\" TEXT NULL;");
+            }
+
+            var poiCols = await GetTableColsAsync(conn, "purchase_order_items", cancellationToken);
+            if (poiCols.Count > 0 && !poiCols.Contains("unit_bonus"))
+                alterCommands.Add("ALTER TABLE \"purchase_order_items\" ADD COLUMN \"unit_bonus\" INTEGER NOT NULL DEFAULT 0;");
 
             foreach (var sql in alterCommands)
             {

@@ -18,6 +18,7 @@ public sealed class PurchaseLineCalcModel
     public int Quantity { get; set; }
     public decimal SubTotal { get; set; }
     public decimal AvgPrice { get; set; }
+    public decimal EffectiveAvgPrice4 { get; set; }
     public decimal? Margin { get; set; }
     public decimal? WholeSaleMargin { get; set; }
 }
@@ -72,9 +73,13 @@ public sealed class SaleFooterCalcModel
 public static class InvoiceCalculators
 {
     public static decimal R2(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+    public static decimal R4(decimal value) => Math.Round(value, 4, MidpointRounding.AwayFromZero);
     public static decimal R6(decimal value) => Math.Round(value, 6, MidpointRounding.AwayFromZero);
 
-    public static PurchaseLineCalcModel RecalcPurchaseItem(PurchaseLineCalcModel item, string? changedField = null)
+    public static PurchaseLineCalcModel RecalcPurchaseItem(
+        PurchaseLineCalcModel item,
+        string? changedField = null,
+        decimal? previousPackSalePrice = null)
     {
         var packSize = item.PackSize;
         var packQty = item.PackQuantity;
@@ -88,6 +93,16 @@ public static class InvoiceCalculators
         var packBonus = item.PackBonus;
         var unitBonus = (decimal)item.UnitBonus;
         var discountPct = item.ItemDiscountPercentage;
+
+        // Retail -> Wholesale Smart Sync (PurchaseInvoiceForm.jsx:629-659)
+        var syncWholesaleFromRetailPack = changedField == "pack_sale_price" &&
+            (wholeSalePack == 0m || (previousPackSalePrice.HasValue && R2(wholeSalePack) == R2(previousPackSalePrice.Value)));
+
+        if (syncWholesaleFromRetailPack)
+        {
+            wholeSalePack = packSale;
+            wholeSaleUnit = 0m;
+        }
 
         if (wholeSalePack == 0m && packSale > 0m) wholeSalePack = packSale;
         if (wholeSaleUnit == 0m && unitSale > 0m) wholeSaleUnit = unitSale;
@@ -130,11 +145,11 @@ public static class InvoiceCalculators
                     packSale = unitSale * packSize;
             }
 
-            if (changedField == "whole_sale_pack_price")
+            if (changedField == "whole_sale_pack_price" || syncWholesaleFromRetailPack)
                 wholeSaleUnit = wholeSalePack / packSize;
             else if (changedField == "whole_sale_unit_price")
                 wholeSalePack = wholeSaleUnit * packSize;
-            else if (changedField == "pack_size")
+            else if (changedField == "pack_size" || (wholeSalePack > 0m && wholeSaleUnit == 0m))
             {
                 if (wholeSalePack > 0m && wholeSaleUnit == 0m)
                     wholeSaleUnit = wholeSalePack / packSize;
@@ -154,6 +169,15 @@ public static class InvoiceCalculators
                     packBonus = unitBonus / packSize;
             }
         }
+        else
+        {
+            unitQty = Math.Round(unitQty, 0, MidpointRounding.AwayFromZero);
+            unitBonus = Math.Round(unitBonus, 0, MidpointRounding.AwayFromZero);
+        }
+
+        // Re-check wholesale fallback after unitSale may have been derived from packSale
+        if (wholeSalePack == 0m && packSale > 0m) wholeSalePack = packSale;
+        if (wholeSaleUnit == 0m && unitSale > 0m) wholeSaleUnit = unitSale;
 
         var paidUnits = (int)Math.Round(unitQty, 0, MidpointRounding.AwayFromZero);
         var bonusUnits = (int)Math.Round(unitBonus, 0, MidpointRounding.AwayFromZero);
@@ -174,19 +198,20 @@ public static class InvoiceCalculators
             ? R2(((wholeSaleUnit - costForMargin) / wholeSaleUnit) * 100m)
             : null;
 
-        item.PackQuantity = R2(packQty);
+        item.PackQuantity = R6(packQty);
         item.UnitQuantity = paidUnits;
         item.Quantity = totalUnits;
-        item.PackBonus = R2(packBonus);
+        item.PackBonus = R6(packBonus);
         item.UnitBonus = bonusUnits;
-        item.PackPurchasePrice = R2(packPurchase);
+        item.PackPurchasePrice = R6(packPurchase);
         item.UnitPurchasePrice = R6(unitPurchase);
-        item.PackSalePrice = R2(packSale);
+        item.PackSalePrice = R6(packSale);
         item.UnitSalePrice = R6(unitSale);
-        item.WholeSalePackPrice = R2(wholeSalePack);
+        item.WholeSalePackPrice = R6(wholeSalePack);
         item.WholeSaleUnitPrice = R6(wholeSaleUnit);
         item.SubTotal = R2(netTotal);
         item.AvgPrice = R2(avgPrice);
+        item.EffectiveAvgPrice4 = R4(avgPrice);
         item.Margin = margin;
         item.WholeSaleMargin = wholeSaleMargin;
 
@@ -206,13 +231,20 @@ public static class InvoiceCalculators
             discountAmt = (rowsTotal * discountPct) / 100m;
         else if (changedField == "discount_amount")
             discountPct = rowsTotal > 0m ? (discountAmt / rowsTotal) * 100m : 0m;
-        else if (discountPct > 0m)
+        else if (changedField == null && discountAmt > 0m)
+            discountPct = rowsTotal > 0m ? (discountAmt / rowsTotal) * 100m : 0m;
+        else if (changedField == null && discountPct > 0m)
             discountAmt = (rowsTotal * discountPct) / 100m;
 
         if (discountAmt > rowsTotal)
         {
             discountAmt = rowsTotal;
             discountPct = rowsTotal > 0m ? 100m : 0m;
+        }
+        if (discountAmt < 0m)
+        {
+            discountAmt = 0m;
+            discountPct = 0m;
         }
 
         var afterDiscount = rowsTotal - discountAmt;
@@ -223,7 +255,9 @@ public static class InvoiceCalculators
             taxAmt = (afterDiscount * taxPct) / 100m;
         else if (changedField == "tax_amount")
             taxPct = afterDiscount > 0m ? (taxAmt / afterDiscount) * 100m : 0m;
-        else if (taxPct > 0m)
+        else if (changedField == null && taxAmt > 0m)
+            taxPct = afterDiscount > 0m ? (taxAmt / afterDiscount) * 100m : 0m;
+        else if (changedField == null && taxPct > 0m)
             taxAmt = (afterDiscount * taxPct) / 100m;
 
         if (taxAmt < 0m) taxAmt = 0m;
@@ -235,6 +269,62 @@ public static class InvoiceCalculators
         footer.TaxAmount = R2(taxAmt);
         footer.TotalAmount = R2(afterDiscount + taxAmt);
         return footer;
+    }
+
+    /// <summary>
+    /// Exact port of Product::applyPurchaseFromItem (current-on-hand moving weighted average rounded to 2 decimals).
+    /// </summary>
+    public static decimal ApplyPurchaseWeightedAverageCost(
+        int currentStockUnits,
+        decimal currentAvgPrice,
+        int incomingTotalUnits,
+        decimal incomingEffectiveUnitAvg)
+    {
+        if (incomingTotalUnits <= 0)
+            return currentAvgPrice;
+
+        var totalUnits = currentStockUnits + incomingTotalUnits;
+        if (currentStockUnits < 0)
+        {
+            return totalUnits <= 0 ? 0m : R2(Math.Max(0m, incomingEffectiveUnitAvg));
+        }
+
+        if (totalUnits <= 0)
+            return 0m;
+
+        var weightedAvg = ((currentStockUnits * currentAvgPrice) + (incomingTotalUnits * incomingEffectiveUnitAvg)) / totalUnits;
+        return R2(Math.Max(0m, weightedAvg));
+    }
+
+    /// <summary>
+    /// Exact port of Product::revertPurchaseFromItem (inverse moving weighted average when reversing/reducing stock).
+    /// </summary>
+    public static decimal RevertPurchaseWeightedAverageCost(
+        int currentStockUnits,
+        decimal currentAvgPrice,
+        int removedTotalUnits,
+        decimal removedEffectiveUnitAvg)
+    {
+        if (removedTotalUnits <= 0)
+            return currentAvgPrice;
+
+        var afterUnits = currentStockUnits - removedTotalUnits;
+        if (afterUnits <= 0)
+            return 0m;
+
+        var remainingValue = Math.Max(0m, (currentStockUnits * currentAvgPrice) - (removedTotalUnits * removedEffectiveUnitAvg));
+        return R2(remainingValue / afterUnits);
+    }
+
+    /// <summary>
+    /// Exact port of Product::refreshMargins (Gross Margin % on selling price against product's moving avg_price).
+    /// </summary>
+    public static decimal ComputeProductMargin(decimal unitSalePrice, decimal productAvgPrice)
+    {
+        if (unitSalePrice <= 0m || productAvgPrice <= 0m)
+            return 0m;
+
+        return R2(((unitSalePrice - productAvgPrice) / unitSalePrice) * 100m);
     }
 
     /// <summary>

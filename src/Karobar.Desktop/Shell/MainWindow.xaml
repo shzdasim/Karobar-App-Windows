@@ -931,7 +931,12 @@
                         <views:BarcodeStudioView x:Name="BarcodeStudioPageView" DataContext="{Binding BarcodeStudio}" />
                     </Grid>
 
-                    <!-- I. Inner Page Host for any other Sidebar/Topbar Route -->
+                    <!-- I. Purchase Invoices (GRN) Page (When CurrentPath == "/purchase-invoices" or "/purchase-invoices/create") -->
+                    <Grid Visibility="{Binding IsPurchaseInvoicesPage, Converter={StaticResource BoolToVis}}">
+                        <views:PurchaseInvoicesView x:Name="PurchaseInvoicesPageView" DataContext="{Binding PurchaseInvoices}" />
+                    </Grid>
+
+                    <!-- J. Inner Page Host for any other Sidebar/Topbar Route -->
                     <Border Visibility="{Binding IsOtherPage, Converter={StaticResource BoolToVis}}"
                             Background="#FFFFFF"
                             BorderBrush="#E2E8F0"

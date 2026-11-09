@@ -4,10 +4,13 @@ using FluentAssertions;
 using Karobar.Application.Barcodes;
 using Karobar.Application.Interfaces;
 using Karobar.Domain.Constants;
+using Karobar.Domain.Entities;
 using Karobar.Domain.Formulas;
 using Karobar.Infrastructure;
 using Karobar.Infrastructure.Importing;
+using Karobar.Infrastructure.Persistence;
 using Karobar.Infrastructure.Security;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -789,6 +792,323 @@ public sealed class Phase1FoundationTests
             weightScan.IsWeightBarcode.Should().BeTrue();
             weightScan.WeightGrams.Should().Be(750);
             weightScan.ParsedQuantity.Should().Be(0.75m);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task PurchaseInvoiceService_ShouldSupportCreate_WeightedAvg_PoReceiving_CreditLedger_CashDrawer_Drafts_Update_Reverse_AndDelete()
+    {
+        // 1. Verify Retail -> Wholesale Smart Sync in InvoiceCalculators
+        var smartLine = new PurchaseLineCalcModel
+        {
+            PackSize = 10,
+            PackQuantity = 1m,
+            PackPurchasePrice = 100m,
+            PackSalePrice = 150m,
+            WholeSalePackPrice = 150m,
+            WholeSaleUnitPrice = 15m
+        };
+        InvoiceCalculators.RecalcPurchaseItem(smartLine, "pack_size");
+        smartLine.PackSalePrice = 180m;
+        InvoiceCalculators.RecalcPurchaseItem(smartLine, "pack_sale_price", previousPackSalePrice: 150m);
+        smartLine.WholeSalePackPrice.Should().Be(180m);
+        smartLine.WholeSaleUnitPrice.Should().Be(18m);
+
+        // 2. End-to-End PurchaseInvoiceService Integration Verification
+        var tempDir = Path.Combine(Path.GetTempPath(), "karobar_pur_inv_test_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddKarobarInfrastructure(tempDir);
+
+            await using var provider = services.BuildServiceProvider();
+            var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
+            var auth = provider.GetRequiredService<IAuthService>();
+            var categories = provider.GetRequiredService<ICategoryService>();
+            var brands = provider.GetRequiredService<IBrandService>();
+            var suppliers = provider.GetRequiredService<ISupplierService>();
+            var products = provider.GetRequiredService<IProductService>();
+            var purchases = provider.GetRequiredService<IPurchaseInvoiceService>();
+            var dbFactory = provider.GetRequiredService<IDbContextFactory<KarobarDbContext>>();
+
+            await dbInit.InitializeAndSeedAsync();
+            var session = await auth.LoginAsync("admin", "password");
+
+            var cat = await categories.CreateAsync("Antibiotics");
+            var br = await brands.CreateAsync(new BrandUpsertRequest { Name = "GSK" });
+            var sup = await suppliers.CreateAsync(new SupplierUpsertRequest
+            {
+                Name = "Premier Pharma",
+                Phone = "0300-5556677",
+                CreditDays = 30,
+                CreditLimit = 100000m
+            });
+
+            // Initial product: 10 units @ Rs. 10.00 avg cost (Rs. 100.00 total inventory value)
+            var prodRes = await products.CreateProductAsync(new ProductUpsertRequest
+            {
+                ProductCode = "PRD-AUG625",
+                Barcode = "896400077711",
+                Name = "Augmentin 625mg Tablets",
+                PackSize = 10,
+                Quantity = 10,
+                PackPurchasePrice = 100m,
+                UnitPurchasePrice = 10m,
+                PackSalePrice = 150m,
+                UnitSalePrice = 15m,
+                WholeSalePackPrice = 140m,
+                WholeSaleUnitPrice = 14m,
+                AvgPrice = 10m,
+                CategoryId = cat.Id,
+                BrandId = br.Id,
+                SupplierId = sup.Id
+            });
+            prodRes.Succeeded.Should().BeTrue(prodRes.Message);
+            var prodId = prodRes.EntityId!.Value;
+
+            // Open Cash Drawer Session (Rs. 50,000 opening balance) + Seed Ordered Purchase Order (30 units)
+            long poId;
+            await using (var setupDb = await dbFactory.CreateDbContextAsync())
+            {
+                var openedAt = DateTime.UtcNow.AddMinutes(-15);
+                setupDb.CashDrawerSessions.Add(new CashDrawerSession
+                {
+                    OpenedBy = session.UserId,
+                    OpenedAt = openedAt,
+                    OpeningBalance = 50000m,
+                    ExpectedClosingBalance = 50000m,
+                    Status = "open",
+                    CreatedAt = openedAt,
+                    UpdatedAt = openedAt
+                });
+
+                var po = new PurchaseOrder
+                {
+                    OrderNumber = "PO-0001",
+                    SupplierId = sup.Id,
+                    OrderDate = DateTime.Today,
+                    Status = "ordered",
+                    Subtotal = 300m,
+                    Total = 300m,
+                    CreatedBy = session.UserId,
+                    CreatedAt = openedAt,
+                    UpdatedAt = openedAt
+                };
+                setupDb.PurchaseOrders.Add(po);
+                await setupDb.SaveChangesAsync();
+                poId = po.Id;
+
+                setupDb.PurchaseOrderItems.Add(new PurchaseOrderItem
+                {
+                    PurchaseOrderId = po.Id,
+                    ProductId = prodId,
+                    PackSize = 10,
+                    QuantityOrdered = 30,
+                    QuantityReceived = 0,
+                    UnitCost = 10m,
+                    LineTotal = 300m,
+                    Position = 1,
+                    CreatedAt = openedAt,
+                    UpdatedAt = openedAt
+                });
+                await setupDb.SaveChangesAsync();
+            }
+
+            // Prepare PO Receipt & Verify Bootstrap
+            var poPrep = await purchases.PreparePurchaseOrderReceiptAsync(poId);
+            poPrep.OrderNumber.Should().Be("PO-0001");
+            poPrep.Lines.Should().ContainSingle(l => l.ProductId == prodId && l.UnitQuantity == 30);
+
+            // Hold Purchase Draft -> DRF-PUR-0001
+            var draftPayload = new PurchaseInvoiceUpsertRequest
+            {
+                PurchaseOrderId = poId,
+                ReceiptKey = poPrep.ReceiptKey,
+                SupplierId = sup.Id,
+                InvoiceType = "debit",
+                PaymentMethod = "cash",
+                PostedDate = DateTime.Today,
+                InvoiceNumber = "SUP-BILL-101",
+                InvoiceAmount = 200m,
+                TotalAmount = 200m,
+                Items =
+                [
+                    new PurchaseInvoiceUpsertLineRequest
+                    {
+                        ProductId = prodId,
+                        PackSize = 10,
+                        Batch = "AUG-B1",
+                        Expiry = DateTime.Today.AddMonths(12),
+                        PackQuantity = 2m,
+                        UnitQuantity = 20,
+                        PackBonus = 0.5m,
+                        UnitBonus = 5,
+                        PackPurchasePrice = 100m,
+                        UnitPurchasePrice = 10m,
+                        PackSalePrice = 150m,
+                        UnitSalePrice = 15m,
+                        WholeSalePackPrice = 140m,
+                        WholeSaleUnitPrice = 14m
+                    }
+                ]
+            };
+
+            var draft1 = await purchases.SaveDraftAsync(null, draftPayload, session.UserId);
+            draft1.DraftNumber.Should().Be("DRF-PUR-0001");
+            draft1.Version.Should().Be(1);
+
+            var draft2 = await purchases.SaveDraftAsync(draft1.Id, draftPayload, session.UserId);
+            draft2.Version.Should().Be(2);
+            (await purchases.GetHeldDraftsAsync()).Should().ContainSingle(d => d.Id == draft1.Id);
+
+            // Verify Bill Amt ±5.00 Guard rejects large mismatch
+            draftPayload.DraftId = draft1.Id;
+            draftPayload.InvoiceAmount = 212m; // Net is 200.00 -> diff 12.00 > 5.00
+            var mismatchFail = await purchases.CreateAsync(draftPayload, session.UserId);
+            mismatchFail.Succeeded.Should().BeFalse();
+            mismatchFail.OffendingFieldName.Should().Be("invoice_amount");
+
+            // Post Debit Purchase Invoice #1 (20 paid + 5 bonus = 25 units @ Rs. 200 subtotal -> line avg = 8.00)
+            draftPayload.InvoiceAmount = 200m;
+            var create1 = await purchases.CreateAsync(draftPayload, session.UserId);
+            create1.Succeeded.Should().BeTrue(create1.Message);
+            create1.PostedNumber.Should().Be("PRINV-0001");
+            var inv1Id = create1.InvoiceId!.Value;
+
+            // Held draft must now be marked converted (hidden from active held drafts)
+            (await purchases.GetHeldDraftsAsync()).Should().BeEmpty();
+
+            // Verify Product Moving Weighted Average Cost, Batch, PO Partial Receipt, Undelivered Demand & Cash Drawer
+            await using (var checkDb1 = await dbFactory.CreateDbContextAsync())
+            {
+                var prod1 = await checkDb1.Products.AsNoTracking().SingleAsync(p => p.Id == prodId);
+                prod1.Quantity.Should().Be(35); // 10 existing + 25 received (20 paid + 5 bonus)
+                prod1.AvgPrice.Should().Be(8.57m); // (10*10 + 25*8) / 35 = 300 / 35 = 8.5714 -> 8.57
+
+                var batch1 = await checkDb1.Batches.AsNoTracking().SingleAsync(b => b.ProductId == prodId && b.BatchNumber == "AUG-B1");
+                batch1.Quantity.Should().Be(25);
+
+                var poAfter1 = await checkDb1.PurchaseOrders.AsNoTracking().SingleAsync(p => p.Id == poId);
+                poAfter1.Status.Should().Be("partially_received");
+
+                var shortDemand = await checkDb1.UserDemands.AsNoTracking()
+                    .SingleAsync(d => d.Notes == "Undelivered from Purchase Order PO-0001");
+                shortDemand.Quantity.Should().Be(10); // 30 ordered - 20 received
+
+                var drawerAfter1 = await checkDb1.CashDrawerSessions.AsNoTracking().SingleAsync(s => s.Status == "open");
+                drawerAfter1.ExpectedClosingBalance.Should().Be(49800m); // 50,000 - 200 cash purchase
+            }
+
+            // Post Credit Purchase Invoice #2 receiving remaining 10 units on PO-0001 with Rs. 30 down-payment
+            var creditReq = new PurchaseInvoiceUpsertRequest
+            {
+                PurchaseOrderId = poId,
+                SupplierId = sup.Id,
+                InvoiceType = "credit",
+                PaymentMethod = "cash",
+                PostedDate = DateTime.Today,
+                InvoiceNumber = "SUP-BILL-102",
+                InvoiceAmount = 100m,
+                TotalAmount = 100m,
+                TotalPaid = 30m,
+                Items =
+                [
+                    new PurchaseInvoiceUpsertLineRequest
+                    {
+                        ProductId = prodId,
+                        PackSize = 10,
+                        Batch = "AUG-B2",
+                        Expiry = DateTime.Today.AddMonths(18),
+                        PackQuantity = 1m,
+                        UnitQuantity = 10,
+                        PackPurchasePrice = 100m,
+                        UnitPurchasePrice = 10m,
+                        PackSalePrice = 150m,
+                        UnitSalePrice = 15m,
+                        WholeSalePackPrice = 140m,
+                        WholeSaleUnitPrice = 14m
+                    }
+                ]
+            };
+
+            var create2 = await purchases.CreateAsync(creditReq, session.UserId);
+            create2.Succeeded.Should().BeTrue(create2.Message);
+            create2.PostedNumber.Should().Be("PRINV-0002");
+            var inv2Id = create2.InvoiceId!.Value;
+
+            // Verify PO Full Receipt ("received"), Demand Cleared, and Supplier Credit Ledger Balance (100 - 30 = 70)
+            var supCredit = await purchases.GetSupplierCreditSummaryAsync(sup.Id);
+            supCredit.Should().NotBeNull();
+            supCredit!.CurrentPayable.Should().Be(70m);
+
+            await using (var checkDb2 = await dbFactory.CreateDbContextAsync())
+            {
+                var poAfter2 = await checkDb2.PurchaseOrders.AsNoTracking().SingleAsync(p => p.Id == poId);
+                poAfter2.Status.Should().Be("received");
+
+                var remainingShortDemands = await checkDb2.UserDemands.AsNoTracking()
+                    .Where(d => d.Notes == "Undelivered from Purchase Order PO-0001")
+                    .ToListAsync();
+                remainingShortDemands.Should().BeEmpty();
+
+                var ledgerRow = await checkDb2.SupplierLedgers.AsNoTracking()
+                    .SingleAsync(l => l.PurchaseInvoiceId == inv2Id);
+                ledgerRow.CreditRemaining.Should().Be(70m);
+                ledgerRow.TotalBalance.Should().Be(70m);
+            }
+
+            // Update Credit Invoice #2 (increase PackPurchasePrice 100 -> 110 => Total 110, Paid 30 => Payable 80)
+            creditReq.InvoiceAmount = 110m;
+            creditReq.TotalAmount = 110m;
+            creditReq.EditReason = "Supplier freight adjustment";
+            creditReq.Items[0].PackPurchasePrice = 110m;
+            creditReq.Items[0].UnitPurchasePrice = 11m;
+
+            var update2 = await purchases.UpdateAsync(inv2Id, creditReq, session.UserId);
+            update2.Succeeded.Should().BeTrue(update2.Message);
+
+            var histories2 = await purchases.GetDocumentHistoryAsync(inv2Id);
+            histories2.Select(h => h.Action).Should().Contain(["created", "updated"]);
+            (await purchases.GetSupplierCreditSummaryAsync(sup.Id))!.CurrentPayable.Should().Be(80m);
+
+            // Reverse Credit Invoice #2 -> PO re-opens to partially_received, Payable drops back to 0
+            var rev2 = await purchases.ReverseAsync(inv2Id, "Damaged carton returned at gate", session.UserId);
+            rev2.Succeeded.Should().BeTrue(rev2.Message);
+
+            var detail2 = await purchases.GetByIdAsync(inv2Id);
+            detail2!.Status.Should().Be("reversed");
+            (await purchases.GetSupplierCreditSummaryAsync(sup.Id))!.CurrentPayable.Should().Be(0m);
+
+            await using (var checkDb3 = await dbFactory.CreateDbContextAsync())
+            {
+                var poAfterRev = await checkDb3.PurchaseOrders.AsNoTracking().SingleAsync(p => p.Id == poId);
+                poAfterRev.Status.Should().Be("partially_received");
+            }
+
+            // Delete Invoice #1 -> Wrong password rejected, correct password deletes & restores initial stock/cash
+            var badDelete = await purchases.DeleteAsync(inv1Id, "wrong-pass", session.UserId);
+            badDelete.Succeeded.Should().BeFalse();
+
+            var okDelete = await purchases.DeleteAsync(inv1Id, "password", session.UserId);
+            okDelete.Succeeded.Should().BeTrue(okDelete.Message);
+            (await purchases.GetByIdAsync(inv1Id)).Should().BeNull();
+
+            await using (var checkDb4 = await dbFactory.CreateDbContextAsync())
+            {
+                var prodFinal = await checkDb4.Products.AsNoTracking().SingleAsync(p => p.Id == prodId);
+                prodFinal.Quantity.Should().Be(10); // Back to initial 10 units
+
+                var poFinal = await checkDb4.PurchaseOrders.AsNoTracking().SingleAsync(p => p.Id == poId);
+                poFinal.Status.Should().Be("ordered"); // All receipts reversed/deleted -> back to ordered
+
+                var drawerFinal = await checkDb4.CashDrawerSessions.AsNoTracking().SingleAsync(s => s.Status == "open");
+                drawerFinal.ExpectedClosingBalance.Should().Be(50000m); // All cash refunded
+            }
         }
         finally
         {

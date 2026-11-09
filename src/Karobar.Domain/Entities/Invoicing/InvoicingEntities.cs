@@ -49,6 +49,12 @@ public class PurchaseOrder
     [Column("created_by")]
     public long? CreatedBy { get; set; }
 
+    [Column("received_by")]
+    public long? ReceivedBy { get; set; }
+
+    [Column("received_at")]
+    public DateTime? ReceivedAt { get; set; }
+
     [Column("created_at")]
     public DateTime? CreatedAt { get; set; }
 
@@ -77,6 +83,9 @@ public class PurchaseOrderItem
 
     [Column("quantity_received")]
     public int QuantityReceived { get; set; }
+
+    [Column("unit_bonus")]
+    public int UnitBonus { get; set; }
 
     [Column("unit_cost")]
     public decimal UnitCost { get; set; }
@@ -138,7 +147,7 @@ public class PurchaseInvoice
     public int? CreditDays { get; set; }
 
     [Column("invoice_type")]
-    public string InvoiceType { get; set; } = "credit";
+    public string InvoiceType { get; set; } = "debit";
 
     [Column("status")]
     public string Status { get; set; } = "posted";
@@ -151,6 +160,9 @@ public class PurchaseInvoice
 
     [Column("reversal_reason")]
     public string? ReversalReason { get; set; }
+
+    [Column("invoice_amount")]
+    public decimal InvoiceAmount { get; set; }
 
     [Column("gross_total")]
     public decimal GrossTotal { get; set; }
@@ -207,6 +219,9 @@ public class PurchaseInvoiceItem
 
     [Column("purchase_invoice_id")]
     public long PurchaseInvoiceId { get; set; }
+
+    [Column("purchase_order_item_id")]
+    public long? PurchaseOrderItemId { get; set; }
 
     [Column("product_id")]
     public long ProductId { get; set; }

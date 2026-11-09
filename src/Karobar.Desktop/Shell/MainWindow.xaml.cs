@@ -30,6 +30,7 @@ public partial class MainWindow : Window
 
     private IPageKeyboardHandler? GetActivePageHandler()
     {
+        if (_viewModel.IsPurchaseInvoicesPage) return PurchaseInvoicesPageView;
         if (_viewModel.IsBarcodeStudioPage) return BarcodeStudioPageView;
         if (_viewModel.IsProductBatchesPage) return ProductBatchesPageView;
         if (_viewModel.IsProductsPage) return ProductsPageView;
@@ -136,13 +137,21 @@ public partial class MainWindow : Window
             }
         }
 
-        // 7b. Print Labels: Ctrl+P (when on Barcode Studio)
-        if (isCtrl && key == Key.P && _viewModel.IsBarcodeStudioPage)
+        // 7b. Print Labels / Vouchers: Ctrl+P
+        if (isCtrl && key == Key.P)
         {
-            FlushFocusedTextBoxBinding();
-            BarcodeStudioPageView.ExecutePrintLabels();
-            e.Handled = true;
-            return;
+            if (_viewModel.IsBarcodeStudioPage)
+            {
+                FlushFocusedTextBoxBinding();
+                BarcodeStudioPageView.ExecutePrintLabels();
+                e.Handled = true;
+                return;
+            }
+            if (_viewModel.IsPurchaseInvoicesPage && PurchaseInvoicesPageView.HandleExportShortcut())
+            {
+                e.Handled = true;
+                return;
+            }
         }
 
         // 8. Global Workspace & Quick-Jump Shortcuts
@@ -208,7 +217,7 @@ public partial class MainWindow : Window
                 _viewModel.Navigate("/sale-invoices/create/wholesale");
                 e.Handled = true;
             }
-            else if (key == Key.D)
+            else if (key == Key.D && !_viewModel.IsPurchaseInvoicesPage)
             {
                 _viewModel.Navigate("/cash-drawer");
                 e.Handled = true;
