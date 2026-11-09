@@ -77,7 +77,7 @@ public sealed class Phase1FoundationTests
         try
         {
             var services = new ServiceCollection();
-            services.AddLogging(b => b.AddDebug());
+            services.AddLogging();
             services.AddKarobarInfrastructure(tempDir);
 
             await using var provider = services.BuildServiceProvider();

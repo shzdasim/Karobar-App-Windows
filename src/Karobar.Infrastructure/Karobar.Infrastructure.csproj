@@ -3,6 +3,7 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <RootNamespace>Karobar.Infrastructure</RootNamespace>
     <AssemblyName>Karobar.Infrastructure</AssemblyName>
+    <NoWarn>$(NoWarn);NU1902</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
