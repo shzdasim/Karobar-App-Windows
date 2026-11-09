@@ -93,10 +93,16 @@ public sealed class Phase1FoundationTests
             stats.ChartOfAccountsCount.Should().Be(14);
             stats.StorageLocationsCount.Should().Be(3);
 
-            // Verify login with seeded Super Admin
-            var session = await auth.LoginAsync("admin@karobar.app", "password");
+            // Verify login with built-in admin username ("admin") and password ("password")
+            var session = await auth.LoginAsync("admin", "password");
+            session.Username.Should().Be("admin");
             session.IsAdmin.Should().BeTrue();
             session.Permissions.Count.Should().Be(DomainSeedConstants.AllPermissions.Length);
+
+            // Verify unsuccessful login throws clear error message
+            var badLogin = async () => await auth.LoginAsync("admin", "wrong_password");
+            await badLogin.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("Invalid username or password.");
 
             // Verify PHP $2y$ BCrypt compatibility
             var netHash = BCrypt.Net.BCrypt.HashPassword("secret123");

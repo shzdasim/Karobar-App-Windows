@@ -98,10 +98,17 @@ public sealed class KarobarDbContext : DbContext
         modelBuilder.Entity<ProductSupplier>()
             .HasKey(ps => new { ps.ProductId, ps.SupplierId });
 
-        // High-performance indexes matching Laravel migrations
+        // Unique username index on users table (primary login identifier)
         modelBuilder.Entity<User>()
-            .HasIndex(u => u.Email)
+            .Property(u => u.Username)
+            .HasDefaultValue(string.Empty);
+
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Username)
             .IsUnique();
+
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Email);
 
         modelBuilder.Entity<Product>()
             .HasIndex(p => p.ProductCode)

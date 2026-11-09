@@ -42,6 +42,13 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
 
         await db.Database.EnsureCreatedAsync(cancellationToken);
 
+        // Ensure schema has the unique 'username' column on 'users' (rebuild if an older dev DB exists)
+        if (!await HasColumnAsync(db, "users", "username", cancellationToken))
+        {
+            await db.Database.EnsureDeletedAsync(cancellationToken);
+            await db.Database.EnsureCreatedAsync(cancellationToken);
+        }
+
         // Configure SQLite WAL mode for concurrent read/write desktop speed and crash resilience
         await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;", cancellationToken);
         await db.Database.ExecuteSqlRawAsync("PRAGMA synchronous=NORMAL;", cancellationToken);
@@ -55,21 +62,21 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
         {
             if (!existingRoles.Any(r => r.Name.Equals(roleName, StringComparison.OrdinalIgnoreCase)))
             {
-                var role = new Role { Name = roleName, GuardName = "web", CreatedAt = now, UpdatedAt = now };
+                var role = new Role { Name = roleName, GuardName = "sanctum", CreatedAt = now, UpdatedAt = now };
                 db.Roles.Add(role);
                 existingRoles.Add(role);
             }
         }
         await db.SaveChangesAsync(cancellationToken);
 
-        // 2. Seed All 145 Granular Permissions
+        // 2. Seed All Granular Permissions
         var existingPerms = await db.Permissions.Select(p => p.Name).ToHashSetAsync(StringComparer.OrdinalIgnoreCase, cancellationToken);
         var newPerms = new List<Permission>();
         foreach (var permName in DomainSeedConstants.AllPermissions)
         {
             if (!existingPerms.Contains(permName))
             {
-                newPerms.Add(new Permission { Name = permName, GuardName = "web", CreatedAt = now, UpdatedAt = now });
+                newPerms.Add(new Permission { Name = permName, GuardName = "sanctum", CreatedAt = now, UpdatedAt = now });
             }
         }
         if (newPerms.Count > 0)
@@ -105,13 +112,48 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
         }
         await db.SaveChangesAsync(cancellationToken);
 
-        // 3. Seed Default Super Admin User if no users exist
-        if (!await db.Users.AnyAsync(cancellationToken))
+        // 3. Backfill any empty usernames (e.g. after legacy import) and ensure built-in 'admin' user exists
+        var allUsers = await db.Users.ToListAsync(cancellationToken);
+        var usedUsernames = allUsers
+            .Where(u => !string.IsNullOrWhiteSpace(u.Username))
+            .Select(u => u.Username.ToLowerInvariant())
+            .ToHashSet();
+
+        foreach (var u in allUsers.Where(u => string.IsNullOrWhiteSpace(u.Username)))
         {
-            var adminUser = new User
+            if (!usedUsernames.Contains("admin"))
             {
-                Name = "Super Admin",
+                u.Username = "admin";
+                usedUsernames.Add("admin");
+            }
+            else
+            {
+                var prefix = !string.IsNullOrWhiteSpace(u.Email) && u.Email.Contains('@')
+                    ? u.Email.Split('@')[0].Trim().ToLowerInvariant()
+                    : $"user{u.Id}";
+                var candidate = string.IsNullOrWhiteSpace(prefix) ? $"user{u.Id}" : prefix;
+                if (usedUsernames.Contains(candidate))
+                    candidate = $"{candidate}_{u.Id}";
+                u.Username = candidate;
+                usedUsernames.Add(candidate);
+            }
+        }
+        if (db.ChangeTracker.HasChanges())
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        // Ensure built-in admin user (username: "admin", password: "password") exists
+        var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == "admin", cancellationToken);
+        if (adminUser == null)
+        {
+            adminUser = new User
+            {
+                Username = "admin",
+                Name = "Admin User",
                 Email = "admin@karobar.app",
+                Status = "active",
+                IsAdmin = true,
                 Password = BCrypt.Net.BCrypt.HashPassword("password"),
                 EmailVerifiedAt = now,
                 CreatedAt = now,
@@ -120,7 +162,7 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
             db.Users.Add(adminUser);
             await db.SaveChangesAsync(cancellationToken);
 
-            var superAdminRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "Super Admin", cancellationToken);
+            var superAdminRole = await db.Roles.FirstOrDefaultAsync(r => r.Name == "Super Admin" || r.Name == "Admin", cancellationToken);
             if (superAdminRole != null)
             {
                 db.UserRoles.Add(new UserRole
@@ -410,5 +452,27 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
             .OrderBy(s => s.Name)
             .Take(limit)
             .ToListAsync(cancellationToken);
+    }
+
+    private static async Task<bool> HasColumnAsync(KarobarDbContext db, string tableName, string columnName, CancellationToken cancellationToken)
+    {
+        var conn = db.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+        {
+            await conn.OpenAsync(cancellationToken);
+        }
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info(\"{tableName}\");";
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var col = reader.GetString(1);
+            if (col.Equals(columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

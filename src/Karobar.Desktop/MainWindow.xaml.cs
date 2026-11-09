@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using Karobar.Desktop.ViewModels;
 
 namespace Karobar.Desktop;
@@ -12,30 +13,15 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = _viewModel;
+
+        Loaded += (_, _) => UsernameTextBox.Focus();
     }
 
-    private void MainWindow_OnDragOver(object sender, DragEventArgs e)
+    private void PasswordInput_OnPasswordChanged(object sender, RoutedEventArgs e)
     {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        if (sender is PasswordBox pb)
         {
-            e.Effects = DragDropEffects.Copy;
-        }
-        else
-        {
-            e.Effects = DragDropEffects.None;
-        }
-        e.Handled = true;
-    }
-
-    private async void MainWindow_OnDrop(object sender, DragEventArgs e)
-    {
-        if (!e.Data.GetDataPresent(DataFormats.FileDrop))
-            return;
-
-        if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
-        {
-            _viewModel.SelectedImportFilePath = files[0];
-            await _viewModel.RunOneClickFileImportCommand.ExecuteAsync(null);
+            _viewModel.Password = pb.Password;
         }
     }
 }

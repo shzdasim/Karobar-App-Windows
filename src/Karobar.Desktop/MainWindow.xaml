@@ -1,483 +1,119 @@
 <Window x:Class="Karobar.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-        mc:Ignorable="d"
-        Title="Karobar App — Native Windows Desktop ERP (.NET 9)"
-        Width="1360"
-        Height="860"
-        MinWidth="1080"
-        MinHeight="700"
+        Title="Karobar App"
+        Width="1280"
+        Height="800"
+        MinWidth="900"
+        MinHeight="600"
         WindowStartupLocation="CenterScreen"
-        Background="#0F172A"
-        Foreground="#F8FAFC"
-        AllowDrop="True"
-        Drop="MainWindow_OnDrop"
-        DragOver="MainWindow_OnDragOver">
+        Background="#F8FAFC">
 
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <Grid>
+        <!-- ================================================================ -->
+        <!-- 1. LOGIN PAGE                                                    -->
+        <!-- ================================================================ -->
+        <Grid Visibility="{Binding IsLoginVisible, Converter={StaticResource BoolToVis}}"
+              Background="#F8FAFC">
+            <Border Width="420"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Background="#FFFFFF"
+                    BorderBrush="#E2E8F0"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="36,32">
+                <Border.Effect>
+                    <DropShadowEffect Color="#1E293B" BlurRadius="24" ShadowDepth="4" Opacity="0.08" />
+                </Border.Effect>
 
-        <!-- Top Glassmorphic System Header -->
-        <Border Grid.Row="0"
-                Background="{StaticResource GlassCardBackgroundBrush}"
-                BorderBrush="{StaticResource GlassCardBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="14"
-                Padding="20,14"
-                Margin="0,0,0,16">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <!-- Brand Header -->
+                    <TextBlock Text="Karobar"
+                               FontSize="28"
+                               FontWeight="Bold"
+                               Foreground="#1E293B"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="Sign in with your username and password"
+                               FontSize="13"
+                               Foreground="#64748B"
+                               HorizontalAlignment="Center"
+                               Margin="0,6,0,24" />
 
-                <StackPanel Grid.Column="0" Orientation="Vertical">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Background="#2563EB" CornerRadius="8" Padding="10,4" Margin="0,0,12,0">
-                            <TextBlock Text="KAROBAR NATIVE .NET 9" FontWeight="Bold" FontSize="12" Foreground="White" />
-                        </Border>
-                        <TextBlock Text="{Binding StoreName}" FontSize="22" FontWeight="Bold" VerticalAlignment="Center" />
-                        <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="6" Padding="8,2" Margin="12,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding ShopType}" Foreground="#94A3B8" FontSize="12" />
-                        </Border>
-                        <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="6" Padding="8,2" Margin="6,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding SaleSystem}" Foreground="#38BDF8" FontSize="12" />
-                        </Border>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                        <TextBlock Text="SQLite WAL Database: " Foreground="#94A3B8" FontSize="12" />
-                        <TextBlock Text="{Binding DatabasePath}" Foreground="#E2E8F0" FontSize="12" FontFamily="Consolas" />
-                        <TextBlock Text=" (" Foreground="#94A3B8" FontSize="12" />
-                        <TextBlock Text="{Binding DatabaseSizeDisplay}" Foreground="#10B981" FontSize="12" FontWeight="SemiBold" />
-                        <TextBlock Text=")" Foreground="#94A3B8" FontSize="12" />
-                    </StackPanel>
-                </StackPanel>
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="#0F172A" BorderBrush="#334155" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,10,0">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Machine ID: " Foreground="#94A3B8" VerticalAlignment="Center" FontSize="12" />
-                            <TextBlock Text="{Binding MachineId}" Foreground="#F8FAFC" FontWeight="Bold" FontFamily="Consolas" VerticalAlignment="Center" FontSize="13" Margin="4,0,8,0" />
-                            <Button Content="Copy" Command="{Binding CopyMachineIdCommand}" Padding="8,3" FontSize="11" />
-                        </StackPanel>
-                    </Border>
-
-                    <Border Background="#1E293B" BorderBrush="#3B82F6" BorderThickness="1" CornerRadius="10" Padding="12,8" Margin="0,0,10,0">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="License: " Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding LicenseStatusText}" Foreground="#38BDF8" FontWeight="Bold" FontSize="12" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Border>
-
-                    <Button Content="Refresh Stats" Command="{Binding RefreshDashboardAndExplorerCommand}" Padding="14,8" FontWeight="SemiBold" />
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- Main Workspace Tabs -->
-        <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
-            <!-- TAB 1: ONE-CLICK LEGACY KAROBAR IMPORTER -->
-            <TabItem Header="1. One-Click Legacy Importer">
-                <Grid Margin="0,12,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.15*" />
-                        <ColumnDefinition Width="0.85*" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Left Column: File & MySQL Importer Controls -->
-                    <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
-                        <StackPanel>
-                            <!-- File Backup Importer Card -->
-                            <Border Background="{StaticResource GlassCardBackgroundBrush}"
-                                    BorderBrush="#3B82F6"
-                                    BorderThickness="1.5"
-                                    CornerRadius="14"
-                                    Padding="22"
-                                    Margin="0,0,0,16">
-                                <StackPanel>
-                                    <TextBlock Text="One-Click File Importer (.zip, .sql.gz, .sql, .sqlite, .json)"
-                                               FontSize="18"
-                                               FontWeight="Bold"
-                                               Foreground="#F8FAFC" />
-                                    <TextBlock Text="Drag and drop any backup file created by your Karobar Web App onto this window, or browse below. Automatically detects Full Backup ZIP archives, GZIP-compressed SQL dumps, raw SQLite snapshots, and Settings JSON."
-                                               Foreground="#94A3B8"
-                                               TextWrapping="Wrap"
-                                               Margin="0,6,0,16" />
-
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBox Grid.Column="0"
-                                                 Text="{Binding SelectedImportFilePath, UpdateSourceTrigger=PropertyChanged}"
-                                                 Padding="10,8"
-                                                 FontFamily="Consolas"
-                                                 Margin="0,0,10,0" />
-                                        <Button Grid.Column="1"
-                                                Content="Browse Backup File..."
-                                                Command="{Binding BrowseImportFileCommand}"
-                                                Padding="16,8" />
-                                    </Grid>
-
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button Content="Run One-Click Import Now"
-                                                Command="{Binding RunOneClickFileImportCommand}"
-                                                Background="#2563EB"
-                                                Foreground="White"
-                                                FontWeight="Bold"
-                                                Padding="20,10"
-                                                Margin="0,0,12,0" />
-                                        <Button Content="Rebuild Customer &amp; Supplier Ledgers"
-                                                Command="{Binding RebuildLedgersCommand}"
-                                                Padding="16,10" />
-                                    </StackPanel>
-
-                                    <!-- Live Progress Strip -->
-                                    <Border Background="#0F172A"
-                                            BorderBrush="#334155"
-                                            BorderThickness="1"
-                                            CornerRadius="10"
-                                            Padding="14"
-                                            Margin="0,16,0,0">
-                                        <StackPanel>
-                                            <Grid Margin="0,0,0,6">
-                                                <TextBlock Text="{Binding ImportStageText}" FontWeight="Bold" Foreground="#38BDF8" />
-                                                <TextBlock Text="{Binding ImportProgressPercentage, StringFormat={}{0}%}" HorizontalAlignment="Right" FontFamily="Consolas" Foreground="#10B981" FontWeight="Bold" />
-                                            </Grid>
-                                            <ProgressBar Value="{Binding ImportProgressPercentage}" Minimum="0" Maximum="100" Height="10" Margin="0,0,0,8" />
-                                            <TextBlock Text="{Binding ImportDetailText}" Foreground="#94A3B8" TextWrapping="Wrap" FontSize="12" />
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Direct Local MySQL / MariaDB Importer Card -->
-                            <Border Background="{StaticResource GlassCardBackgroundBrush}"
-                                    BorderBrush="{StaticResource GlassCardBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="14"
-                                    Padding="22">
-                                <StackPanel>
-                                    <TextBlock Text="Direct Local MySQL / Laragon / XAMPP One-Click Pull"
-                                               FontSize="16"
-                                               FontWeight="Bold"
-                                               Foreground="#F8FAFC" />
-                                    <TextBlock Text="If you have a local MySQL/MariaDB server running on this machine, stream all 56 tables directly without exporting a file:"
-                                               Foreground="#94A3B8"
-                                               TextWrapping="Wrap"
-                                               Margin="0,4,0,14" />
-
-                                    <UniformGrid Columns="3" Margin="0,0,0,12">
-                                        <StackPanel Margin="0,0,8,0">
-                                            <TextBlock Text="Host" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,4" />
-                                            <TextBox Text="{Binding MySqlHost}" Padding="8,6" />
-                                        </StackPanel>
-                                        <StackPanel Margin="4,0,4,0">
-                                            <TextBlock Text="Port" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,4" />
-                                            <TextBox Text="{Binding MySqlPort}" Padding="8,6" />
-                                        </StackPanel>
-                                        <StackPanel Margin="8,0,0,0">
-                                            <TextBlock Text="Database Name" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,4" />
-                                            <TextBox Text="{Binding MySqlDatabase}" Padding="8,6" />
-                                        </StackPanel>
-                                    </UniformGrid>
-
-                                    <UniformGrid Columns="2" Margin="0,0,0,14">
-                                        <StackPanel Margin="0,0,8,0">
-                                            <TextBlock Text="Username" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,4" />
-                                            <TextBox Text="{Binding MySqlUsername}" Padding="8,6" />
-                                        </StackPanel>
-                                        <StackPanel Margin="8,0,0,0">
-                                            <TextBlock Text="Password" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,4" />
-                                            <TextBox Text="{Binding MySqlPassword}" Padding="8,6" />
-                                        </StackPanel>
-                                    </UniformGrid>
-
-                                    <Button Content="Connect &amp; Import from Local MySQL"
-                                            Command="{Binding RunMySqlImportCommand}"
-                                            HorizontalAlignment="Left"
-                                            Padding="18,9" />
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </ScrollViewer>
-
-                    <!-- Right Column: Imported Table Verification Counts -->
-                    <Border Grid.Column="1"
-                            Background="{StaticResource GlassCardBackgroundBrush}"
-                            BorderBrush="{StaticResource GlassCardBorderBrush}"
+                    <!-- Error Message Banner (shown on unsuccessful login) -->
+                    <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
+                            Background="#FEF2F2"
+                            BorderBrush="#FCA5A5"
                             BorderThickness="1"
-                            CornerRadius="14"
-                            Padding="18">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                                <TextBlock Text="Post-Import Table Verification Log" FontSize="16" FontWeight="Bold" />
-                                <TextBlock Text="Row counts imported per table during the last One-Click Import run:" Foreground="#94A3B8" FontSize="12" Margin="0,2,0,0" />
-                            </StackPanel>
-
-                            <DataGrid Grid.Row="1"
-                                      ItemsSource="{Binding ImportedTableCounts}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      CanUserAddRows="False"
-                                      Background="#0F172A"
-                                      Foreground="#F8FAFC"
-                                      RowBackground="#0F172A"
-                                      AlternatingRowBackground="#1E293B"
-                                      GridLinesVisibility="Horizontal"
-                                      BorderThickness="1"
-                                      BorderBrush="#334155">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Table Name" Binding="{Binding TableName}" Width="*" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Imported Rows" Binding="{Binding RowCount, StringFormat={}{0:N0}}" Width="140" FontFamily="Consolas" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-                </Grid>
-            </TabItem>
-
-            <!-- TAB 2: DATABASE & FINANCIAL OVERVIEW (56 TABLES) -->
-            <TabItem Header="2. Database &amp; Financial Overview">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
-                    <UniformGrid Columns="3">
-                        <Border Background="{StaticResource GlassCardBackgroundBrush}" BorderBrush="{StaticResource GlassCardBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="20" Margin="6">
-                            <StackPanel>
-                                <TextBlock Text="CATALOG &amp; STOCK ON HAND" Foreground="#94A3B8" FontSize="12" FontWeight="Bold" />
-                                <TextBlock Text="{Binding ProductsCount, StringFormat={}{0:N0} Products}" FontSize="26" FontWeight="Bold" Foreground="#38BDF8" Margin="0,8,0,4" />
-                                <TextBlock Text="{Binding BatchesCount, StringFormat={}{0:N0} Active Batches}" Foreground="#E2E8F0" FontSize="14" />
-                                <TextBlock Text="{Binding TotalUnitsInStock, StringFormat={}{0:N0} Total Units in Stock}" Foreground="#10B981" FontSize="13" Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Background="{StaticResource GlassCardBackgroundBrush}" BorderBrush="{StaticResource GlassCardBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="20" Margin="6">
-                            <StackPanel>
-                                <TextBlock Text="INVENTORY VALUATION (COST VS RETAIL)" Foreground="#94A3B8" FontSize="12" FontWeight="Bold" />
-                                <TextBlock Text="{Binding InventoryCostDisplay}" FontSize="24" FontWeight="Bold" Foreground="#10B981" Margin="0,8,0,4" />
-                                <TextBlock Text="Moving Weighted-Average Cost Value" Foreground="#94A3B8" FontSize="12" />
-                                <TextBlock Text="{Binding InventoryRetailDisplay, StringFormat=Retail Value: {0}}" Foreground="#E2E8F0" FontSize="14" Margin="0,6,0,0" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Background="{StaticResource GlassCardBackgroundBrush}" BorderBrush="{StaticResource GlassCardBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="20" Margin="6">
-                            <StackPanel>
-                                <TextBlock Text="SALES &amp; POS REVENUE" Foreground="#94A3B8" FontSize="12" FontWeight="Bold" />
-                                <TextBlock Text="{Binding TotalSalesDisplay}" FontSize="24" FontWeight="Bold" Foreground="#38BDF8" Margin="0,8,0,4" />
-                                <TextBlock Text="{Binding SaleInvoicesCount, StringFormat={}{0:N0} Posted Sale Invoices}" Foreground="#E2E8F0" FontSize="14" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Background="{StaticResource GlassCardBackgroundBrush}" BorderBrush="{StaticResource GlassCardBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="20" Margin="6">
-                            <StackPanel>
-                                <TextBlock Text="PURCHASES &amp; GRN BILLS" Foreground="#94A3B8" FontSize="12" FontWeight="Bold" />
-                                <TextBlock Text="{Binding TotalPurchasesDisplay}" FontSize="24" FontWeight="Bold" Foreground="#F59E0B" Margin="0,8,0,4" />
-                                <TextBlock Text="{Binding PurchaseInvoicesCount, StringFormat={}{0:N0} Posted Purchase Invoices}" Foreground="#E2E8F0" FontSize="14" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Background="{StaticResource GlassCardBackgroundBrush}" BorderBrush="{StaticResource GlassCardBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="20" Margin="6">
-                            <StackPanel>
-                                <TextBlock Text="CUSTOMERS, SUPPLIERS &amp; RBAC" Foreground="#94A3B8" FontSize="12" FontWeight="Bold" />
-                                <TextBlock Text="{Binding CustomersCount, StringFormat={}{0:N0} Customers}" FontSize="22" FontWeight="Bold" Foreground="#F8FAFC" Margin="0,8,0,4" />
-                                <TextBlock Text="{Binding SuppliersCount, StringFormat={}{0:N0} Suppliers}" Foreground="#E2E8F0" FontSize="14" />
-                                <TextBlock Text="{Binding PermissionsCount, StringFormat={}{0:N0} Seeded Spatie Permissions}" Foreground="#10B981" FontSize="13" Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Background="{StaticResource GlassCardBackgroundBrush}" BorderBrush="{StaticResource GlassCardBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="20" Margin="6">
-                            <StackPanel>
-                                <TextBlock Text="TREASURY &amp; DOUBLE-ENTRY GL" Foreground="#94A3B8" FontSize="12" FontWeight="Bold" />
-                                <TextBlock Text="{Binding TotalLiquidDisplay}" FontSize="24" FontWeight="Bold" Foreground="#10B981" Margin="0,8,0,4" />
-                                <TextBlock Text="{Binding AccountsCount, StringFormat={}{0:N0} Treasury Accounts (Cash/Bank/Wallets)}" Foreground="#E2E8F0" FontSize="13" />
-                                <TextBlock Text="{Binding ChartOfAccountsCount, StringFormat={}{0:N0} Chart of Accounts (1010–5300)}" Foreground="#38BDF8" FontSize="13" Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Border>
-                    </UniformGrid>
-                </ScrollViewer>
-            </TabItem>
-
-            <!-- TAB 3: NATIVE DATA EXPLORER -->
-            <TabItem Header="3. Native Data Explorer (Products, Invoices &amp; Parties)">
-                <Grid Margin="0,12,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                        <TextBox Width="360"
-                                 Text="{Binding ProductSearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="10,7"
-                                 Margin="0,0,10,0" />
-                        <Button Content="Search Products (Name / Code / Salt)"
-                                Command="{Binding SearchExplorerProductsCommand}"
-                                Padding="16,7" />
-                    </StackPanel>
-
-                    <TabControl Grid.Row="1">
-                        <TabItem Header="Products Catalog">
-                            <DataGrid ItemsSource="{Binding ExplorerProducts}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      CanUserAddRows="False"
-                                      Background="#0F172A"
-                                      Foreground="#F8FAFC"
-                                      RowBackground="#0F172A"
-                                      AlternatingRowBackground="#1E293B">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Code" Binding="{Binding ProductCode}" Width="100" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Product Name" Binding="{Binding Name}" Width="240" />
-                                    <DataGridTextColumn Header="Formulation / Salt" Binding="{Binding Formulation}" Width="200" />
-                                    <DataGridTextColumn Header="Pack Size" Binding="{Binding PackSize}" Width="85" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Stock (Units)" Binding="{Binding Quantity, StringFormat={}{0:N0}}" Width="110" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Pack Cost" Binding="{Binding PackPurchasePrice, StringFormat={}{0:N2}}" Width="100" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Avg Unit Cost" Binding="{Binding AvgPrice, StringFormat={}{0:N2}}" Width="110" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Pack Sale" Binding="{Binding PackSalePrice, StringFormat={}{0:N2}}" Width="100" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Unit Sale" Binding="{Binding UnitSalePrice, StringFormat={}{0:N2}}" Width="100" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Rack" Binding="{Binding Rack}" Width="80" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-
-                        <TabItem Header="Sale Invoices">
-                            <DataGrid ItemsSource="{Binding ExplorerSaleInvoices}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      CanUserAddRows="False"
-                                      Background="#0F172A"
-                                      Foreground="#F8FAFC"
-                                      RowBackground="#0F172A"
-                                      AlternatingRowBackground="#1E293B">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Posted #" Binding="{Binding PostedNumber}" Width="130" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Date" Binding="{Binding Date, StringFormat={}{0:yyyy-MM-dd}}" Width="110" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Sale Type" Binding="{Binding SaleType}" Width="100" />
-                                    <DataGridTextColumn Header="Invoice Type" Binding="{Binding InvoiceType}" Width="100" />
-                                    <DataGridTextColumn Header="Gross" Binding="{Binding GrossAmount, StringFormat={}{0:N2}}" Width="110" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Discount" Binding="{Binding DiscountAmount, StringFormat={}{0:N2}}" Width="100" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat={}{0:N0}}" Width="110" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Received" Binding="{Binding TotalReceive, StringFormat={}{0:N2}}" Width="110" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-
-                        <TabItem Header="Purchase Invoices">
-                            <DataGrid ItemsSource="{Binding ExplorerPurchaseInvoices}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      CanUserAddRows="False"
-                                      Background="#0F172A"
-                                      Foreground="#F8FAFC"
-                                      RowBackground="#0F172A"
-                                      AlternatingRowBackground="#1E293B">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Posted #" Binding="{Binding PostedNumber}" Width="130" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Supplier Bill #" Binding="{Binding InvoiceNumber}" Width="130" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Posted Date" Binding="{Binding PostedDate, StringFormat={}{0:yyyy-MM-dd}}" Width="110" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Total Amount" Binding="{Binding TotalAmount, StringFormat={}{0:N2}}" Width="120" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Total Paid" Binding="{Binding TotalPaid, StringFormat={}{0:N2}}" Width="120" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-
-                        <TabItem Header="Customers">
-                            <DataGrid ItemsSource="{Binding ExplorerCustomers}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      CanUserAddRows="False"
-                                      Background="#0F172A"
-                                      Foreground="#F8FAFC"
-                                      RowBackground="#0F172A"
-                                      AlternatingRowBackground="#1E293B">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="70" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Customer Name" Binding="{Binding Name}" Width="240" />
-                                    <DataGridTextColumn Header="Type" Binding="{Binding CustomerType}" Width="100" />
-                                    <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" Width="140" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Credit Limit" Binding="{Binding CreditLimit, StringFormat={}{0:N2}}" Width="120" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Credit Status" Binding="{Binding CreditStatus}" Width="110" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-
-                        <TabItem Header="Suppliers">
-                            <DataGrid ItemsSource="{Binding ExplorerSuppliers}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      CanUserAddRows="False"
-                                      Background="#0F172A"
-                                      Foreground="#F8FAFC"
-                                      RowBackground="#0F172A"
-                                      AlternatingRowBackground="#1E293B">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="70" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Supplier Name" Binding="{Binding Name}" Width="240" />
-                                    <DataGridTextColumn Header="Contact Person" Binding="{Binding ContactPerson}" Width="160" />
-                                    <DataGridTextColumn Header="Phone" Binding="{Binding Phone}" Width="140" FontFamily="Consolas" />
-                                    <DataGridTextColumn Header="Expiry Policy" Binding="{Binding ExpiryReturnPolicy}" Width="130" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-                    </TabControl>
-                </Grid>
-            </TabItem>
-
-            <!-- TAB 4: HARDWARE LICENSE & AUTH VERIFICATION -->
-            <TabItem Header="4. Hardware License &amp; Auth Verification">
-                <UniformGrid Columns="2" Margin="0,12,0,0">
-                    <Border Background="{StaticResource GlassCardBackgroundBrush}" BorderBrush="{StaticResource GlassCardBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="22" Margin="0,0,8,0">
-                        <StackPanel>
-                            <TextBlock Text="Offline Ed25519 Hardware License Verification (KRBL.)" FontSize="17" FontWeight="Bold" />
-                            <TextBlock Text="Compatible with existing scripts/generate-license-key.php keys bound to this Windows machine's hardware fingerprint." Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,6,0,14" />
-
-                            <TextBlock Text="Machine ID (Click Copy to use in generate-license-key.php):" Foreground="#94A3B8" FontSize="12" />
-                            <StackPanel Orientation="Horizontal" Margin="0,4,0,14">
-                                <TextBox Text="{Binding MachineId, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" FontSize="15" FontWeight="Bold" Width="240" Padding="10,6" Margin="0,0,10,0" />
-                                <Button Content="Copy Machine ID" Command="{Binding CopyMachineIdCommand}" Padding="14,6" />
-                            </StackPanel>
-
-                            <TextBlock Text="Paste KRBL. License Key:" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding LicenseKeyInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" Height="80" TextWrapping="Wrap" AcceptsReturn="True" Padding="10,8" Margin="0,0,0,12" />
-
-                            <Button Content="Verify &amp; Activate KRBL License Key" Command="{Binding ActivateLicenseCommand}" Background="#2563EB" Foreground="White" FontWeight="Bold" Padding="18,9" HorizontalAlignment="Left" />
-
-                            <TextBlock Text="{Binding LicenseDetailText}" Foreground="#38BDF8" TextWrapping="Wrap" Margin="0,14,0,0" FontWeight="SemiBold" />
-                        </StackPanel>
+                            CornerRadius="8"
+                            Padding="12,10"
+                            Margin="0,0,0,18">
+                        <TextBlock Text="{Binding ErrorMessage}"
+                                   Foreground="#DC2626"
+                                   FontSize="13"
+                                   FontWeight="Medium"
+                                   TextWrapping="Wrap" />
                     </Border>
 
-                    <Border Background="{StaticResource GlassCardBackgroundBrush}" BorderBrush="{StaticResource GlassCardBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="22" Margin="8,0,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Laravel $2y$ BCrypt User Authentication &amp; RBAC Verifier" FontSize="17" FontWeight="Bold" />
-                            <TextBlock Text="Test logging in with any user imported from your web app (or default admin@karobar.app / password):" Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,6,0,14" />
+                    <!-- Username Input -->
+                    <TextBlock Text="Username"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#334155"
+                               Margin="0,0,0,6" />
+                    <TextBox x:Name="UsernameTextBox"
+                             Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="14"
+                             Padding="12,10"
+                             Background="#FFFFFF"
+                             Foreground="#0F172A"
+                             BorderBrush="#CBD5E1"
+                             BorderThickness="1"
+                             Margin="0,0,0,16" />
 
-                            <TextBlock Text="Email Address:" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding LoginEmail, UpdateSourceTrigger=PropertyChanged}" Padding="10,7" Margin="0,0,0,12" />
+                    <!-- Password Input -->
+                    <TextBlock Text="Password"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#334155"
+                               Margin="0,0,0,6" />
+                    <PasswordBox x:Name="PasswordInput"
+                                 PasswordChanged="PasswordInput_OnPasswordChanged"
+                                 FontSize="14"
+                                 Padding="12,10"
+                                 Background="#FFFFFF"
+                                 Foreground="#0F172A"
+                                 BorderBrush="#CBD5E1"
+                                 BorderThickness="1"
+                                 Margin="0,0,0,24" />
 
-                            <TextBlock Text="Password:" Foreground="#94A3B8" FontSize="12" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding LoginPassword, UpdateSourceTrigger=PropertyChanged}" Padding="10,7" Margin="0,0,0,14" />
+                    <!-- Sign In Button -->
+                    <Button Content="Sign In"
+                            Command="{Binding LoginCommand}"
+                            IsDefault="True"
+                            Height="42"
+                            FontSize="14"
+                            FontWeight="SemiBold"
+                            Background="#3B82F6"
+                            Foreground="#FFFFFF"
+                            BorderThickness="0"
+                            HorizontalAlignment="Stretch"
+                            Cursor="Hand" />
+                </StackPanel>
+            </Border>
+        </Grid>
 
-                            <Button Content="Verify Login &amp; Load Spatie Permissions" Command="{Binding TestLoginCommand}" Padding="18,9" HorizontalAlignment="Left" />
-
-                            <Border Background="#0F172A" BorderBrush="#334155" BorderThickness="1" CornerRadius="10" Padding="14" Margin="0,16,0,0">
-                                <TextBlock Text="{Binding AuthStatusMessage}" Foreground="#10B981" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12" />
-                            </Border>
-                        </StackPanel>
-                    </Border>
-                </UniformGrid>
-            </TabItem>
-        </TabControl>
+        <!-- ================================================================ -->
+        <!-- 2. DASHBOARD PAGE (Blank page with "Dashboard" written)          -->
+        <!-- ================================================================ -->
+        <Grid Visibility="{Binding IsAuthenticated, Converter={StaticResource BoolToVis}}"
+              Background="#FFFFFF">
+            <TextBlock Text="Dashboard"
+                       FontSize="32"
+                       FontWeight="Bold"
+                       Foreground="#1E293B"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center" />
+        </Grid>
     </Grid>
 </Window>

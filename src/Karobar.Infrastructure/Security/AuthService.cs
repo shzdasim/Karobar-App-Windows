@@ -15,19 +15,25 @@ public sealed class AuthService : IAuthService
         _dbFactory = dbFactory;
     }
 
-    public async Task<AuthenticatedUserSession> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
+    public async Task<AuthenticatedUserSession> LoginAsync(string username, string password, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password))
-            throw new InvalidOperationException("Email and password are required.");
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
+            throw new InvalidOperationException("Please enter both username and password.");
 
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
-        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var normalizedUsername = username.Trim().ToLowerInvariant();
 
         var user = await db.Users.AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Username.ToLower() == normalizedUsername, cancellationToken);
 
         if (user == null || !VerifyBcryptHash(password, user.Password))
-            throw new InvalidOperationException("Invalid email or password.");
+            throw new InvalidOperationException("Invalid username or password.");
+
+        if (!string.IsNullOrWhiteSpace(user.Status) &&
+            !user.Status.Equals("active", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Your account is inactive. Please contact the administrator.");
+        }
 
         var roleIds = await db.UserRoles.AsNoTracking()
             .Where(ur => ur.ModelId == user.Id)
@@ -58,6 +64,7 @@ public sealed class AuthService : IAuthService
         var session = new AuthenticatedUserSession
         {
             UserId = user.Id,
+            Username = user.Username,
             Name = user.Name,
             Email = user.Email,
             Roles = roleNames,

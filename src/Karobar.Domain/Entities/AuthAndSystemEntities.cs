@@ -10,11 +10,23 @@ public class User
     [Column("id")]
     public long Id { get; set; }
 
+    [Column("username")]
+    public string Username { get; set; } = string.Empty;
+
     [Column("name")]
     public string Name { get; set; } = string.Empty;
 
     [Column("email")]
-    public string Email { get; set; } = string.Empty;
+    public string? Email { get; set; }
+
+    [Column("status")]
+    public string Status { get; set; } = "active";
+
+    [Column("is_admin")]
+    public bool IsAdmin { get; set; }
+
+    [Column("pin_code")]
+    public string? PinCode { get; set; }
 
     [Column("email_verified_at")]
     public DateTime? EmailVerifiedAt { get; set; }
@@ -30,6 +42,12 @@ public class User
 
     [Column("remember_token")]
     public string? RememberToken { get; set; }
+
+    [Column("remember_token_expires_at")]
+    public DateTime? RememberTokenExpiresAt { get; set; }
+
+    [Column("preferences")]
+    public string? Preferences { get; set; }
 
     [Column("created_at")]
     public DateTime? CreatedAt { get; set; }
@@ -49,7 +67,7 @@ public class Role
     public string Name { get; set; } = string.Empty;
 
     [Column("guard_name")]
-    public string GuardName { get; set; } = "web";
+    public string GuardName { get; set; } = "sanctum";
 
     [Column("created_at")]
     public DateTime? CreatedAt { get; set; }
@@ -69,7 +87,7 @@ public class Permission
     public string Name { get; set; } = string.Empty;
 
     [Column("guard_name")]
-    public string GuardName { get; set; } = "web";
+    public string GuardName { get; set; } = "sanctum";
 
     [Column("created_at")]
     public DateTime? CreatedAt { get; set; }

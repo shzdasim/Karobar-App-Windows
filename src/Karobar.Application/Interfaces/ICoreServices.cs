@@ -89,8 +89,9 @@ public sealed class ImportVerificationReport
 public sealed class AuthenticatedUserSession
 {
     public long UserId { get; set; }
+    public string Username { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
+    public string? Email { get; set; }
     public List<string> Roles { get; set; } = [];
     public HashSet<string> Permissions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool IsAdmin => Roles.Any(r =>
@@ -138,7 +139,7 @@ public interface ILegacyKarobarImporterService
 public interface IAuthService
 {
     AuthenticatedUserSession? CurrentSession { get; }
-    Task<AuthenticatedUserSession> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
+    Task<AuthenticatedUserSession> LoginAsync(string username, string password, CancellationToken cancellationToken = default);
     Task<bool> VerifyPasswordAsync(long userId, string password, CancellationToken cancellationToken = default);
     void Logout();
 }

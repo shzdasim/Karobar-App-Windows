@@ -5,17 +5,11 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ui:ThemesDictionary Theme="Dark" />
+                <ui:ThemesDictionary Theme="Light" />
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
 
-            <SolidColorBrush x:Key="GlassCardBackgroundBrush" Color="#CC1E293B" />
-            <SolidColorBrush x:Key="GlassCardBorderBrush" Color="#3394A3B8" />
-            <SolidColorBrush x:Key="PrimaryAccentBrush" Color="#3B82F6" />
-            <SolidColorBrush x:Key="SuccessBadgeBrush" Color="#10B981" />
-            <SolidColorBrush x:Key="WarningBadgeBrush" Color="#F59E0B" />
-            <SolidColorBrush x:Key="DangerBadgeBrush" Color="#EF4444" />
-            <SolidColorBrush x:Key="MutedTextBrush" Color="#94A3B8" />
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
