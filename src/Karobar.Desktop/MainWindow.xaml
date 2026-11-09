@@ -1,13 +1,76 @@
 <Window x:Class="Karobar.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:Karobar.Desktop.Views"
         Title="Karobar App"
-        Width="1280"
-        Height="800"
-        MinWidth="900"
-        MinHeight="600"
+        Width="1440"
+        Height="900"
+        MinWidth="1024"
+        MinHeight="680"
         WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC">
+        Background="#F2F5FA">
+
+    <Window.Resources>
+        <!-- Topbar Pill Button Style -->
+        <Style x:Key="TopbarButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#F8FAFC" />
+            <Setter Property="Foreground" Value="#334155" />
+            <Setter Property="BorderBrush" Value="#E2E8F0" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="9"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#EFF6FF" />
+                    <Setter Property="BorderBrush" Value="#BFDBFE" />
+                    <Setter Property="Foreground" Value="#2563EB" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Sidebar Icon Action Button Style (+ and Star) -->
+        <Style x:Key="SidebarMiniActionButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#94A3B8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BtnBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnBorder" Property="Background" Value="#E2E8F0" />
+                                <Setter Property="Foreground" Value="#0F172A" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
     <Grid>
         <!-- ================================================================ -->
@@ -21,18 +84,31 @@
                     Background="#FFFFFF"
                     BorderBrush="#E2E8F0"
                     BorderThickness="1"
-                    CornerRadius="12"
+                    CornerRadius="14"
                     Padding="36,32">
                 <Border.Effect>
                     <DropShadowEffect Color="#1E293B" BlurRadius="24" ShadowDepth="4" Opacity="0.08" />
                 </Border.Effect>
 
                 <StackPanel>
-                    <!-- Brand Header -->
-                    <TextBlock Text="Karobar"
-                               FontSize="28"
+                    <!-- Brand Logo + Header -->
+                    <Border Width="48" Height="48"
+                            CornerRadius="13"
+                            Background="#DBEAFE"
+                            HorizontalAlignment="Center"
+                            Margin="0,0,0,12">
+                        <TextBlock Text="K"
+                                   FontSize="22"
+                                   FontWeight="Bold"
+                                   Foreground="#2563EB"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+
+                    <TextBlock Text="Karobar App"
+                               FontSize="26"
                                FontWeight="Bold"
-                               Foreground="#1E293B"
+                               Foreground="#0F172A"
                                HorizontalAlignment="Center" />
                     <TextBlock Text="Sign in with your username and password"
                                FontSize="13"
@@ -40,7 +116,7 @@
                                HorizontalAlignment="Center"
                                Margin="0,6,0,24" />
 
-                    <!-- Error Message Banner (shown on unsuccessful login) -->
+                    <!-- Error Message Banner -->
                     <Border Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}"
                             Background="#FEF2F2"
                             BorderBrush="#FCA5A5"
@@ -104,16 +180,783 @@
         </Grid>
 
         <!-- ================================================================ -->
-        <!-- 2. DASHBOARD PAGE (Blank page with "Dashboard" written)          -->
+        <!-- 2. AUTHENTICATED WORKSPACE SHELL (Persistent Sidebar + Topbar)   -->
         <!-- ================================================================ -->
         <Grid Visibility="{Binding IsAuthenticated, Converter={StaticResource BoolToVis}}"
-              Background="#FFFFFF">
-            <TextBlock Text="Dashboard"
-                       FontSize="32"
-                       FontWeight="Bold"
-                       Foreground="#1E293B"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center" />
+              Background="#F2F5FA"
+              Margin="14">
+            <Grid.ColumnDefinitions>
+                <!-- Left Column: Persistent Sidebar -->
+                <ColumnDefinition Width="Auto" />
+                <!-- Gap -->
+                <ColumnDefinition Width="14" />
+                <!-- Right Column: Persistent Topbar + Active Page -->
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ============================================================ -->
+            <!-- LEFT: PERSISTENT SIDEBAR (ClassicSidebar.jsx equivalent)     -->
+            <!-- ============================================================ -->
+            <Border Grid.Column="0"
+                    Width="{Binding SidebarWidth}"
+                    Background="#FFFFFF"
+                    BorderBrush="#D8E1EE"
+                    BorderThickness="1"
+                    CornerRadius="20">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- Brand Header + Search Filter -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Pinned Dashboard + Collapsible Sections -->
+                        <RowDefinition Height="*" />
+                        <!-- Compact Rail Footer -->
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- 1. Brand Header + Filter Input -->
+                    <Border Grid.Row="0"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="0,0,0,1"
+                            Padding="14,14,14,12">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Brand Mark Badge -->
+                                <Border Grid.Column="0"
+                                        Width="36" Height="36"
+                                        CornerRadius="11"
+                                        Background="#DBEAFE">
+                                    <TextBlock Text="{Binding BrandInitial}"
+                                               FontSize="16"
+                                               FontWeight="Bold"
+                                               Foreground="#2563EB"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+
+                                <!-- Brand Name & Status (Hidden when collapsed) -->
+                                <StackPanel Grid.Column="1"
+                                            Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVis}}"
+                                            VerticalAlignment="Center"
+                                            Margin="10,0,0,0">
+                                    <TextBlock Text="{Binding BrandName}"
+                                               FontSize="15"
+                                               FontWeight="Bold"
+                                               Foreground="#0F172A" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,1,0,0">
+                                        <Ellipse Width="6" Height="6" Fill="#3B82F6" Margin="0,0,5,0" />
+                                        <TextBlock Text="{Binding SidebarPinStatusText}"
+                                                   FontSize="10"
+                                                   Foreground="#64748B" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Pin Toggle Button -->
+                                <Button Grid.Column="2"
+                                        Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVis}}"
+                                        Command="{Binding ToggleSidebarPinnedCommand}"
+                                        ToolTip="Pin or unpin sidebar"
+                                        Style="{StaticResource TopbarButtonStyle}"
+                                        Margin="0"
+                                        Padding="7,5">
+                                    <TextBlock Text="📌" FontSize="11" />
+                                </Button>
+                            </Grid>
+
+                            <!-- Filter Menu Input + Expand/Collapse All -->
+                            <Grid Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVis}}"
+                                  Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0"
+                                        Background="#F8FAFC"
+                                        BorderBrush="#E2E8F0"
+                                        BorderThickness="1"
+                                        CornerRadius="9"
+                                        Padding="9,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="🔍"
+                                                   FontSize="11"
+                                                   Foreground="#94A3B8"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,6,0" />
+                                        <Grid Grid.Column="1">
+                                            <TextBox x:Name="SidebarSearchBox"
+                                                     Text="{Binding SidebarFilterQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     FontSize="12"
+                                                     Foreground="#0F172A" />
+                                            <TextBlock Text="Filter menu... (/)"
+                                                       FontSize="12"
+                                                       Foreground="#94A3B8"
+                                                       IsHitTestVisible="False"
+                                                       VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Text, ElementName=SidebarSearchBox}" Value="">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <Button Grid.Column="1"
+                                        Command="{Binding ToggleAllSectionsCommand}"
+                                        ToolTip="Expand or collapse all sections"
+                                        Style="{StaticResource TopbarButtonStyle}"
+                                        Margin="6,0,0,0"
+                                        Padding="8,6">
+                                    <TextBlock Text="⇅" FontSize="12" FontWeight="Bold" />
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 2. Scrollable Navigation List -->
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="10,10,10,12">
+                        <StackPanel>
+
+                            <!-- Starred / Favorites Section (when items are starred) -->
+                            <Border Visibility="{Binding HasFavorites, Converter={StaticResource BoolToVis}}"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="0,0,0,8"
+                                    Margin="0,0,0,8">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal"
+                                                Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVis}}"
+                                                Margin="8,2,8,6">
+                                        <TextBlock Text="★ STARRED"
+                                                   FontSize="10"
+                                                   FontWeight="Bold"
+                                                   Foreground="#F59E0B" />
+                                    </StackPanel>
+
+                                    <ItemsControl ItemsSource="{Binding FavoriteItems}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding Path}"
+                                                        Cursor="Hand"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Margin="0,1">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border Background="#FFFBEB"
+                                                                    BorderBrush="#FDE68A"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="9"
+                                                                    Padding="10,7">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="{Binding IconGlyph}" FontSize="13" Margin="0,0,8,0" />
+                                                                    <TextBlock Text="{Binding Name}"
+                                                                               FontSize="12"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="#92400E" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Pinned Top Item: Dashboard -->
+                            <Border BorderBrush="#E2E8F0"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="0,0,0,10"
+                                    Margin="0,0,0,8">
+                                <Button Command="{Binding NavigateCommand}"
+                                        CommandParameter="/dashboard"
+                                        ToolTip="Dashboard"
+                                        Cursor="Hand"
+                                        Background="Transparent"
+                                        BorderThickness="0">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="DashBorder"
+                                                    Background="#F8FAFC"
+                                                    BorderBrush="Transparent"
+                                                    BorderThickness="1"
+                                                    CornerRadius="11"
+                                                    Padding="10,9">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="🏠"
+                                                               FontSize="14"
+                                                               VerticalAlignment="Center" />
+                                                    <TextBlock x:Name="DashText"
+                                                               Grid.Column="1"
+                                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVis}}"
+                                                               Text="Dashboard"
+                                                               FontSize="13"
+                                                               FontWeight="Bold"
+                                                               Foreground="#1E293B"
+                                                               VerticalAlignment="Center"
+                                                               Margin="10,0,0,0" />
+                                                    <Ellipse x:Name="DashDot"
+                                                             Grid.Column="2"
+                                                             Visibility="Collapsed"
+                                                             Width="7" Height="7"
+                                                             Fill="#2563EB"
+                                                             VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="DashBorder" Property="Background" Value="#EFF6FF" />
+                                                </Trigger>
+                                                <DataTrigger Binding="{Binding IsDashboardActive}" Value="True">
+                                                    <Setter TargetName="DashBorder" Property="Background" Value="#EFF6FF" />
+                                                    <Setter TargetName="DashBorder" Property="BorderBrush" Value="#BFDBFE" />
+                                                    <Setter TargetName="DashText" Property="Foreground" Value="#2563EB" />
+                                                    <Setter TargetName="DashDot" Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </Border>
+
+                            <!-- 7 Collapsible Accordion Sections -->
+                            <ItemsControl ItemsSource="{Binding Sections}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}"
+                                                    Margin="0,0,0,8">
+                                            <!-- Section Accordion Header -->
+                                            <Button Command="{Binding DataContext.ToggleSectionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip="{Binding Title}"
+                                                    Cursor="Hand"
+                                                    Background="Transparent"
+                                                    BorderThickness="0">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="SecHdr"
+                                                                Background="Transparent"
+                                                                CornerRadius="9"
+                                                                Padding="8,6">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <Border Grid.Column="0"
+                                                                        Width="24" Height="24"
+                                                                        CornerRadius="7"
+                                                                        Background="{Binding AccentBgHex}">
+                                                                    <TextBlock Text="{Binding IconGlyph}"
+                                                                               FontSize="12"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center" />
+                                                                </Border>
+
+                                                                <TextBlock Grid.Column="1"
+                                                                           Visibility="{Binding DataContext.IsSidebarExpanded, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                                                           Text="{Binding Title}"
+                                                                           FontSize="11"
+                                                                           FontWeight="Bold"
+                                                                           Foreground="#475569"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="9,0,0,0" />
+
+                                                                <Border Grid.Column="2"
+                                                                        Visibility="{Binding DataContext.IsSidebarExpanded, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                                                        Background="#F1F5F9"
+                                                                        CornerRadius="99"
+                                                                        Padding="6,1"
+                                                                        Margin="0,0,6,0"
+                                                                        VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding VisibleCount}"
+                                                                               FontSize="10"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="#64748B" />
+                                                                </Border>
+
+                                                                <TextBlock Grid.Column="3"
+                                                                           Visibility="{Binding DataContext.IsSidebarExpanded, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                                                           Text="{Binding ChevronGlyph}"
+                                                                           FontSize="11"
+                                                                           Foreground="#94A3B8"
+                                                                           VerticalAlignment="Center" />
+                                                            </Grid>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="SecHdr" Property="Background" Value="#F8FAFC" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+
+                                            <!-- Section Items (When Expanded & Sidebar Expanded) -->
+                                            <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}"
+                                                        Margin="6,3,0,2">
+                                                <ItemsControl ItemsSource="{Binding Items}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
+                                                                <!-- Optional Reports Sub-Group Header -->
+                                                                <TextBlock Visibility="{Binding ShowSubGroupHeader, Converter={StaticResource BoolToVis}}"
+                                                                           Text="{Binding SubGroup}"
+                                                                           FontSize="9.5"
+                                                                           FontWeight="Bold"
+                                                                           Foreground="#94A3B8"
+                                                                           Margin="10,8,0,4" />
+
+                                                                <!-- Item Row -->
+                                                                <Grid Margin="0,1">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+
+                                                                    <!-- Main Item Navigation Button -->
+                                                                    <Button Grid.Column="0"
+                                                                            Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding Path}"
+                                                                            ToolTip="{Binding Name}"
+                                                                            Cursor="Hand"
+                                                                            Background="Transparent"
+                                                                            BorderThickness="0">
+                                                                        <Button.Template>
+                                                                            <ControlTemplate TargetType="Button">
+                                                                                <Border x:Name="ItemBorder"
+                                                                                        Background="Transparent"
+                                                                                        BorderBrush="Transparent"
+                                                                                        BorderThickness="1"
+                                                                                        CornerRadius="9"
+                                                                                        Padding="10,7">
+                                                                                    <Grid>
+                                                                                        <Grid.ColumnDefinitions>
+                                                                                            <ColumnDefinition Width="Auto" />
+                                                                                            <ColumnDefinition Width="*" />
+                                                                                            <ColumnDefinition Width="Auto" />
+                                                                                        </Grid.ColumnDefinitions>
+
+                                                                                        <TextBlock Grid.Column="0"
+                                                                                                   Text="{Binding IconGlyph}"
+                                                                                                   FontSize="12"
+                                                                                                   VerticalAlignment="Center" />
+
+                                                                                        <TextBlock x:Name="ItemLabel"
+                                                                                                   Grid.Column="1"
+                                                                                                   Visibility="{Binding DataContext.IsSidebarExpanded, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                                                                                   Text="{Binding Name}"
+                                                                                                   FontSize="12.5"
+                                                                                                   FontWeight="Medium"
+                                                                                                   Foreground="#334155"
+                                                                                                   VerticalAlignment="Center"
+                                                                                                   Margin="9,0,0,0"
+                                                                                                   TextTrimming="CharacterEllipsis" />
+
+                                                                                        <!-- Optional Near-Expiry Badge -->
+                                                                                        <Border Grid.Column="2"
+                                                                                                Visibility="{Binding HasBadge, Converter={StaticResource BoolToVis}}"
+                                                                                                Background="#FEF3C7"
+                                                                                                BorderBrush="#FDE68A"
+                                                                                                BorderThickness="1"
+                                                                                                CornerRadius="99"
+                                                                                                Padding="6,1"
+                                                                                                Margin="6,0,0,0"
+                                                                                                VerticalAlignment="Center">
+                                                                                            <TextBlock Text="{Binding BadgeText}"
+                                                                                                       FontSize="10"
+                                                                                                       FontWeight="Bold"
+                                                                                                       Foreground="#D97706" />
+                                                                                        </Border>
+                                                                                    </Grid>
+                                                                                </Border>
+                                                                                <ControlTemplate.Triggers>
+                                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                                        <Setter TargetName="ItemBorder" Property="Background" Value="#F8FAFC" />
+                                                                                        <Setter TargetName="ItemLabel" Property="Foreground" Value="#0F172A" />
+                                                                                    </Trigger>
+                                                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                        <Setter TargetName="ItemBorder" Property="Background" Value="#EFF6FF" />
+                                                                                        <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#BFDBFE" />
+                                                                                        <Setter TargetName="ItemLabel" Property="Foreground" Value="#2563EB" />
+                                                                                        <Setter TargetName="ItemLabel" Property="FontWeight" Value="Bold" />
+                                                                                    </DataTrigger>
+                                                                                </ControlTemplate.Triggers>
+                                                                            </ControlTemplate>
+                                                                        </Button.Template>
+                                                                    </Button>
+
+                                                                    <!-- Quick Create (+) Button -->
+                                                                    <Button Grid.Column="1"
+                                                                            Visibility="{Binding HasQuickCreate, Converter={StaticResource BoolToVis}}"
+                                                                            Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding QuickCreatePath}"
+                                                                            ToolTip="Quick Create"
+                                                                            Style="{StaticResource SidebarMiniActionButtonStyle}"
+                                                                            Margin="2,0,0,0">
+                                                                        <TextBlock Text="+" FontSize="13" FontWeight="Bold" />
+                                                                    </Button>
+
+                                                                    <!-- Favorite Star Button -->
+                                                                    <Button Grid.Column="2"
+                                                                            Visibility="{Binding DataContext.IsSidebarExpanded, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"
+                                                                            Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            ToolTip="Pin to Starred"
+                                                                            Style="{StaticResource SidebarMiniActionButtonStyle}"
+                                                                            Margin="1,0,2,0">
+                                                                        <TextBlock Text="{Binding FavoriteGlyph}" FontSize="11" />
+                                                                    </Button>
+                                                                </Grid>
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- 3. Sidebar Footer: Compact Rail Toggle -->
+                    <Border Grid.Row="2"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="0,1,0,0"
+                            Padding="10,10">
+                        <Button Command="{Binding ToggleSidebarCollapsedCommand}"
+                                Style="{StaticResource TopbarButtonStyle}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0"
+                                Padding="10,7">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="⇤" FontSize="12" FontWeight="Bold" Margin="0,0,6,0" />
+                                <TextBlock Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVis}}"
+                                           Text="{Binding CompactRailLabel}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ============================================================ -->
+            <!-- RIGHT: PERSISTENT TOPBAR + DYNAMIC PAGE CONTENT AREA         -->
+            <!-- ============================================================ -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <!-- Persistent Topbar -->
+                    <RowDefinition Height="54" />
+                    <!-- Gap -->
+                    <RowDefinition Height="12" />
+                    <!-- Dynamic Page Host -->
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- ======================================================== -->
+                <!-- TOPBAR (Topbar.jsx equivalent)                           -->
+                <!-- ======================================================== -->
+                <Border Grid.Row="0"
+                        Background="#FFFFFF"
+                        BorderBrush="#E2E8F0"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="12,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <!-- Left Navigation & Search Shortcuts -->
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <!-- Right Financial Registers, Utilities, License & User -->
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left Group -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Sidebar Collapse Toggle -->
+                            <Button Command="{Binding ToggleSidebarCollapsedCommand}"
+                                    ToolTip="Toggle Sidebar Rail"
+                                    Style="{StaticResource TopbarButtonStyle}"
+                                    Padding="9,6">
+                                <TextBlock Text="☰" FontSize="13" />
+                            </Button>
+
+                            <!-- Search Pages (Alt+K) -->
+                            <Button Command="{Binding NavigateCommand}"
+                                    CommandParameter="/search"
+                                    Style="{StaticResource TopbarButtonStyle}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🔍 Search Pages" FontSize="12" VerticalAlignment="Center" />
+                                    <Border Background="#F1F5F9"
+                                            BorderBrush="#CBD5E1"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="5,1"
+                                            Margin="8,0,0,0">
+                                        <TextBlock Text="Alt+K" FontSize="10" Foreground="#64748B" />
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Products Lookup (Alt+P) -->
+                            <Button Command="{Binding NavigateCommand}"
+                                    CommandParameter="/products"
+                                    Style="{StaticResource TopbarButtonStyle}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="📦 Products" FontSize="12" VerticalAlignment="Center" />
+                                    <Border Background="#F1F5F9"
+                                            BorderBrush="#CBD5E1"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="5,1"
+                                            Margin="8,0,0,0">
+                                        <TextBlock Text="Alt+P" FontSize="10" Foreground="#64748B" />
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Guide Bot (Alt+G) -->
+                            <Button Command="{Binding NavigateCommand}"
+                                    CommandParameter="/guide"
+                                    Style="{StaticResource TopbarButtonStyle}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="✨ Guide" FontSize="12" Foreground="#2563EB" VerticalAlignment="Center" />
+                                    <Border Background="#EFF6FF"
+                                            BorderBrush="#BFDBFE"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="5,1"
+                                            Margin="8,0,0,0">
+                                        <TextBlock Text="Alt+G" FontSize="10" Foreground="#2563EB" />
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Right Group -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Group 1: Cash Drawer Status Pill -->
+                            <Button Command="{Binding NavigateCommand}"
+                                    CommandParameter="/cash-drawer"
+                                    ToolTip="Cash Drawer (Open)"
+                                    Style="{StaticResource TopbarButtonStyle}"
+                                    Background="#ECFDF5"
+                                    BorderBrush="#A7F3D0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="7" Height="7" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Drawer: " FontSize="11" Foreground="#047857" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding CashDrawerStatusText}" FontSize="12" FontWeight="Bold" Foreground="#065F46" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Group 1B: Financial Accounts Balance Pill -->
+                            <Button Command="{Binding NavigateCommand}"
+                                    CommandParameter="/accounts"
+                                    ToolTip="Financial Accounts Total"
+                                    Style="{StaticResource TopbarButtonStyle}"
+                                    Background="#EFF6FF"
+                                    BorderBrush="#BFDBFE">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🏦 " FontSize="11" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding FinancialAccountsBalanceText}" FontSize="12" FontWeight="Bold" Foreground="#1E40AF" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Divider -->
+                            <Border Width="1" Height="22" Background="#E2E8F0" Margin="4,0,10,0" />
+
+                            <!-- Group 2: Notifications Bell with Badge -->
+                            <Button Command="{Binding NavigateCommand}"
+                                    CommandParameter="/notifications"
+                                    ToolTip="Notifications"
+                                    Style="{StaticResource TopbarButtonStyle}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🔔" FontSize="12" VerticalAlignment="Center" />
+                                    <Border Background="#EF4444"
+                                            CornerRadius="99"
+                                            Padding="5,0"
+                                            Margin="5,0,0,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding UnreadNotificationsBadge}"
+                                                   FontSize="10"
+                                                   FontWeight="Bold"
+                                                   Foreground="#FFFFFF" />
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Keyboard Shortcuts (?) -->
+                            <Button Command="{Binding NavigateCommand}"
+                                    CommandParameter="/shortcuts"
+                                    ToolTip="Keyboard Shortcuts (?)"
+                                    Style="{StaticResource TopbarButtonStyle}"
+                                    Padding="9,5">
+                                <TextBlock Text="?" FontSize="12" FontWeight="Bold" />
+                            </Button>
+
+                            <!-- Divider -->
+                            <Border Width="1" Height="22" Background="#E2E8F0" Margin="4,0,10,0" />
+
+                            <!-- Group 3: License Pill -->
+                            <Button Command="{Binding NavigateCommand}"
+                                    CommandParameter="/settings"
+                                    ToolTip="License Status"
+                                    Style="{StaticResource TopbarButtonStyle}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🕒 " FontSize="11" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding LicenseBadgeText}" FontSize="11" Foreground="#475569" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- User Profile Pill -->
+                            <Button Command="{Binding NavigateCommand}"
+                                    CommandParameter="/profile"
+                                    ToolTip="User Profile"
+                                    Style="{StaticResource TopbarButtonStyle}"
+                                    Padding="8,4">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="24" Height="24"
+                                            CornerRadius="99"
+                                            Background="#DBEAFE"
+                                            Margin="0,0,7,0">
+                                        <TextBlock Text="{Binding LoggedInUserInitial}"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   Foreground="#2563EB"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="{Binding LoggedInUserName}"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="#0F172A"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Logout Button -->
+                            <Button Command="{Binding LogoutCommand}"
+                                    ToolTip="Sign Out"
+                                    Style="{StaticResource TopbarButtonStyle}"
+                                    Background="#FEF2F2"
+                                    BorderBrush="#FECACA"
+                                    Foreground="#DC2626"
+                                    Margin="0">
+                                <TextBlock Text="Logout" FontSize="12" FontWeight="SemiBold" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- ======================================================== -->
+                <!-- DYNAMIC PAGE CONTENT AREA (Renders pages inside Shell)   -->
+                <!-- ======================================================== -->
+                <Grid Grid.Row="2">
+                    <!-- A. Dashboard Page (Default when CurrentPath == "/dashboard") -->
+                    <Grid Visibility="{Binding IsDashboardPage, Converter={StaticResource BoolToVis}}">
+                        <views:DashboardView DataContext="{Binding Dashboard}" />
+                    </Grid>
+
+                    <!-- B. Inner Page Host for any other Sidebar/Topbar Route -->
+                    <Border Visibility="{Binding IsOtherPage, Converter={StaticResource BoolToVis}}"
+                            Background="#FFFFFF"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="16"
+                            Padding="36">
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    MaxWidth="520">
+                            <Border Background="#EFF6FF"
+                                    BorderBrush="#BFDBFE"
+                                    BorderThickness="1"
+                                    CornerRadius="99"
+                                    Padding="12,4"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,0,0,12">
+                                <TextBlock Text="{Binding CurrentSectionTitle}"
+                                           FontSize="11"
+                                           FontWeight="Bold"
+                                           Foreground="#2563EB" />
+                            </Border>
+
+                            <TextBlock Text="{Binding CurrentPageTitle}"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       Foreground="#0F172A"
+                                       HorizontalAlignment="Center" />
+
+                            <Border Background="#F8FAFC"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="10,4"
+                                    HorizontalAlignment="Center"
+                                    Margin="0,10,0,16">
+                                <TextBlock Text="{Binding CurrentPath}"
+                                           FontSize="12"
+                                           FontFamily="Consolas"
+                                           Foreground="#64748B" />
+                            </Border>
+
+                            <TextBlock Text="This module page renders inside the persistent Sidebar and Topbar workspace shell. Select Dashboard or any other menu item on the left to switch pages."
+                                       FontSize="13"
+                                       Foreground="#64748B"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,22" />
+
+                            <Button Content="← Back to Dashboard"
+                                    Command="{Binding NavigateCommand}"
+                                    CommandParameter="/dashboard"
+                                    Style="{StaticResource TopbarButtonStyle}"
+                                    Background="#3B82F6"
+                                    BorderBrush="#2563EB"
+                                    Foreground="#FFFFFF"
+                                    Padding="18,9"
+                                    HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
         </Grid>
     </Grid>
 </Window>
