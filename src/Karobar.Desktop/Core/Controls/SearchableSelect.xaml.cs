@@ -25,11 +25,11 @@ public partial class SearchableSelect : UserControl
 
     private static readonly ConcurrentDictionary<(Type, string), PropertyInfo?> PropertyCache = new();
 
-    private static readonly SolidColorBrush BrushTextActive = CreateFrozenBrush(15, 23, 42);     // #0F172A
+    private static readonly SolidColorBrush BrushTextActive = CreateFrozenBrush(15, 23, 42);      // #0F172A
     private static readonly SolidColorBrush BrushTextOpenMuted = CreateFrozenBrush(100, 116, 139); // #64748B
-    private static readonly SolidColorBrush BrushPlaceholder = CreateFrozenBrush(148, 163, 184);  // #94A3B8
-    private static readonly SolidColorBrush BrushBorderFocused = CreateFrozenBrush(59, 130, 246); // #3B82F6
-    private static readonly SolidColorBrush BrushBorderNormal = CreateFrozenBrush(203, 213, 225); // #CBD5E1
+    private static readonly SolidColorBrush BrushPlaceholder = CreateFrozenBrush(148, 163, 184);   // #94A3B8
+    private static readonly SolidColorBrush BrushBorderFocused = CreateFrozenBrush(59, 130, 246);  // #3B82F6
+    private static readonly SolidColorBrush BrushBorderNormal = CreateFrozenBrush(203, 213, 225);  // #CBD5E1
 
     private static SolidColorBrush CreateFrozenBrush(byte r, byte g, byte b)
     {
@@ -39,9 +39,9 @@ public partial class SearchableSelect : UserControl
     }
 
     private INotifyCollectionChanged? _subscribedCollection;
+    private Window? _subscribedWindow;
     private bool _suppressSearchTextChanged;
     private bool _pendingCollectionRefresh;
-    private DateTime _lastPopupClosedUtc = DateTime.MinValue;
     private List<SearchableSelectOptionItem> _filteredItems = [];
 
     public event EventHandler? EnterCommitted;
@@ -161,6 +161,8 @@ public partial class SearchableSelect : UserControl
         InitializeComponent();
         FontSize = 12.5;
         GotFocus += OnControlGotFocus;
+        Unloaded += OnControlUnloaded;
+        IsVisibleChanged += OnControlIsVisibleChanged;
         UpdateVisualDisplay();
     }
 
@@ -176,6 +178,95 @@ public partial class SearchableSelect : UserControl
         {
             PART_SearchTextBox.Focus();
         }
+    }
+
+    private void OnControlUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (PART_Popup.IsOpen)
+        {
+            CloseDropDown(commitTypedCreatable: false);
+        }
+        DetachWindowHandlers();
+    }
+
+    private void OnControlIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (!IsVisible && PART_Popup.IsOpen)
+        {
+            CloseDropDown(commitTypedCreatable: false);
+        }
+    }
+
+    private void AttachWindowHandlers()
+    {
+        DetachWindowHandlers();
+        var window = Window.GetWindow(this);
+        if (window == null)
+            return;
+
+        _subscribedWindow = window;
+        window.PreviewMouseDown += OnOwnerWindowPreviewMouseDown;
+        window.Deactivated += OnOwnerWindowDeactivated;
+        window.LocationChanged += OnOwnerWindowLocationOrSizeChanged;
+        window.SizeChanged += OnOwnerWindowLocationOrSizeChanged;
+    }
+
+    private void DetachWindowHandlers()
+    {
+        if (_subscribedWindow == null)
+            return;
+
+        _subscribedWindow.PreviewMouseDown -= OnOwnerWindowPreviewMouseDown;
+        _subscribedWindow.Deactivated -= OnOwnerWindowDeactivated;
+        _subscribedWindow.LocationChanged -= OnOwnerWindowLocationOrSizeChanged;
+        _subscribedWindow.SizeChanged -= OnOwnerWindowLocationOrSizeChanged;
+        _subscribedWindow = null;
+    }
+
+    private void OnOwnerWindowPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!PART_Popup.IsOpen)
+            return;
+
+        if (!IsClickInsideControlOrPopup(e.OriginalSource as DependencyObject))
+        {
+            CloseDropDown(commitTypedCreatable: true);
+        }
+    }
+
+    private void OnOwnerWindowDeactivated(object? sender, EventArgs e)
+    {
+        if (PART_Popup.IsOpen)
+        {
+            CloseDropDown(commitTypedCreatable: true);
+        }
+    }
+
+    private void OnOwnerWindowLocationOrSizeChanged(object? sender, EventArgs e)
+    {
+        if (PART_Popup.IsOpen)
+        {
+            CloseDropDown(commitTypedCreatable: true);
+        }
+    }
+
+    private bool IsClickInsideControlOrPopup(DependencyObject? source)
+    {
+        if (RootBorder.IsMouseOver || PART_PopupBorder.IsMouseOver)
+            return true;
+
+        var current = source;
+        while (current != null)
+        {
+            if (ReferenceEquals(current, this) || ReferenceEquals(current, PART_PopupBorder))
+                return true;
+
+            current = current is Visual || current is System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(current)
+                : LogicalTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 
     private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -444,6 +535,7 @@ public partial class SearchableSelect : UserControl
     {
         PART_Popup.IsOpen = true;
         PART_ChevronGlyph.Text = "▴";
+        AttachWindowHandlers();
         RebuildFilteredItems(PART_SearchTextBox.Text);
         UpdateVisualDisplay();
     }
@@ -457,6 +549,7 @@ public partial class SearchableSelect : UserControl
 
         PART_Popup.IsOpen = false;
         PART_ChevronGlyph.Text = "▾";
+        DetachWindowHandlers();
         ClearSearchBoxQuietly();
         UpdateVisualDisplay();
     }
@@ -513,29 +606,34 @@ public partial class SearchableSelect : UserControl
 
     private void RootBorder_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (PART_ClearButton.IsMouseOver || PART_ChevronArea.IsMouseOver)
+        if (PART_ClearButton.IsMouseOver)
             return;
 
-        PART_SearchTextBox.Focus();
+        if (PART_ChevronArea.IsMouseOver)
+        {
+            e.Handled = true;
+            FocusSearchInput();
+            if (PART_Popup.IsOpen)
+            {
+                CloseDropDown(commitTypedCreatable: true);
+            }
+            else
+            {
+                OpenDropDown();
+            }
+            return;
+        }
 
-        if (!PART_Popup.IsOpen && (DateTime.UtcNow - _lastPopupClosedUtc).TotalMilliseconds > 150)
+        if (!PART_Popup.IsOpen)
         {
             OpenDropDown();
         }
-    }
 
-    private void PART_ChevronArea_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        e.Handled = true;
-        PART_SearchTextBox.Focus();
-
-        if (PART_Popup.IsOpen)
+        if (!PART_SearchTextBox.IsKeyboardFocused || string.IsNullOrEmpty(PART_SearchTextBox.Text))
         {
-            CloseDropDown(commitTypedCreatable: true);
-        }
-        else if ((DateTime.UtcNow - _lastPopupClosedUtc).TotalMilliseconds > 150)
-        {
-            OpenDropDown();
+            e.Handled = true;
+            FocusSearchInput();
+            PART_SearchTextBox.CaretIndex = PART_SearchTextBox.Text.Length;
         }
     }
 
@@ -553,7 +651,7 @@ public partial class SearchableSelect : UserControl
             RebuildFilteredItems(string.Empty);
         }
         UpdateVisualDisplay();
-        PART_SearchTextBox.Focus();
+        FocusSearchInput();
     }
 
     private void PART_SearchTextBox_OnTextChanged(object sender, TextChangedEventArgs e)
@@ -562,10 +660,10 @@ public partial class SearchableSelect : UserControl
             return;
 
         var currentText = PART_SearchTextBox.Text;
-        if (!PART_Popup.IsOpen && PART_SearchTextBox.IsKeyboardFocused && !string.IsNullOrEmpty(currentText))
+        if (!PART_Popup.IsOpen && PART_SearchTextBox.IsKeyboardFocused)
         {
-            PART_Popup.IsOpen = true;
-            PART_ChevronGlyph.Text = "▴";
+            OpenDropDown();
+            return;
         }
 
         if (PART_Popup.IsOpen)
@@ -582,6 +680,9 @@ public partial class SearchableSelect : UserControl
 
     private void PART_SearchTextBox_OnLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
+        if (PART_PopupBorder.IsMouseOver)
+            return;
+
         if (!IsKeyboardFocusWithin && !PART_Popup.IsKeyboardFocusWithin)
         {
             CloseDropDown(commitTypedCreatable: true);
@@ -594,8 +695,8 @@ public partial class SearchableSelect : UserControl
 
     private void PART_Popup_OnClosed(object? sender, EventArgs e)
     {
-        _lastPopupClosedUtc = DateTime.UtcNow;
         PART_ChevronGlyph.Text = "▾";
+        DetachWindowHandlers();
         ClearSearchBoxQuietly();
         UpdateVisualDisplay();
     }
@@ -710,7 +811,7 @@ public partial class SearchableSelect : UserControl
         {
             e.Handled = true;
             CommitOption(item);
-            PART_SearchTextBox.Focus();
+            FocusSearchInput();
         }
     }
 }

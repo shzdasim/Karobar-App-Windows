@@ -45,6 +45,7 @@
                              FontSize="{Binding FontSize, ElementName=RootControl}"
                              Foreground="#0F172A"
                              CaretBrush="#2563EB"
+                             Cursor="IBeam"
                              VerticalAlignment="Center"
                              VerticalContentAlignment="Center"
                              HorizontalAlignment="Stretch"
@@ -103,7 +104,7 @@
                         Width="26"
                         Background="Transparent"
                         VerticalAlignment="Stretch"
-                        MouseLeftButtonDown="PART_ChevronArea_OnMouseLeftButtonDown">
+                        Cursor="Hand">
                     <TextBlock x:Name="PART_ChevronGlyph"
                                Text="▾"
                                FontSize="11"
@@ -114,15 +115,16 @@
             </Grid>
         </Border>
 
-        <!-- React-Select Floating Menu Popup -->
+        <!-- React-Select Floating Menu Popup (StaysOpen=True so Popup never steals mouse capture from TextBox) -->
         <Popup x:Name="PART_Popup"
                Placement="Bottom"
                PlacementTarget="{Binding ElementName=RootBorder}"
-               StaysOpen="False"
+               StaysOpen="True"
                AllowsTransparency="True"
                PopupAnimation="None"
                Closed="PART_Popup_OnClosed">
-            <Border MinWidth="{Binding ActualWidth, ElementName=RootBorder}"
+            <Border x:Name="PART_PopupBorder"
+                    MinWidth="{Binding ActualWidth, ElementName=RootBorder}"
                     MaxHeight="260"
                     Margin="0,4,8,8"
                     Background="#FFFFFF"
@@ -155,40 +157,43 @@
                             <Style TargetType="ListBoxItem">
                                 <Setter Property="Focusable" Value="False" />
                                 <Setter Property="Padding" Value="0" />
-                                <Setter Property="Margin" Value="4,1" />
+                                <Setter Property="Margin" Value="0" />
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="ItemBorder"
-                                                    Background="Transparent"
-                                                    CornerRadius="6"
-                                                    Padding="10,7"
+                                            <Border Background="Transparent"
+                                                    Padding="4,1"
                                                     Cursor="Hand"
                                                     MouseEnter="OptionBorder_OnMouseEnter"
                                                     PreviewMouseLeftButtonDown="OptionBorder_OnPreviewMouseLeftButtonDown">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock x:Name="ItemText"
-                                                               Grid.Column="0"
-                                                               Text="{Binding Label}"
-                                                               FontSize="12.5"
-                                                               Foreground="#1E293B"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               VerticalAlignment="Center" />
-                                                    <TextBlock x:Name="CheckMark"
-                                                               Grid.Column="1"
-                                                               Text="✓"
-                                                               FontSize="11"
-                                                               FontWeight="Bold"
-                                                               Foreground="#2563EB"
-                                                               Margin="8,0,0,0"
-                                                               VerticalAlignment="Center"
-                                                               Visibility="Collapsed" />
-                                                </Grid>
+                                                <Border x:Name="ItemBorder"
+                                                        Background="Transparent"
+                                                        CornerRadius="6"
+                                                        Padding="10,7">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock x:Name="ItemText"
+                                                                   Grid.Column="0"
+                                                                   Text="{Binding Label}"
+                                                                   FontSize="12.5"
+                                                                   Foreground="#1E293B"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center" />
+                                                        <TextBlock x:Name="CheckMark"
+                                                                   Grid.Column="1"
+                                                                   Text="✓"
+                                                                   FontSize="11"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="#2563EB"
+                                                                   Margin="8,0,0,0"
+                                                                   VerticalAlignment="Center"
+                                                                   Visibility="Collapsed" />
+                                                    </Grid>
+                                                </Border>
                                             </Border>
                                             <ControlTemplate.Triggers>
                                                 <DataTrigger Binding="{Binding IsCurrentSelection}" Value="True">
