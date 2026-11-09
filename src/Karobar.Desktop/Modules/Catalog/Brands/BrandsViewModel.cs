@@ -777,7 +777,7 @@ public partial class BrandsViewModel : ObservableObject
     {
         if (batch != null)
         {
-            _navigate?.Invoke($"/product-batches?product_id={batch.ProductId}&batch_id={batch.Id}");
+            _navigate?.Invoke($"/product-batches?product_id={batch.ProductId}&batch_id={batch.BatchId}");
             _toastService.ShowInfo(
                 $"Opened Product Batches for {batch.ProductName} (Batch #{batch.BatchNumber}).",
                 "Manage Batch");
