@@ -700,10 +700,17 @@ public sealed class Phase1FoundationTests
 
             await using var provider = services.BuildServiceProvider();
             var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
+            var categories = provider.GetRequiredService<ICategoryService>();
+            var brands = provider.GetRequiredService<IBrandService>();
+            var suppliers = provider.GetRequiredService<ISupplierService>();
             var products = provider.GetRequiredService<IProductService>();
             var barcodes = provider.GetRequiredService<IBarcodeStudioService>();
 
             await dbInit.InitializeAndSeedAsync();
+
+            var cat = await categories.CreateAsync("NSAIDs");
+            var br = await brands.CreateAsync(new BrandUpsertRequest { Name = "Abbott" });
+            var sup = await suppliers.CreateAsync(new SupplierUpsertRequest { Name = "UDL Distribution" });
 
             var boot = await barcodes.GetStudioBootstrapAsync();
             boot.Templates.Should().HaveCountGreaterThanOrEqualTo(6);
@@ -744,9 +751,12 @@ public sealed class Phase1FoundationTests
                 UnitPurchasePrice = 5m,
                 PackSalePrice = 210m,
                 UnitSalePrice = 7m,
-                AvgPrice = 5m
+                AvgPrice = 5m,
+                CategoryId = cat.Id,
+                BrandId = br.Id,
+                SupplierId = sup.Id
             });
-            prodCreate.Succeeded.Should().BeTrue();
+            prodCreate.Succeeded.Should().BeTrue(prodCreate.Message);
             var prodId = prodCreate.EntityId!.Value;
 
             await products.SaveProductBatchAsync(prodId, new BatchSaveRequest
