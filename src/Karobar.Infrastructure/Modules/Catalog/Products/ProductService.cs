@@ -1393,11 +1393,12 @@ public sealed class ProductService : IProductService
             return result;
         }
 
-        var candidates = await query
+        var rawCandidates = await query.ToListAsync(cancellationToken);
+        var candidates = rawCandidates
             .OrderByDescending(p => p.Quantity > 0)
             .ThenBy(p => p.UnitSalePrice)
             .Take(25)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         var candidateIds = candidates.Select(c => c.Id).ToList();
         var brands = await db.Brands.AsNoTracking()
