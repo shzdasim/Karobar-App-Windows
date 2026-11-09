@@ -176,7 +176,7 @@ public partial class ProductBatchesView : UserControl, IPageKeyboardHandler
         }
     }
 
-    private void BatchLocationSelect_OnEnterCommitted(object? sender, RoutedEventArgs e)
+    private void BatchLocationSelect_OnEnterCommitted(object? sender, EventArgs e)
     {
         FocusAndSelect(RackTextBox);
     }
