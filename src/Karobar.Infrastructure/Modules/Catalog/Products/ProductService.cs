@@ -1067,7 +1067,7 @@ public sealed class ProductService : IProductService
             var qty = Math.Max(0, b.Quantity);
             var unitCost = b.UnitPurchasePrice ?? product.UnitPurchasePrice;
             var unitMrp = b.UnitSalePrice ?? product.UnitSalePrice;
-            var packSize = Math.Max(1, b.PackSize > 0 ? b.PackSize : product.PackSize);
+            var packSize = Math.Max(1, b.PackSize is > 0 ? b.PackSize.Value : product.PackSize);
             var costValue = Math.Round(qty * unitCost, 2);
             var saleValue = Math.Round(qty * unitMrp, 2);
 
@@ -1336,7 +1336,7 @@ public sealed class ProductService : IProductService
                     $"Cannot assign {qty} units to batch. Maximum assignable quantity is {availableUnassigned} units (Current batch: {existingById.Quantity}, unassigned stock: {unbatchedPool}).");
             }
 
-            var packSize = Math.Max(1, existingById.PackSize > 0 ? existingById.PackSize : product.PackSize);
+            var packSize = Math.Max(1, existingById.PackSize is > 0 ? existingById.PackSize.Value : product.PackSize);
             existingById.BatchNumber = batchNumber;
             existingById.ExpiryDate = expiryDate;
             existingById.Quantity = qty;
@@ -1389,7 +1389,7 @@ public sealed class ProductService : IProductService
 
             if (existingMatch != null)
             {
-                var matchPackSize = Math.Max(1, existingMatch.PackSize > 0 ? existingMatch.PackSize : product.PackSize);
+                var matchPackSize = Math.Max(1, existingMatch.PackSize is > 0 ? existingMatch.PackSize.Value : product.PackSize);
                 existingMatch.ExpiryDate = expiryDate;
                 existingMatch.Quantity = qty;
                 existingMatch.StorageLocationId = targetLocId;
