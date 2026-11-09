@@ -281,6 +281,7 @@ public sealed class ProductResult
     public bool Succeeded { get; set; }
     public string Message { get; set; } = string.Empty;
     public long? EntityId { get; set; }
+    public long? ProductId => EntityId;
 
     public static ProductResult Success(string message, long? entityId = null) =>
         new() { Succeeded = true, Message = message, EntityId = entityId };

@@ -567,7 +567,7 @@ public sealed class Phase1FoundationTests
             });
 
             createRes.Succeeded.Should().BeTrue();
-            var p1Id = createRes.ProductId!.Value;
+            var p1Id = createRes.EntityId!.Value;
 
             // Allocate 60 units to Batch B-001 (expiring in 6 months) and 40 units to Batch B-002 (expiring in 3 months)
             var b1Res = await products.SaveProductBatchAsync(p1Id, new BatchSaveRequest
