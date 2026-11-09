@@ -1,6 +1,7 @@
 <UserControl x:Class="Karobar.Desktop.Views.CustomersView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Karobar.Desktop.Views"
              Focusable="True"
              PreviewKeyDown="CustomersView_OnPreviewKeyDown">
 
@@ -224,13 +225,11 @@
                     </Border>
 
                     <!-- Customer Type / Reminder Filter -->
-                    <ComboBox Grid.Column="2"
-                              ItemsSource="{Binding CustomerFilterOptions}"
-                              SelectedItem="{Binding SelectedCustomerFilter}"
-                              DisplayMemberPath="Label"
-                              FontSize="12.5"
-                              Padding="10,6"
-                              VerticalContentAlignment="Center" />
+                    <local:SearchableSelect Grid.Column="2"
+                                            ItemsSource="{Binding CustomerFilterOptions}"
+                                            SelectedItem="{Binding SelectedCustomerFilter}"
+                                            DisplayMemberPath="Label"
+                                            Placeholder="Filter customers..." />
 
                     <!-- Right: Page Size Selector -->
                     <StackPanel Grid.Column="4"
@@ -241,11 +240,9 @@
                                    Foreground="#64748B"
                                    VerticalAlignment="Center"
                                    Margin="0,0,8,0" />
-                        <ComboBox ItemsSource="{Binding PageSizeOptions}"
-                                  SelectedItem="{Binding PageSize}"
-                                  Width="72"
-                                  FontSize="12.5"
-                                  Padding="8,5" />
+                        <local:SearchableSelect ItemsSource="{Binding PageSizeOptions}"
+                                                SelectedItem="{Binding PageSize}"
+                                                Width="80" />
                         <TextBlock Text="per page"
                                    FontSize="12"
                                    Foreground="#64748B"
@@ -868,11 +865,10 @@
 
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="Tax Status" FontSize="12.5" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,5" />
-                                    <ComboBox ItemsSource="{Binding TaxStatusOptions}"
-                                              SelectedItem="{Binding SelectedTaxStatus}"
-                                              DisplayMemberPath="Label"
-                                              FontSize="13"
-                                              Padding="10,6" />
+                                    <local:SearchableSelect ItemsSource="{Binding TaxStatusOptions}"
+                                                            SelectedItem="{Binding SelectedTaxStatus}"
+                                                            DisplayMemberPath="Label"
+                                                            Placeholder="Select tax status..." />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="4">
@@ -899,11 +895,10 @@
 
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Credit Status" FontSize="12.5" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,5" />
-                                    <ComboBox ItemsSource="{Binding CreditStatusOptions}"
-                                              SelectedItem="{Binding SelectedCreditStatus}"
-                                              DisplayMemberPath="Label"
-                                              FontSize="13"
-                                              Padding="10,6" />
+                                    <local:SearchableSelect ItemsSource="{Binding CreditStatusOptions}"
+                                                            SelectedItem="{Binding SelectedCreditStatus}"
+                                                            DisplayMemberPath="Label"
+                                                            Placeholder="Select credit status..." />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="2">
@@ -946,11 +941,10 @@
 
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Credit Status" FontSize="12.5" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,5" />
-                                    <ComboBox ItemsSource="{Binding CreditStatusOptions}"
-                                              SelectedItem="{Binding SelectedCreditStatus}"
-                                              DisplayMemberPath="Label"
-                                              FontSize="13"
-                                              Padding="10,6" />
+                                    <local:SearchableSelect ItemsSource="{Binding CreditStatusOptions}"
+                                                            SelectedItem="{Binding SelectedCreditStatus}"
+                                                            DisplayMemberPath="Label"
+                                                            Placeholder="Select credit status..." />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="2">
@@ -1046,11 +1040,10 @@
 
                                             <StackPanel Grid.Column="0">
                                                 <TextBlock Text="Refill / Collection Frequency *" FontSize="12.5" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,5" />
-                                                <ComboBox ItemsSource="{Binding RefillCycleOptions}"
-                                                          SelectedItem="{Binding SelectedRefillCycle}"
-                                                          DisplayMemberPath="Label"
-                                                          FontSize="13"
-                                                          Padding="10,6" />
+                                                <local:SearchableSelect ItemsSource="{Binding RefillCycleOptions}"
+                                                                        SelectedItem="{Binding SelectedRefillCycle}"
+                                                                        DisplayMemberPath="Label"
+                                                                        Placeholder="Select frequency..." />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="2">
@@ -1073,11 +1066,10 @@
 
                                             <StackPanel Grid.Column="6">
                                                 <TextBlock Text="Preferred WhatsApp Format" FontSize="12.5" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,5" />
-                                                <ComboBox ItemsSource="{Binding ReminderLanguageOptions}"
-                                                          SelectedItem="{Binding SelectedReminderLanguage}"
-                                                          DisplayMemberPath="Label"
-                                                          FontSize="13"
-                                                          Padding="10,6" />
+                                                <local:SearchableSelect ItemsSource="{Binding ReminderLanguageOptions}"
+                                                                        SelectedItem="{Binding SelectedReminderLanguage}"
+                                                                        DisplayMemberPath="Label"
+                                                                        Placeholder="Select language..." />
                                             </StackPanel>
                                         </Grid>
 
@@ -1194,14 +1186,12 @@
                                                                                Foreground="#64748B"
                                                                                VerticalAlignment="Center" />
 
-                                                                    <ComboBox Grid.Column="1"
-                                                                              ItemsSource="{Binding DataContext.CatalogProducts, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                              SelectedItem="{Binding SelectedProduct}"
-                                                                              DisplayMemberPath="DisplayLabel"
-                                                                              IsEditable="True"
-                                                                              IsTextSearchEnabled="True"
-                                                                              FontSize="12.5"
-                                                                              Padding="8,5" />
+                                                                    <local:SearchableSelect Grid.Column="1"
+                                                                                            ItemsSource="{Binding DataContext.CatalogProducts, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                            SelectedItem="{Binding SelectedProduct}"
+                                                                                            DisplayMemberPath="DisplayLabel"
+                                                                                            Placeholder="Search &amp; select product..."
+                                                                                            IsClearable="True" />
 
                                                                     <TextBlock Grid.Column="2"
                                                                                Text="{Binding PackSizeDisplay}"
@@ -2266,13 +2256,11 @@
 
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="Product *" FontSize="12" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,4" />
-                                            <ComboBox ItemsSource="{Binding CatalogProducts}"
-                                                      SelectedItem="{Binding SelectedPriceProduct}"
-                                                      DisplayMemberPath="DisplayLabel"
-                                                      IsEditable="True"
-                                                      IsTextSearchEnabled="True"
-                                                      FontSize="12.5"
-                                                      Padding="8,6" />
+                                            <local:SearchableSelect ItemsSource="{Binding CatalogProducts}"
+                                                                    SelectedItem="{Binding SelectedPriceProduct}"
+                                                                    DisplayMemberPath="DisplayLabel"
+                                                                    Placeholder="Search &amp; select product..."
+                                                                    IsClearable="True" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2">
@@ -2435,7 +2423,7 @@
 
                                     <Button Grid.Column="0" Command="{Binding ChooseImportCsvFileCommand}" Style="{StaticResource CustBtnStyle}" Content="Choose CSV File…" />
                                     <TextBlock Grid.Column="1" Text="{Binding ImportFileNameDisplay}" FontSize="12.5" Foreground="#334155" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="12,0" />
-                                    <ComboBox Grid.Column="2" ItemsSource="{Binding DelimiterOptions}" SelectedItem="{Binding SelectedDelimiter}" DisplayMemberPath="Label" FontSize="12.5" Padding="8,6" Margin="0,0,10,0" />
+                                    <local:SearchableSelect Grid.Column="2" ItemsSource="{Binding DelimiterOptions}" SelectedItem="{Binding SelectedDelimiter}" DisplayMemberPath="Label" Margin="0,0,10,0" />
                                     <Button Grid.Column="3" Command="{Binding DownloadTemplateCommand}" Style="{StaticResource CustBtnStyle}" Content="↓ Download Template" />
                                 </Grid>
 

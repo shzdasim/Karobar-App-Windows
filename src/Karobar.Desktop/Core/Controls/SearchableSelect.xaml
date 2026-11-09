@@ -1,0 +1,220 @@
+<UserControl x:Class="Karobar.Desktop.Views.SearchableSelect"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="RootControl"
+             MinHeight="34"
+             Focusable="True"
+             IsTabStop="False">
+
+    <Grid>
+        <!-- React-Select Styled Control Box -->
+        <Border x:Name="RootBorder"
+                Background="#FFFFFF"
+                BorderBrush="#CBD5E1"
+                BorderThickness="1"
+                CornerRadius="8"
+                MinHeight="34"
+                SnapsToDevicePixels="True"
+                Cursor="Hand"
+                PreviewMouseLeftButtonDown="RootBorder_OnPreviewMouseLeftButtonDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Value & Inline Live Search Area -->
+                <Grid Grid.Column="0" Margin="10,0,4,0" VerticalAlignment="Center">
+                    <!-- Selected Item / Placeholder Overlay (Shown when SearchTextBox is empty) -->
+                    <TextBlock x:Name="PART_SelectedTextBlock"
+                               Text="Select..."
+                               FontSize="{Binding FontSize, ElementName=RootControl}"
+                               Foreground="#94A3B8"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               IsHitTestVisible="False" />
+
+                    <!-- Inline Search Input (Just like react-select) -->
+                    <TextBox x:Name="PART_SearchTextBox"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Padding="0"
+                             Margin="0"
+                             FontSize="{Binding FontSize, ElementName=RootControl}"
+                             Foreground="#0F172A"
+                             CaretBrush="#2563EB"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             HorizontalAlignment="Stretch"
+                             TextChanged="PART_SearchTextBox_OnTextChanged"
+                             PreviewKeyDown="PART_SearchTextBox_OnPreviewKeyDown"
+                             GotKeyboardFocus="PART_SearchTextBox_OnGotKeyboardFocus"
+                             LostKeyboardFocus="PART_SearchTextBox_OnLostKeyboardFocus" />
+                </Grid>
+
+                <!-- Clear Button (×) when IsClearable=True and HasValue=True -->
+                <Button x:Name="PART_ClearButton"
+                        Grid.Column="1"
+                        Visibility="Collapsed"
+                        Width="22"
+                        Height="22"
+                        Margin="0,0,2,0"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Focusable="False"
+                        IsTabStop="False"
+                        ToolTip="Clear selection"
+                        Click="PART_ClearButton_OnClick">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="ClearBorder" Background="Transparent" CornerRadius="4">
+                                <TextBlock x:Name="ClearGlyph"
+                                           Text="✕"
+                                           FontSize="10"
+                                           FontWeight="Bold"
+                                           Foreground="#94A3B8"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="ClearBorder" Property="Background" Value="#FEE2E2" />
+                                    <Setter TargetName="ClearGlyph" Property="Foreground" Value="#DC2626" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <!-- React-Select Vertical Indicator Separator -->
+                <Border Grid.Column="2"
+                        Width="1"
+                        Height="16"
+                        Background="#E2E8F0"
+                        VerticalAlignment="Center"
+                        Margin="2,0" />
+
+                <!-- Dropdown Chevron Indicator -->
+                <Border x:Name="PART_ChevronArea"
+                        Grid.Column="3"
+                        Width="26"
+                        Background="Transparent"
+                        VerticalAlignment="Stretch"
+                        MouseLeftButtonDown="PART_ChevronArea_OnMouseLeftButtonDown">
+                    <TextBlock x:Name="PART_ChevronGlyph"
+                               Text="▾"
+                               FontSize="11"
+                               Foreground="#64748B"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- React-Select Floating Menu Popup -->
+        <Popup x:Name="PART_Popup"
+               Placement="Bottom"
+               PlacementTarget="{Binding ElementName=RootBorder}"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               PopupAnimation="Fade"
+               Closed="PART_Popup_OnClosed">
+            <Border MinWidth="{Binding ActualWidth, ElementName=RootBorder}"
+                    MaxHeight="260"
+                    Margin="0,4,8,8"
+                    Background="#FFFFFF"
+                    BorderBrush="#CBD5E1"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="0,4">
+                <Border.Effect>
+                    <DropShadowEffect Color="#0F172A" BlurRadius="14" ShadowDepth="4" Opacity="0.14" />
+                </Border.Effect>
+
+                <Grid>
+                    <ListBox x:Name="PART_ListBox"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             MaxHeight="248"
+                             Focusable="False"
+                             IsTabStop="False"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Focusable" Value="False" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="4,1" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="ItemBorder"
+                                                    Background="Transparent"
+                                                    CornerRadius="6"
+                                                    Padding="10,7"
+                                                    Cursor="Hand"
+                                                    MouseEnter="OptionBorder_OnMouseEnter"
+                                                    PreviewMouseLeftButtonDown="OptionBorder_OnPreviewMouseLeftButtonDown">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock x:Name="ItemText"
+                                                               Grid.Column="0"
+                                                               Text="{Binding Label}"
+                                                               FontSize="12.5"
+                                                               Foreground="#1E293B"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               VerticalAlignment="Center" />
+                                                    <TextBlock x:Name="CheckMark"
+                                                               Grid.Column="1"
+                                                               Text="✓"
+                                                               FontSize="11"
+                                                               FontWeight="Bold"
+                                                               Foreground="#2563EB"
+                                                               Margin="8,0,0,0"
+                                                               VerticalAlignment="Center"
+                                                               Visibility="Collapsed" />
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsCurrentSelection}" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#EFF6FF" />
+                                                    <Setter TargetName="ItemText" Property="Foreground" Value="#1D4ED8" />
+                                                    <Setter TargetName="ItemText" Property="FontWeight" Value="SemiBold" />
+                                                    <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#2563EB" />
+                                                    <Setter TargetName="ItemText" Property="Foreground" Value="#FFFFFF" />
+                                                    <Setter TargetName="CheckMark" Property="Foreground" Value="#FFFFFF" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+
+                    <!-- Empty State when no options match search -->
+                    <Border x:Name="PART_EmptyState"
+                            Visibility="Collapsed"
+                            Padding="12,14"
+                            IsHitTestVisible="False">
+                        <TextBlock x:Name="PART_EmptyStateText"
+                                   Text="No matching options"
+                                   FontSize="12"
+                                   Foreground="#94A3B8"
+                                   HorizontalAlignment="Center" />
+                    </Border>
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

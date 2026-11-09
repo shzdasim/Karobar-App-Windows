@@ -1,6 +1,7 @@
 <UserControl x:Class="Karobar.Desktop.Views.ProductsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Karobar.Desktop.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -253,25 +254,29 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <ComboBox Grid.Column="0" Style="{StaticResource InputComboBox}"
-                                  ItemsSource="{Binding FilterCategoryOptions}"
-                                  SelectedItem="{Binding SelectedFilterCategory}"
-                                  DisplayMemberPath="Name" />
+                        <local:SearchableSelect Grid.Column="0"
+                                                ItemsSource="{Binding FilterCategoryOptions}"
+                                                SelectedItem="{Binding SelectedFilterCategory}"
+                                                DisplayMemberPath="Name"
+                                                Placeholder="All Categories" />
 
-                        <ComboBox Grid.Column="2" Style="{StaticResource InputComboBox}"
-                                  ItemsSource="{Binding FilterBrandOptions}"
-                                  SelectedItem="{Binding SelectedFilterBrand}"
-                                  DisplayMemberPath="Name" />
+                        <local:SearchableSelect Grid.Column="2"
+                                                ItemsSource="{Binding FilterBrandOptions}"
+                                                SelectedItem="{Binding SelectedFilterBrand}"
+                                                DisplayMemberPath="Name"
+                                                Placeholder="All Brands" />
 
-                        <ComboBox Grid.Column="4" Style="{StaticResource InputComboBox}"
-                                  ItemsSource="{Binding FilterSupplierOptions}"
-                                  SelectedItem="{Binding SelectedFilterSupplier}"
-                                  DisplayMemberPath="Name" />
+                        <local:SearchableSelect Grid.Column="4"
+                                                ItemsSource="{Binding FilterSupplierOptions}"
+                                                SelectedItem="{Binding SelectedFilterSupplier}"
+                                                DisplayMemberPath="Name"
+                                                Placeholder="All Suppliers" />
 
-                        <ComboBox Grid.Column="6" Style="{StaticResource InputComboBox}"
-                                  ItemsSource="{Binding FilterLocationOptions}"
-                                  SelectedItem="{Binding SelectedFilterLocation}"
-                                  DisplayMemberPath="DisplayLabel" />
+                        <local:SearchableSelect Grid.Column="6"
+                                                ItemsSource="{Binding FilterLocationOptions}"
+                                                SelectedItem="{Binding SelectedFilterLocation}"
+                                                DisplayMemberPath="DisplayLabel"
+                                                Placeholder="All Locations" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -311,10 +316,10 @@
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="Rows:" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <ComboBox Width="72" Height="30" FontSize="12"
-                                          ItemsSource="{Binding PageSizeOptions}"
-                                          SelectedItem="{Binding SelectedPageSize}"
-                                          VerticalContentAlignment="Center" />
+                                <local:SearchableSelect Width="84" Height="30" FontSize="12"
+                                                        ItemsSource="{Binding PageSizeOptions}"
+                                                        SelectedItem="{Binding SelectedPageSize}"
+                                                        DisplayMemberPath="Label" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -543,7 +548,7 @@
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Style="{StaticResource SecondaryBtn}" Command="{Binding SaveAndCloseProductCommand}" Content="Save &amp; Return" Margin="0,0,8,0" />
-                        <Button Style="{StaticResource PrimaryBtn}" Command="{Binding SaveProductCommand}" Content="{Binding SaveButtonLabel}" />
+                        <Button x:Name="SaveProductBtn" Style="{StaticResource PrimaryBtn}" Command="{Binding SaveProductCommand}" Content="{Binding SaveButtonLabel}" />
                     </StackPanel>
                 </Grid>
             </Border>
@@ -576,8 +581,8 @@
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <Button Grid.Column="0" Style="{StaticResource SecondaryBtn}" Padding="6,4" FontSize="11" Command="{Binding BrowseProductImageCommand}" Content="Browse" />
-                                            <Button Grid.Column="1" Style="{StaticResource SecondaryBtn}" Padding="6,4" FontSize="11" Margin="4,0,0,0" Command="{Binding ClearProductImageCommand}" Content="✕" Visibility="{Binding HasFormImage, Converter={StaticResource BoolToVis}}" />
+                                            <Button Grid.Column="0" Style="{StaticResource SecondaryBtn}" Padding="6,4" FontSize="11" IsTabStop="False" Command="{Binding BrowseProductImageCommand}" Content="Browse" />
+                                            <Button Grid.Column="1" Style="{StaticResource SecondaryBtn}" Padding="6,4" FontSize="11" Margin="4,0,0,0" IsTabStop="False" Command="{Binding ClearProductImageCommand}" Content="✕" Visibility="{Binding HasFormImage, Converter={StaticResource BoolToVis}}" />
                                         </Grid>
                                     </StackPanel>
                                 </Border>
@@ -599,41 +604,54 @@
 
                                     <StackPanel Grid.Row="0" Grid.Column="0">
                                         <TextBlock Text="Product Code *" Style="{StaticResource FieldLabel}" />
-                                        <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormProductCode, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True" Background="#F1F5F9" />
+                                        <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormProductCode, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True" IsTabStop="False" Background="#F1F5F9" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="0" Grid.Column="2">
                                         <Grid Margin="0,0,0,5">
                                             <TextBlock Text="Barcode *" FontSize="11.5" FontWeight="SemiBold" Foreground="#334155" />
                                             <Button Content="Auto-generate" Command="{Binding AutoGenerateBarcodeCommand}" HorizontalAlignment="Right"
+                                                    IsTabStop="False"
                                                     Background="Transparent" BorderThickness="0" Foreground="#2563EB" FontSize="11" FontWeight="Bold" Cursor="Hand" />
                                         </Grid>
-                                        <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormBarcode, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBox x:Name="FormBarcodeBox"
+                                                 Style="{StaticResource InputTextBox}"
+                                                 Text="{Binding FormBarcode, UpdateSourceTrigger=PropertyChanged}"
+                                                 PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="0" Grid.Column="4">
                                         <Grid Margin="0,0,0,5">
                                             <TextBlock Text="Default Location" FontSize="11.5" FontWeight="SemiBold" Foreground="#334155" />
                                             <Button Content="+ Locations" Command="{Binding OpenManageLocationsModalCommand}" HorizontalAlignment="Right"
+                                                    IsTabStop="False"
                                                     Background="Transparent" BorderThickness="0" Foreground="#2563EB" FontSize="11" FontWeight="Bold" Cursor="Hand" />
                                         </Grid>
-                                        <ComboBox Style="{StaticResource InputComboBox}"
-                                                  ItemsSource="{Binding FormStorageLocations}"
-                                                  SelectedItem="{Binding FormSelectedLocation}"
-                                                  DisplayMemberPath="DisplayLabel" />
+                                        <local:SearchableSelect x:Name="FormLocationSelect"
+                                                                ItemsSource="{Binding FormStorageLocations}"
+                                                                SelectedItem="{Binding FormSelectedLocation}"
+                                                                DisplayMemberPath="DisplayLabel"
+                                                                Placeholder="Select location..."
+                                                                EnterCommitted="ProductFormSelect_OnEnterCommitted" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="2" Grid.Column="0">
                                         <TextBlock Text="Rack / Shelf Code" Style="{StaticResource FieldLabel}" />
-                                        <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormRack, UpdateSourceTrigger=PropertyChanged}" ToolTip="e.g. R-12 / Shelf 2" />
+                                        <TextBox x:Name="FormRackBox"
+                                                 Style="{StaticResource InputTextBox}"
+                                                 Text="{Binding FormRack, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="e.g. R-12 / Shelf 2"
+                                                 PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="3" Visibility="{Binding IsPharmacyShop, Converter={StaticResource BoolToVis}}">
                                         <TextBlock Text="Narcotic / Controlled Schedule" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox Style="{StaticResource InputComboBox}"
-                                                  ItemsSource="{Binding NarcoticOptions}"
-                                                  SelectedItem="{Binding FormSelectedNarcotic}"
-                                                  DisplayMemberPath="Label" />
+                                        <local:SearchableSelect x:Name="FormNarcoticSelect"
+                                                                ItemsSource="{Binding NarcoticOptions}"
+                                                                SelectedItem="{Binding FormSelectedNarcotic}"
+                                                                DisplayMemberPath="Label"
+                                                                Placeholder="Select schedule..."
+                                                                EnterCommitted="ProductFormSelect_OnEnterCommitted" />
                                     </StackPanel>
                                 </Grid>
                             </Grid>
@@ -650,22 +668,33 @@
 
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Product Name *" Style="{StaticResource FieldLabel}" />
-                                    <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormName, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBox x:Name="FormNameBox"
+                                             Style="{StaticResource InputTextBox}"
+                                             Text="{Binding FormName, UpdateSourceTrigger=PropertyChanged}"
+                                             PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="2" Visibility="{Binding IsPharmacyShop, Converter={StaticResource BoolToVis}}">
                                     <TextBlock Text="Formulation (Generic / Salt)" Style="{StaticResource FieldLabel}" />
-                                    <ComboBox Style="{StaticResource InputComboBox}"
-                                              IsEditable="True"
-                                              ItemsSource="{Binding FormFormulations}"
-                                              Text="{Binding FormFormulation, UpdateSourceTrigger=PropertyChanged}"
-                                              DisplayMemberPath="Name"
-                                              ToolTip="Select an existing formulation or type a new salt/formula name" />
+                                    <local:SearchableSelect x:Name="FormFormulationSelect"
+                                                            IsCreatable="True"
+                                                            IsClearable="True"
+                                                            ItemsSource="{Binding FormFormulations}"
+                                                            Text="{Binding FormFormulation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                            DisplayMemberPath="Name"
+                                                            Placeholder="Search or type formulation..."
+                                                            ToolTip="Select an existing formulation or type a new salt/formula name"
+                                                            EnterCommitted="ProductFormSelect_OnEnterCommitted" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="4">
                                     <TextBlock Text="Pack Size (Units/Pack) *" Style="{StaticResource FieldLabel}" />
-                                    <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormPackSize, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                    <TextBox x:Name="FormPackSizeBox"
+                                             Style="{StaticResource InputTextBox}"
+                                             Text="{Binding FormPackSize, UpdateSourceTrigger=PropertyChanged}"
+                                             FontFamily="Consolas"
+                                             GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                             PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                 </StackPanel>
                             </Grid>
 
@@ -681,34 +710,48 @@
 
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Category *" Style="{StaticResource FieldLabel}" />
-                                    <ComboBox Style="{StaticResource InputComboBox}"
-                                              ItemsSource="{Binding FormCategories}"
-                                              SelectedItem="{Binding FormSelectedCategory}"
-                                              DisplayMemberPath="Name" />
+                                    <local:SearchableSelect x:Name="FormCategorySelect"
+                                                            IsClearable="True"
+                                                            ItemsSource="{Binding FormCategories}"
+                                                            SelectedItem="{Binding FormSelectedCategory}"
+                                                            DisplayMemberPath="Name"
+                                                            Placeholder="Search category..."
+                                                            EnterCommitted="ProductFormSelect_OnEnterCommitted" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="Brand *" Style="{StaticResource FieldLabel}" />
-                                    <ComboBox Style="{StaticResource InputComboBox}"
-                                              ItemsSource="{Binding FormBrands}"
-                                              SelectedItem="{Binding FormSelectedBrand}"
-                                              DisplayMemberPath="Name" />
+                                    <local:SearchableSelect x:Name="FormBrandSelect"
+                                                            IsClearable="True"
+                                                            ItemsSource="{Binding FormBrands}"
+                                                            SelectedItem="{Binding FormSelectedBrand}"
+                                                            DisplayMemberPath="Name"
+                                                            Placeholder="Search brand..."
+                                                            EnterCommitted="ProductFormSelect_OnEnterCommitted" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="4">
                                     <TextBlock Text="Primary Supplier *" Style="{StaticResource FieldLabel}" />
-                                    <ComboBox Style="{StaticResource InputComboBox}"
-                                              ItemsSource="{Binding FormSuppliers}"
-                                              SelectedItem="{Binding FormSelectedSupplier}"
-                                              DisplayMemberPath="Name" />
+                                    <local:SearchableSelect x:Name="FormSupplierSelect"
+                                                            IsClearable="True"
+                                                            ItemsSource="{Binding FormSuppliers}"
+                                                            SelectedItem="{Binding FormSelectedSupplier}"
+                                                            DisplayMemberPath="Name"
+                                                            Placeholder="Search supplier..."
+                                                            EnterCommitted="ProductFormSelect_OnEnterCommitted" />
                                 </StackPanel>
                             </Grid>
 
                             <!-- Row 4: Description -->
                             <StackPanel Margin="0,0,0,14">
                                 <TextBlock Text="Description / Optional Notes" Style="{StaticResource FieldLabel}" />
-                                <TextBox Style="{StaticResource InputTextBox}" Height="52" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top"
-                                         Text="{Binding FormDescription, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBox x:Name="FormDescriptionBox"
+                                         Style="{StaticResource InputTextBox}"
+                                         Height="52"
+                                         TextWrapping="Wrap"
+                                         VerticalContentAlignment="Top"
+                                         Text="{Binding FormDescription, UpdateSourceTrigger=PropertyChanged}"
+                                         PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                             </StackPanel>
 
                             <!-- Row 5: Pricing, Margins & Expiry Thresholds Grid -->
@@ -741,62 +784,123 @@
 
                                         <StackPanel Grid.Row="0" Grid.Column="0">
                                             <TextBlock Text="On-Hand Stock (Qty)" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormQuantity, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsEditMode}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormQuantityBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormQuantity, UpdateSourceTrigger=PropertyChanged}"
+                                                     IsReadOnly="{Binding IsEditMode}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="0" Grid.Column="2">
                                             <TextBlock Text="Pack Purchase Price" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormPackPurchasePrice, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormPackPurchasePriceBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormPackPurchasePrice, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="0" Grid.Column="4">
                                             <TextBlock Text="Pack Sale Price" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormPackSalePrice, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormPackSalePriceBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormPackSalePrice, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="0" Grid.Column="6">
                                             <TextBlock Text="Unit Purchase Cost" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormUnitPurchasePrice, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormUnitPurchasePriceBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormUnitPurchasePrice, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="0" Grid.Column="8">
                                             <TextBlock Text="Unit Sale MRP" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormUnitSalePrice, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormUnitSalePriceBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormUnitSalePrice, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="0" Grid.Column="10">
                                             <TextBlock Text="Retail Margin (%)" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormMargin, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormMarginBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormMargin, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="2" Grid.Column="0">
                                             <TextBlock Text="Wholesale Pack Price" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormWholeSalePackPrice, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormWholeSalePackPriceBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormWholeSalePackPrice, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="2" Grid.Column="2">
                                             <TextBlock Text="Wholesale Unit Price" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormWholeSaleUnitPrice, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormWholeSaleUnitPriceBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormWholeSaleUnitPrice, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="2" Grid.Column="4">
                                             <TextBlock Text="Wholesale Margin (%)" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormWholeSaleMargin, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormWholeSaleMarginBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormWholeSaleMargin, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="2" Grid.Column="6">
                                             <TextBlock Text="Average Unit Cost" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormAvgPrice, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormAvgPriceBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormAvgPrice, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="2" Grid.Column="8">
                                             <TextBlock Text="Max Discount (%)" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormMaxDiscount, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormMaxDiscountBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormMaxDiscount, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="2" Grid.Column="10">
                                             <TextBlock Text="Expiry Alert (Days)" Style="{StaticResource FieldLabel}" ToolTip="Custom Expiry Warning Days (leave blank for store default)" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding FormExpiryWarningDays, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="FormExpiryWarningDaysBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding FormExpiryWarningDays, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="ProductFormField_OnPreviewKeyDown" />
                                         </StackPanel>
                                     </Grid>
                                 </StackPanel>
@@ -891,10 +995,10 @@
 
                                         <StackPanel Grid.Column="1">
                                             <TextBlock Text="Quick Select Batch (Mode)" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox Style="{StaticResource InputComboBox}"
-                                                      ItemsSource="{Binding BatchPickerOptions}"
-                                                      SelectedItem="{Binding SelectedBatchPickerOption}"
-                                                      DisplayMemberPath="Label" />
+                                            <local:SearchableSelect ItemsSource="{Binding BatchPickerOptions}"
+                                                                    SelectedItem="{Binding SelectedBatchPickerOption}"
+                                                                    DisplayMemberPath="Label"
+                                                                    Placeholder="Select mode..." />
                                         </StackPanel>
                                     </Grid>
 
@@ -918,12 +1022,19 @@
 
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="Batch Number *" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding BatchNumberInput, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox x:Name="BatchNumberBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding BatchNumberInput, UpdateSourceTrigger=PropertyChanged}"
+                                                     PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Text="Expiry Date *" Style="{StaticResource FieldLabel}" />
-                                            <DatePicker Height="34" SelectedDate="{Binding BatchExpiryDateInput}" VerticalContentAlignment="Center" />
+                                            <DatePicker x:Name="BatchExpiryPicker"
+                                                        Height="34"
+                                                        SelectedDate="{Binding BatchExpiryDateInput}"
+                                                        VerticalContentAlignment="Center"
+                                                        PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="4">
@@ -932,37 +1043,57 @@
                                                 <Run Text="{Binding MaxBatchAssignable, Mode=OneWay}" Foreground="#059669" />
                                                 <Run Text=")" />
                                             </TextBlock>
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding BatchQuantityInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="BatchQtyBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding BatchQuantityInput, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="6">
                                             <TextBlock Text="Storage Location" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox Style="{StaticResource InputComboBox}"
-                                                      ItemsSource="{Binding FormStorageLocations}"
-                                                      SelectedItem="{Binding SelectedBatchLocation}"
-                                                      DisplayMemberPath="DisplayLabel" />
+                                            <local:SearchableSelect x:Name="BatchLocationSelect"
+                                                                    ItemsSource="{Binding FormStorageLocations}"
+                                                                    SelectedItem="{Binding SelectedBatchLocation}"
+                                                                    DisplayMemberPath="DisplayLabel"
+                                                                    Placeholder="Select location..."
+                                                                    EnterCommitted="BatchFormSelect_OnEnterCommitted" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="8">
                                             <TextBlock Text="Rack / Shelf" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding BatchRackInput, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox x:Name="BatchRackBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding BatchRackInput, UpdateSourceTrigger=PropertyChanged}"
+                                                     PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="10">
                                             <TextBlock Text="Batch Unit MRP" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding BatchUnitSalePriceInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="BatchMrpBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding BatchUnitSalePriceInput, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="12">
                                             <TextBlock Text="Batch Unit Cost" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding BatchUnitPurchasePriceInput, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="BatchCostBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding BatchUnitPurchasePriceInput, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="BatchFormField_OnPreviewKeyDown" />
                                         </StackPanel>
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                         <Button Style="{StaticResource SecondaryBtn}" Command="{Binding CancelEditBatchCommand}" Content="Cancel Edit" Margin="0,0,8,0"
                                                 Visibility="{Binding IsEditingBatch, Converter={StaticResource BoolToVis}}" />
-                                        <Button Style="{StaticResource PrimaryBtn}" Command="{Binding SaveBatchCommand}" Content="{Binding BatchSaveButtonLabel}" />
+                                        <Button x:Name="SaveBatchBtn" Style="{StaticResource PrimaryBtn}" Command="{Binding SaveBatchCommand}" Content="{Binding BatchSaveButtonLabel}" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -986,26 +1117,24 @@
 
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="Filter Location" Style="{StaticResource FieldLabel}" />
-                                    <ComboBox Style="{StaticResource InputComboBox}"
-                                              ItemsSource="{Binding BatchFilterLocations}"
-                                              SelectedItem="{Binding SelectedBatchFilterLocation}"
-                                              DisplayMemberPath="DisplayLabel" />
+                                    <local:SearchableSelect ItemsSource="{Binding BatchFilterLocations}"
+                                                            SelectedItem="{Binding SelectedBatchFilterLocation}"
+                                                            DisplayMemberPath="DisplayLabel"
+                                                            Placeholder="All Locations" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="4">
                                     <TextBlock Text="Filter Status" Style="{StaticResource FieldLabel}" />
-                                    <ComboBox Style="{StaticResource InputComboBox}"
-                                              ItemsSource="{Binding BatchStatusOptions}"
-                                              SelectedItem="{Binding SelectedBatchStatusOption}"
-                                              DisplayMemberPath="Label" />
+                                    <local:SearchableSelect ItemsSource="{Binding BatchStatusOptions}"
+                                                            SelectedItem="{Binding SelectedBatchStatusOption}"
+                                                            DisplayMemberPath="Label" />
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="6">
                                     <TextBlock Text="Sort Batches" Style="{StaticResource FieldLabel}" />
-                                    <ComboBox Style="{StaticResource InputComboBox}"
-                                              ItemsSource="{Binding BatchSortOptions}"
-                                              SelectedItem="{Binding SelectedBatchSortOption}"
-                                              DisplayMemberPath="Label" />
+                                    <local:SearchableSelect ItemsSource="{Binding BatchSortOptions}"
+                                                            SelectedItem="{Binding SelectedBatchSortOption}"
+                                                            DisplayMemberPath="Label" />
                                 </StackPanel>
                             </Grid>
 
@@ -1124,37 +1253,53 @@
 
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="Supplier *" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox Style="{StaticResource InputComboBox}"
-                                                      ItemsSource="{Binding FormSuppliers}"
-                                                      SelectedItem="{Binding SelectedMultiSupplier}"
-                                                      DisplayMemberPath="Name" />
+                                            <local:SearchableSelect x:Name="MultiSupplierSelect"
+                                                                    ItemsSource="{Binding FormSuppliers}"
+                                                                    SelectedItem="{Binding SelectedMultiSupplier}"
+                                                                    DisplayMemberPath="Name"
+                                                                    Placeholder="Search supplier..."
+                                                                    EnterCommitted="MultiSupplierFormSelect_OnEnterCommitted" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Text="Supplier Priority" Style="{StaticResource FieldLabel}" />
-                                            <ComboBox Style="{StaticResource InputComboBox}"
-                                                      ItemsSource="{Binding SupplierPriorityOptions}"
-                                                      SelectedItem="{Binding SelectedSupplierPriority}"
-                                                      DisplayMemberPath="Label" />
+                                            <local:SearchableSelect x:Name="MultiSupplierPrioritySelect"
+                                                                    ItemsSource="{Binding SupplierPriorityOptions}"
+                                                                    SelectedItem="{Binding SelectedSupplierPriority}"
+                                                                    DisplayMemberPath="Label"
+                                                                    EnterCommitted="MultiSupplierFormSelect_OnEnterCommitted" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="4">
                                             <TextBlock Text="Last Unit Rate" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding MultiSupplierLastRate, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="MultiSupplierRateBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding MultiSupplierLastRate, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="MultiSupplierFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="6">
                                             <TextBlock Text="Lead Time (Days)" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding MultiSupplierLeadTimeDays, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas" />
+                                            <TextBox x:Name="MultiSupplierLeadTimeBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding MultiSupplierLeadTimeDays, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontFamily="Consolas"
+                                                     GotKeyboardFocus="ProductFormTextBox_OnGotKeyboardFocus"
+                                                     PreviewKeyDown="MultiSupplierFormField_OnPreviewKeyDown" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="8">
                                             <TextBlock Text="Vendor SKU / Code" Style="{StaticResource FieldLabel}" />
-                                            <TextBox Style="{StaticResource InputTextBox}" Text="{Binding MultiSupplierSku, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBox x:Name="MultiSupplierSkuBox"
+                                                     Style="{StaticResource InputTextBox}"
+                                                     Text="{Binding MultiSupplierSku, UpdateSourceTrigger=PropertyChanged}"
+                                                     PreviewKeyDown="MultiSupplierFormField_OnPreviewKeyDown" />
                                         </StackPanel>
                                     </Grid>
 
-                                    <Button Style="{StaticResource PrimaryBtn}" Command="{Binding SaveProductSupplierLinkCommand}" Content="+ Link Supplier" HorizontalAlignment="Right" />
+                                    <Button x:Name="SaveMultiSupplierBtn" Style="{StaticResource PrimaryBtn}" Command="{Binding SaveProductSupplierLinkCommand}" Content="+ Link Supplier" HorizontalAlignment="Right" />
                                 </StackPanel>
                             </Border>
 
@@ -1244,10 +1389,10 @@
 
                     <StackPanel Margin="0,0,0,12">
                         <TextBlock Text="Move To Storage Location *" Style="{StaticResource FieldLabel}" />
-                        <ComboBox Style="{StaticResource InputComboBox}"
-                                  ItemsSource="{Binding FormStorageLocations}"
-                                  SelectedItem="{Binding SelectedMoveTargetLocation}"
-                                  DisplayMemberPath="DisplayLabel" />
+                        <local:SearchableSelect ItemsSource="{Binding FormStorageLocations}"
+                                                SelectedItem="{Binding SelectedMoveTargetLocation}"
+                                                DisplayMemberPath="DisplayLabel"
+                                                Placeholder="Select destination location..." />
                     </StackPanel>
 
                     <Grid Margin="0,0,0,12">
@@ -1353,10 +1498,10 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
-                                <ComboBox Grid.Column="0" Style="{StaticResource InputComboBox}"
-                                          ItemsSource="{Binding LocationTypeOptions}"
-                                          SelectedItem="{Binding SelectedLocTypeOption}"
-                                          DisplayMemberPath="Label" />
+                                <local:SearchableSelect Grid.Column="0"
+                                                        ItemsSource="{Binding LocationTypeOptions}"
+                                                        SelectedItem="{Binding SelectedLocTypeOption}"
+                                                        DisplayMemberPath="Label" />
 
                                 <CheckBox Grid.Column="2" IsChecked="{Binding LocIsDefaultInput}" Content="Set as Default Location" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155" />
 
@@ -1547,26 +1692,29 @@
 
                     <StackPanel Margin="0,0,0,10">
                         <TextBlock Text="Set Category" Style="{StaticResource FieldLabel}" />
-                        <ComboBox Style="{StaticResource InputComboBox}"
-                                  ItemsSource="{Binding FormCategories}"
-                                  SelectedItem="{Binding BulkEditCategory}"
-                                  DisplayMemberPath="Name" />
+                        <local:SearchableSelect IsClearable="True"
+                                                ItemsSource="{Binding FormCategories}"
+                                                SelectedItem="{Binding BulkEditCategory}"
+                                                DisplayMemberPath="Name"
+                                                Placeholder="Keep existing category..." />
                     </StackPanel>
 
                     <StackPanel Margin="0,0,0,10">
                         <TextBlock Text="Set Brand" Style="{StaticResource FieldLabel}" />
-                        <ComboBox Style="{StaticResource InputComboBox}"
-                                  ItemsSource="{Binding FormBrands}"
-                                  SelectedItem="{Binding BulkEditBrand}"
-                                  DisplayMemberPath="Name" />
+                        <local:SearchableSelect IsClearable="True"
+                                                ItemsSource="{Binding FormBrands}"
+                                                SelectedItem="{Binding BulkEditBrand}"
+                                                DisplayMemberPath="Name"
+                                                Placeholder="Keep existing brand..." />
                     </StackPanel>
 
                     <StackPanel Margin="0,0,0,16">
                         <TextBlock Text="Set Primary Supplier" Style="{StaticResource FieldLabel}" />
-                        <ComboBox Style="{StaticResource InputComboBox}"
-                                  ItemsSource="{Binding FormSuppliers}"
-                                  SelectedItem="{Binding BulkEditSupplier}"
-                                  DisplayMemberPath="Name" />
+                        <local:SearchableSelect IsClearable="True"
+                                                ItemsSource="{Binding FormSuppliers}"
+                                                SelectedItem="{Binding BulkEditSupplier}"
+                                                DisplayMemberPath="Name"
+                                                Placeholder="Keep existing supplier..." />
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -1653,10 +1801,11 @@
 
                             <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="Delimiter:" FontSize="12" FontWeight="SemiBold" Foreground="#334155" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                <ComboBox Width="140" Style="{StaticResource InputComboBox}"
-                                          ItemsSource="{Binding CsvDelimiterOptions}"
-                                          SelectedItem="{Binding SelectedCsvDelimiter}"
-                                          DisplayMemberPath="Label" Margin="0,0,18,0" />
+                                <local:SearchableSelect Width="150"
+                                                        ItemsSource="{Binding CsvDelimiterOptions}"
+                                                        SelectedItem="{Binding SelectedCsvDelimiter}"
+                                                        DisplayMemberPath="Label"
+                                                        Margin="0,0,18,0" />
                                 <CheckBox IsChecked="{Binding CsvCreateMissingRefs}" Content="Create missing Category / Brand / Supplier automatically" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#334155" />
                             </WrapPanel>
                         </StackPanel>

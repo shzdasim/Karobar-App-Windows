@@ -1,6 +1,7 @@
 <UserControl x:Class="Karobar.Desktop.Views.DashboardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Karobar.Desktop.Views">
 
     <UserControl.Resources>
         <!-- Preset Filter Button Style -->
@@ -1351,19 +1352,17 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <ComboBox Grid.Column="0"
-                                      ItemsSource="{Binding SupplierFilterOptions}"
-                                      SelectedItem="{Binding SelectedSupplierFilter}"
-                                      Margin="0,0,10,0"
-                                      Padding="8,5"
-                                      FontSize="12" />
+                            <local:SearchableSelect Grid.Column="0"
+                                                    ItemsSource="{Binding SupplierFilterOptions}"
+                                                    SelectedItem="{Binding SelectedSupplierFilter}"
+                                                    Placeholder="All Suppliers"
+                                                    Margin="0,0,10,0" />
 
-                            <ComboBox Grid.Column="1"
-                                      ItemsSource="{Binding BrandFilterOptions}"
-                                      SelectedItem="{Binding SelectedBrandFilter}"
-                                      Margin="0,0,10,0"
-                                      Padding="8,5"
-                                      FontSize="12" />
+                            <local:SearchableSelect Grid.Column="1"
+                                                    ItemsSource="{Binding BrandFilterOptions}"
+                                                    SelectedItem="{Binding SelectedBrandFilter}"
+                                                    Placeholder="All Brands"
+                                                    Margin="0,0,10,0" />
 
                             <StackPanel Grid.Column="3" Orientation="Horizontal">
                                 <Button Content="Clear Filters"

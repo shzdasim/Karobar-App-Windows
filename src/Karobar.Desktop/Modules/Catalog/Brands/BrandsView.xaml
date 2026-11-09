@@ -1,6 +1,7 @@
 <UserControl x:Class="Karobar.Desktop.Views.BrandsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Karobar.Desktop.Views">
 
     <UserControl.InputBindings>
         <KeyBinding Key="N" Modifiers="Alt" Command="{Binding OpenCreateModeCommand}" />
@@ -271,14 +272,12 @@
                                     </Grid>
                                 </Border>
 
-                                <!-- Expiry Return Policy Filter ComboBox -->
-                                <ComboBox Grid.Column="2"
-                                          ItemsSource="{Binding PolicyFilterOptions}"
-                                          SelectedItem="{Binding SelectedPolicyFilter}"
-                                          DisplayMemberPath="Label"
-                                          FontSize="13"
-                                          Padding="10,8"
-                                          VerticalContentAlignment="Center" />
+                                <!-- Expiry Return Policy Filter SearchableSelect -->
+                                <local:SearchableSelect Grid.Column="2"
+                                                        ItemsSource="{Binding PolicyFilterOptions}"
+                                                        SelectedItem="{Binding SelectedPolicyFilter}"
+                                                        DisplayMemberPath="Label"
+                                                        Placeholder="Filter by expiry policy..." />
 
                                 <!-- Page Size Selector -->
                                 <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
@@ -287,12 +286,9 @@
                                                Foreground="#64748B"
                                                VerticalAlignment="Center"
                                                Margin="0,0,8,0" />
-                                    <ComboBox ItemsSource="{Binding PageSizeOptions}"
-                                              SelectedItem="{Binding PageSize}"
-                                              Width="72"
-                                              FontSize="13"
-                                              Padding="8,7"
-                                              VerticalContentAlignment="Center" />
+                                    <local:SearchableSelect ItemsSource="{Binding PageSizeOptions}"
+                                                            SelectedItem="{Binding PageSize}"
+                                                            Width="84" />
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -836,19 +832,17 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Return / Intimation Policy Preset ComboBox -->
+                                        <!-- Return / Intimation Policy Preset SearchableSelect -->
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="Return / Intimation Policy *"
                                                        FontSize="12"
                                                        FontWeight="SemiBold"
                                                        Foreground="#334155"
                                                        Margin="0,0,0,6" />
-                                            <ComboBox ItemsSource="{Binding PolicyPresets}"
-                                                      SelectedItem="{Binding SelectedPolicyPreset}"
-                                                      DisplayMemberPath="Label"
-                                                      FontSize="13.5"
-                                                      Padding="10,9"
-                                                      VerticalContentAlignment="Center" />
+                                            <local:SearchableSelect ItemsSource="{Binding PolicyPresets}"
+                                                                    SelectedItem="{Binding SelectedPolicyPreset}"
+                                                                    DisplayMemberPath="Label"
+                                                                    Placeholder="Select expiry return policy..." />
                                         </StackPanel>
 
                                         <!-- Policy Notes / Return Conditions -->
@@ -926,11 +920,10 @@
                                                            FontWeight="SemiBold"
                                                            Foreground="#334155"
                                                            Margin="0,0,0,6" />
-                                                <ComboBox ItemsSource="{Binding CustomTimeUnitOptions}"
-                                                          SelectedItem="{Binding SelectedCustomTimeUnit}"
-                                                          DisplayMemberPath="Label"
-                                                          FontSize="13"
-                                                          Padding="10,8" />
+                                                <local:SearchableSelect ItemsSource="{Binding CustomTimeUnitOptions}"
+                                                                        SelectedItem="{Binding SelectedCustomTimeUnit}"
+                                                                        DisplayMemberPath="Label"
+                                                                        Placeholder="Select time unit..." />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="2">
@@ -1288,12 +1281,10 @@
                                                Foreground="#334155"
                                                VerticalAlignment="Center"
                                                Margin="0,0,12,0" />
-                                    <ComboBox ItemsSource="{Binding DelimiterOptions}"
-                                              SelectedItem="{Binding SelectedDelimiter}"
-                                              DisplayMemberPath="Label"
-                                              Width="160"
-                                              Padding="8,5"
-                                              FontSize="12.5" />
+                                    <local:SearchableSelect ItemsSource="{Binding DelimiterOptions}"
+                                                            SelectedItem="{Binding SelectedDelimiter}"
+                                                            DisplayMemberPath="Label"
+                                                            Width="180" />
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,10">
