@@ -1,10 +1,12 @@
 using System.Collections;
-using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
 using System.Collections.Specialized;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Karobar.Desktop.Views;
 
@@ -19,10 +21,28 @@ public sealed class SearchableSelectOptionItem
 
 public partial class SearchableSelect : UserControl
 {
+    private const int MaxDisplayedOptions = 150;
+
+    private static readonly ConcurrentDictionary<(Type, string), PropertyInfo?> PropertyCache = new();
+
+    private static readonly SolidColorBrush BrushTextActive = CreateFrozenBrush(15, 23, 42);     // #0F172A
+    private static readonly SolidColorBrush BrushTextOpenMuted = CreateFrozenBrush(100, 116, 139); // #64748B
+    private static readonly SolidColorBrush BrushPlaceholder = CreateFrozenBrush(148, 163, 184);  // #94A3B8
+    private static readonly SolidColorBrush BrushBorderFocused = CreateFrozenBrush(59, 130, 246); // #3B82F6
+    private static readonly SolidColorBrush BrushBorderNormal = CreateFrozenBrush(203, 213, 225); // #CBD5E1
+
+    private static SolidColorBrush CreateFrozenBrush(byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
     private INotifyCollectionChanged? _subscribedCollection;
     private bool _suppressSearchTextChanged;
+    private bool _pendingCollectionRefresh;
     private DateTime _lastPopupClosedUtc = DateTime.MinValue;
-    private readonly ObservableCollection<SearchableSelectOptionItem> _filteredItems = [];
+    private List<SearchableSelectOptionItem> _filteredItems = [];
 
     public event EventHandler? EnterCommitted;
 
@@ -140,7 +160,6 @@ public partial class SearchableSelect : UserControl
     {
         InitializeComponent();
         FontSize = 12.5;
-        PART_ListBox.ItemsSource = _filteredItems;
         GotFocus += OnControlGotFocus;
         UpdateVisualDisplay();
     }
@@ -176,14 +195,28 @@ public partial class SearchableSelect : UserControl
             notifyCollection.CollectionChanged += control.OnSourceCollectionChanged;
         }
 
-        control.RebuildFilteredItems(control.PART_SearchTextBox.Text);
+        if (control.PART_Popup.IsOpen)
+        {
+            control.RebuildFilteredItems(control.PART_SearchTextBox.Text);
+        }
         control.UpdateVisualDisplay();
     }
 
     private void OnSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        RebuildFilteredItems(PART_SearchTextBox.Text);
-        UpdateVisualDisplay();
+        if (_pendingCollectionRefresh)
+            return;
+
+        _pendingCollectionRefresh = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+        {
+            _pendingCollectionRefresh = false;
+            if (PART_Popup.IsOpen)
+            {
+                RebuildFilteredItems(PART_SearchTextBox.Text);
+            }
+            UpdateVisualDisplay();
+        }));
     }
 
     private static void OnSelectedItemChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -220,7 +253,10 @@ public partial class SearchableSelect : UserControl
         if (d is not SearchableSelect control)
             return;
 
-        control.RebuildFilteredItems(control.PART_SearchTextBox.Text);
+        if (control.PART_Popup.IsOpen)
+        {
+            control.RebuildFilteredItems(control.PART_SearchTextBox.Text);
+        }
         control.UpdateVisualDisplay();
     }
 
@@ -232,7 +268,8 @@ public partial class SearchableSelect : UserControl
         var path = DisplayMemberPath;
         if (!string.IsNullOrWhiteSpace(path))
         {
-            var prop = item.GetType().GetProperty(path);
+            var type = item.GetType();
+            var prop = PropertyCache.GetOrAdd((type, path), static key => key.Item1.GetProperty(key.Item2));
             if (prop != null)
             {
                 return prop.GetValue(item)?.ToString() ?? string.Empty;
@@ -276,13 +313,13 @@ public partial class SearchableSelect : UserControl
             {
                 PART_SelectedTextBlock.Text = committedLabel;
                 PART_SelectedTextBlock.Foreground = PART_Popup.IsOpen
-                    ? new SolidColorBrush(Color.FromRgb(100, 116, 139)) // #64748B when menu open
-                    : new SolidColorBrush(Color.FromRgb(15, 23, 42));   // #0F172A normal
+                    ? BrushTextOpenMuted
+                    : BrushTextActive;
             }
             else
             {
                 PART_SelectedTextBlock.Text = string.IsNullOrWhiteSpace(Placeholder) ? "Select..." : Placeholder;
-                PART_SelectedTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)); // #94A3B8
+                PART_SelectedTextBlock.Foreground = BrushPlaceholder;
             }
         }
 
@@ -291,19 +328,17 @@ public partial class SearchableSelect : UserControl
             : Visibility.Collapsed;
 
         bool isActive = PART_SearchTextBox.IsKeyboardFocused || PART_Popup.IsOpen;
-        RootBorder.BorderBrush = isActive
-            ? new SolidColorBrush(Color.FromRgb(59, 130, 246))  // #3B82F6
-            : new SolidColorBrush(Color.FromRgb(203, 213, 225)); // #CBD5E1
+        RootBorder.BorderBrush = isActive ? BrushBorderFocused : BrushBorderNormal;
     }
 
     private void RebuildFilteredItems(string? query)
     {
-        _filteredItems.Clear();
         var cleanQuery = (query ?? string.Empty).Trim();
         var hasQuery = !string.IsNullOrEmpty(cleanQuery);
         var currentCommitted = GetCurrentCommittedLabel();
 
-        var matchingOptions = new List<SearchableSelectOptionItem>();
+        var matchingOptions = new List<SearchableSelectOptionItem>(64);
+        SearchableSelectOptionItem? selectedOptionIfCapped = null;
         var exactMatchFound = false;
 
         if (ItemsSource != null)
@@ -325,19 +360,35 @@ public partial class SearchableSelect : UserControl
                                   (IsCreatable && !string.IsNullOrWhiteSpace(currentCommitted) &&
                                    string.Equals(label, currentCommitted, StringComparison.OrdinalIgnoreCase));
 
-                matchingOptions.Add(new SearchableSelectOptionItem
+                var optionItem = new SearchableSelectOptionItem
                 {
                     Label = label,
                     RawItem = raw,
                     IsCurrentSelection = isSelected,
                     IsCreateOption = false
-                });
+                };
+
+                if (matchingOptions.Count < MaxDisplayedOptions)
+                {
+                    matchingOptions.Add(optionItem);
+                }
+                else if (isSelected && selectedOptionIfCapped == null)
+                {
+                    selectedOptionIfCapped = optionItem;
+                }
             }
         }
 
+        if (selectedOptionIfCapped != null)
+        {
+            matchingOptions.Insert(0, selectedOptionIfCapped);
+        }
+
+        var nextList = new List<SearchableSelectOptionItem>(matchingOptions.Count + 1);
+
         if (IsCreatable && hasQuery && !exactMatchFound)
         {
-            _filteredItems.Add(new SearchableSelectOptionItem
+            nextList.Add(new SearchableSelectOptionItem
             {
                 Label = $"+ Add \"{cleanQuery}\"",
                 RawItem = null,
@@ -347,10 +398,9 @@ public partial class SearchableSelect : UserControl
             });
         }
 
-        foreach (var opt in matchingOptions)
-        {
-            _filteredItems.Add(opt);
-        }
+        nextList.AddRange(matchingOptions);
+        _filteredItems = nextList;
+        PART_ListBox.ItemsSource = _filteredItems;
 
         if (_filteredItems.Count > 0)
         {
@@ -363,7 +413,7 @@ public partial class SearchableSelect : UserControl
             }
             else
             {
-                var currentIdx = -1;
+                var currentIdx = 0;
                 for (var i = 0; i < _filteredItems.Count; i++)
                 {
                     if (_filteredItems[i].IsCurrentSelection)
@@ -372,10 +422,10 @@ public partial class SearchableSelect : UserControl
                         break;
                     }
                 }
-                PART_ListBox.SelectedIndex = currentIdx >= 0 ? currentIdx : 0;
+                PART_ListBox.SelectedIndex = currentIdx;
             }
 
-            if (PART_ListBox.SelectedItem != null)
+            if (PART_Popup.IsOpen && PART_ListBox.SelectedItem != null)
             {
                 PART_ListBox.ScrollIntoView(PART_ListBox.SelectedItem);
             }
@@ -392,9 +442,9 @@ public partial class SearchableSelect : UserControl
 
     private void OpenDropDown()
     {
-        RebuildFilteredItems(PART_SearchTextBox.Text);
         PART_Popup.IsOpen = true;
         PART_ChevronGlyph.Text = "▴";
+        RebuildFilteredItems(PART_SearchTextBox.Text);
         UpdateVisualDisplay();
     }
 
@@ -442,7 +492,6 @@ public partial class SearchableSelect : UserControl
         if (string.IsNullOrWhiteSpace(clean))
             return;
 
-        // Check if an existing option matches case-insensitively
         if (ItemsSource != null)
         {
             foreach (var raw in ItemsSource)
@@ -499,7 +548,10 @@ public partial class SearchableSelect : UserControl
             Text = string.Empty;
         }
         ClearSearchBoxQuietly();
-        RebuildFilteredItems(string.Empty);
+        if (PART_Popup.IsOpen)
+        {
+            RebuildFilteredItems(string.Empty);
+        }
         UpdateVisualDisplay();
         PART_SearchTextBox.Focus();
     }
@@ -516,7 +568,10 @@ public partial class SearchableSelect : UserControl
             PART_ChevronGlyph.Text = "▴";
         }
 
-        RebuildFilteredItems(currentText);
+        if (PART_Popup.IsOpen)
+        {
+            RebuildFilteredItems(currentText);
+        }
         UpdateVisualDisplay();
     }
 

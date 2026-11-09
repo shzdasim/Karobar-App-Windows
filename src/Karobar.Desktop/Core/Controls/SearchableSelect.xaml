@@ -120,7 +120,7 @@
                PlacementTarget="{Binding ElementName=RootBorder}"
                StaysOpen="False"
                AllowsTransparency="True"
-               PopupAnimation="Fade"
+               PopupAnimation="None"
                Closed="PART_Popup_OnClosed">
             <Border MinWidth="{Binding ActualWidth, ElementName=RootBorder}"
                     MaxHeight="260"
@@ -141,8 +141,16 @@
                              MaxHeight="248"
                              Focusable="False"
                              IsTabStop="False"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             ScrollViewer.CanContentScroll="True"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
                                 <Setter Property="Focusable" Value="False" />

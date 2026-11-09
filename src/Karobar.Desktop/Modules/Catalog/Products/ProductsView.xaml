@@ -349,10 +349,28 @@
                         </Grid>
                     </Border>
 
-                    <!-- Rows ScrollViewer -->
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding ProductRows}">
-                            <ItemsControl.ItemTemplate>
+                    <!-- Virtualized Rows List -->
+                    <ItemsControl Grid.Row="2"
+                                  ItemsSource="{Binding ProductRows}"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  VirtualizingPanel.ScrollUnit="Pixel"
+                                  ScrollViewer.CanContentScroll="True">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <VirtualizingStackPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.Template>
+                            <ControlTemplate TargetType="ItemsControl">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              CanContentScroll="True">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </ItemsControl.Template>
+                        <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="#F1F5F9" BorderThickness="0,0,0,1" Padding="14,10" Background="White">
                                         <Grid>
@@ -496,10 +514,9 @@
                                             </StackPanel>
                                         </Grid>
                                     </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <!-- Pagination Footer -->
                     <Border Grid.Row="3" Padding="18,10" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Background="#F8FAFC" CornerRadius="0,0,14,14">

@@ -55,12 +55,6 @@ public sealed class ProductService : IProductService
     {
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
 
-        var categories = await db.Categories.AsNoTracking()
-            .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken);
-        var brands = await db.Brands.AsNoTracking()
-            .ToDictionaryAsync(b => b.Id, b => b.Name, cancellationToken);
-        var suppliers = await db.Suppliers.AsNoTracking()
-            .ToDictionaryAsync(s => s.Id, s => s.Name, cancellationToken);
         var locations = await db.StorageLocations.AsNoTracking()
             .ToDictionaryAsync(l => l.Id, l => l, cancellationToken);
 
@@ -72,14 +66,14 @@ public sealed class ProductService : IProductService
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var term = filter.Search.Trim();
-            var matchingBrandIds = brands
-                .Where(kv => kv.Value.Contains(term, StringComparison.OrdinalIgnoreCase))
-                .Select(kv => (long?)kv.Key)
-                .ToList();
-            var matchingSupplierIds = suppliers
-                .Where(kv => kv.Value.Contains(term, StringComparison.OrdinalIgnoreCase))
-                .Select(kv => (long?)kv.Key)
-                .ToList();
+            var matchingBrandIds = await db.Brands.AsNoTracking()
+                .Where(b => EF.Functions.Like(b.Name, $"%{term}%"))
+                .Select(b => (long?)b.Id)
+                .ToListAsync(cancellationToken);
+            var matchingSupplierIds = await db.Suppliers.AsNoTracking()
+                .Where(s => EF.Functions.Like(s.Name, $"%{term}%"))
+                .Select(s => (long?)s.Id)
+                .ToListAsync(cancellationToken);
 
             query = query.Where(p =>
                 EF.Functions.Like(p.Name, $"%{term}%") ||
@@ -147,16 +141,40 @@ public sealed class ProductService : IProductService
             .ToListAsync(cancellationToken);
 
         var pageIds = pageProducts.Select(p => p.Id).ToList();
-        var batchStats = await db.Batches.AsNoTracking()
-            .Where(b => pageIds.Contains(b.ProductId))
-            .GroupBy(b => b.ProductId)
-            .Select(g => new
-            {
-                ProductId = g.Key,
-                Count = g.Count(),
-                TotalQty = g.Sum(x => x.Quantity)
-            })
-            .ToDictionaryAsync(x => x.ProductId, cancellationToken);
+        var pageCategoryIds = pageProducts.Where(p => p.CategoryId.HasValue).Select(p => p.CategoryId!.Value).Distinct().ToList();
+        var pageBrandIds = pageProducts.Where(p => p.BrandId.HasValue).Select(p => p.BrandId!.Value).Distinct().ToList();
+        var pageSupplierIds = pageProducts.Where(p => p.SupplierId.HasValue).Select(p => p.SupplierId!.Value).Distinct().ToList();
+
+        var categories = pageCategoryIds.Count > 0
+            ? await db.Categories.AsNoTracking()
+                .Where(c => pageCategoryIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken)
+            : new Dictionary<long, string>();
+
+        var brands = pageBrandIds.Count > 0
+            ? await db.Brands.AsNoTracking()
+                .Where(b => pageBrandIds.Contains(b.Id))
+                .ToDictionaryAsync(b => b.Id, b => b.Name, cancellationToken)
+            : new Dictionary<long, string>();
+
+        var suppliers = pageSupplierIds.Count > 0
+            ? await db.Suppliers.AsNoTracking()
+                .Where(s => pageSupplierIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.Name, cancellationToken)
+            : new Dictionary<long, string>();
+
+        var batchStats = pageIds.Count > 0
+            ? await db.Batches.AsNoTracking()
+                .Where(b => pageIds.Contains(b.ProductId))
+                .GroupBy(b => b.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    Count = g.Count(),
+                    TotalQty = g.Sum(x => x.Quantity)
+                })
+                .ToDictionaryAsync(x => x.ProductId, cancellationToken)
+            : [];
 
         var items = pageProducts.Select(p =>
         {
@@ -237,25 +255,42 @@ public sealed class ProductService : IProductService
             .Select(f => new FormulationOptionDto { Id = f.Id, Name = f.Name })
             .ToListAsync(cancellationToken);
 
-        // Also include any distinct product formulations not yet in Formulations table
-        var existingFormSet = formulations.Select(f => f.Name.ToLowerInvariant()).ToHashSet();
-        var productForms = await db.Products.AsNoTracking()
-            .Where(p => p.Formulation != null && p.Formulation != "")
-            .Select(p => p.Formulation!)
-            .Distinct()
+        if (formulations.Count == 0)
+        {
+            var existingFormSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var productForms = await db.Products.AsNoTracking()
+                .Where(p => p.Formulation != null && p.Formulation != "")
+                .Select(p => p.Formulation!)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            foreach (var pf in productForms)
+            {
+                var norm = NormalizeFormulationName(pf);
+                if (!string.IsNullOrWhiteSpace(norm) && existingFormSet.Add(norm))
+                {
+                    formulations.Add(new FormulationOptionDto { Id = 0, Name = norm });
+                }
+            }
+            formulations = formulations.OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        var rawLocations = await db.StorageLocations.AsNoTracking()
+            .OrderByDescending(l => l.IsDefault)
+            .ThenBy(l => l.Name)
             .ToListAsync(cancellationToken);
 
-        foreach (var pf in productForms)
+        var locations = rawLocations.Select(l => new StorageLocationDto
         {
-            var norm = NormalizeFormulationName(pf);
-            if (!string.IsNullOrWhiteSpace(norm) && existingFormSet.Add(norm.ToLowerInvariant()))
-            {
-                formulations.Add(new FormulationOptionDto { Id = 0, Name = norm });
-            }
-        }
-        formulations = formulations.OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase).ToList();
-
-        var locations = await GetStorageLocationsAsync(false, cancellationToken);
+            Id = l.Id,
+            Name = l.Name,
+            Code = l.Code,
+            Type = string.IsNullOrWhiteSpace(l.Type) ? "shop" : l.Type,
+            DefaultRack = l.DefaultRack,
+            IsDefault = l.IsDefault,
+            IsActive = l.IsActive,
+            Notes = l.Notes
+        }).ToList();
 
         return new ProductFormLookupsDto
         {
@@ -273,12 +308,17 @@ public sealed class ProductService : IProductService
     {
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
 
-        var allCodes = await db.Products.AsNoTracking()
+        var maxId = await db.Products.AsNoTracking()
+            .MaxAsync(p => (long?)p.Id, cancellationToken) ?? 0L;
+
+        var recentCodes = await db.Products.AsNoTracking()
+            .OrderByDescending(p => p.Id)
+            .Take(30)
             .Select(p => p.ProductCode)
             .ToListAsync(cancellationToken);
 
-        var maxNum = 0;
-        foreach (var code in allCodes)
+        var maxNum = (int)maxId;
+        foreach (var code in recentCodes)
         {
             var m = Regex.Match(code ?? string.Empty, @"PRD-(\d+)", RegexOptions.IgnoreCase);
             if (m.Success && int.TryParse(m.Groups[1].Value, out var n) && n > maxNum)
@@ -289,24 +329,18 @@ public sealed class ProductService : IProductService
 
         var nextNum = maxNum + 1;
         string candidateCode;
-        var codeSet = allCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
         do
         {
             candidateCode = $"PRD-{nextNum:D4}";
             nextNum++;
-        } while (codeSet.Contains(candidateCode));
-
-        var existingBarcodes = await db.Products.AsNoTracking()
-            .Where(p => p.Barcode != null)
-            .Select(p => p.Barcode!)
-            .ToHashSetAsync(StringComparer.OrdinalIgnoreCase, cancellationToken);
+        } while (await db.Products.AsNoTracking().AnyAsync(p => p.ProductCode == candidateCode, cancellationToken));
 
         string candidateBarcode;
         do
         {
             var rand = Random.Shared.NextInt64(0, 10_000_000_000L);
             candidateBarcode = $"PRD{rand:D10}";
-        } while (existingBarcodes.Contains(candidateBarcode));
+        } while (await db.Products.AsNoTracking().AnyAsync(p => p.Barcode == candidateBarcode, cancellationToken));
 
         return new GeneratedProductCodesDto
         {

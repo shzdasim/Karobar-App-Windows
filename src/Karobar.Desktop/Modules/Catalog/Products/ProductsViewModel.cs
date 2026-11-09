@@ -47,6 +47,9 @@ public partial class ProductsViewModel : ObservableObject
 
     private bool _isCalculatingPrices;
     private bool _suppressSelectionCallback;
+    private bool _suppressFilterReload;
+    private bool _lookupsLoaded;
+    private bool _isDirectoryDirty = true;
     private List<ProductBatchItemDto> _allProductBatches = [];
     private List<SubstituteProductItemDto> _allSubstitutes = [];
 
@@ -78,26 +81,30 @@ public partial class ProductsViewModel : ObservableObject
     [ObservableProperty]
     private string _searchText = string.Empty;
 
-    public ObservableCollection<LookupOptionDto> FilterCategoryOptions { get; } = [];
+    [ObservableProperty]
+    private List<LookupOptionDto> _filterCategoryOptions = [];
     [ObservableProperty]
     private LookupOptionDto? _selectedFilterCategory;
 
-    public ObservableCollection<LookupOptionDto> FilterBrandOptions { get; } = [];
+    [ObservableProperty]
+    private List<LookupOptionDto> _filterBrandOptions = [];
     [ObservableProperty]
     private LookupOptionDto? _selectedFilterBrand;
 
-    public ObservableCollection<LookupOptionDto> FilterSupplierOptions { get; } = [];
+    [ObservableProperty]
+    private List<LookupOptionDto> _filterSupplierOptions = [];
     [ObservableProperty]
     private LookupOptionDto? _selectedFilterSupplier;
 
-    public ObservableCollection<StorageLocationDto> FilterLocationOptions { get; } = [];
+    [ObservableProperty]
+    private List<StorageLocationDto> _filterLocationOptions = [];
     [ObservableProperty]
     private StorageLocationDto? _selectedFilterLocation;
 
     [ObservableProperty]
     private bool _lowStockOnly;
 
-    public ObservableCollection<int> PageSizeOptions { get; } = [10, 25, 50, 100];
+    public List<int> PageSizeOptions { get; } = [10, 25, 50, 100];
 
     [ObservableProperty]
     private int _selectedPageSize = 25;
@@ -124,7 +131,8 @@ public partial class ProductsViewModel : ObservableObject
     public bool CanGoPrevPage => CurrentPage > 1;
     public bool CanGoNextPage => CurrentPage < LastPage;
 
-    public ObservableCollection<SelectableProductRowViewModel> ProductRows { get; } = [];
+    [ObservableProperty]
+    private List<SelectableProductRowViewModel> _productRows = [];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
@@ -156,11 +164,16 @@ public partial class ProductsViewModel : ObservableObject
         : "Configure product identifiers, category, brand, supplier, and default unit/pack pricing";
     public string SaveButtonLabel => IsEditMode ? "Save Changes" : "Save Product";
 
-    public ObservableCollection<LookupOptionDto> FormCategories { get; } = [];
-    public ObservableCollection<LookupOptionDto> FormBrands { get; } = [];
-    public ObservableCollection<LookupOptionDto> FormSuppliers { get; } = [];
-    public ObservableCollection<FormulationOptionDto> FormFormulations { get; } = [];
-    public ObservableCollection<StorageLocationDto> FormStorageLocations { get; } = [];
+    [ObservableProperty]
+    private List<LookupOptionDto> _formCategories = [];
+    [ObservableProperty]
+    private List<LookupOptionDto> _formBrands = [];
+    [ObservableProperty]
+    private List<LookupOptionDto> _formSuppliers = [];
+    [ObservableProperty]
+    private List<FormulationOptionDto> _formFormulations = [];
+    [ObservableProperty]
+    private List<StorageLocationDto> _formStorageLocations = [];
 
     public ObservableCollection<SimpleStringOption> NarcoticOptions { get; } =
     [
@@ -590,82 +603,110 @@ public partial class ProductsViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
-        await LoadLookupsAsync();
+        await LoadLookupsAsync(force: false);
         await LoadProductsPageAsync(resetPage: true);
     }
 
     public async Task OpenDirectoryModeAsync()
     {
         ViewMode = "Directory";
-        await InitializeAsync();
+        if (!_lookupsLoaded)
+        {
+            await LoadLookupsAsync(force: false);
+        }
+        if (_isDirectoryDirty || ProductRows.Count == 0)
+        {
+            await LoadProductsPageAsync(resetPage: false);
+        }
     }
 
-    private async Task LoadLookupsAsync()
+    private async Task LoadLookupsAsync(bool force = false)
     {
-        var lookups = await _productService.GetProductFormLookupsAsync();
-        CurrencySymbol = lookups.CurrencySymbol;
-        IsPharmacyShop = !string.Equals(lookups.ShopType, "general", StringComparison.OrdinalIgnoreCase);
+        if (_lookupsLoaded && !force)
+            return;
 
-        // Directory filters (with "All ..." option at Id = 0)
-        FilterCategoryOptions.Clear();
-        FilterCategoryOptions.Add(new LookupOptionDto { Id = 0, Name = "All Categories" });
-        FormCategories.Clear();
-        foreach (var c in lookups.Categories)
+        _suppressFilterReload = true;
+        try
         {
-            FilterCategoryOptions.Add(c);
-            FormCategories.Add(c);
-        }
-        SelectedFilterCategory ??= FilterCategoryOptions.FirstOrDefault();
+            var lookups = await _productService.GetProductFormLookupsAsync();
+            CurrencySymbol = lookups.CurrencySymbol;
+            IsPharmacyShop = !string.Equals(lookups.ShopType, "general", StringComparison.OrdinalIgnoreCase);
 
-        FilterBrandOptions.Clear();
-        FilterBrandOptions.Add(new LookupOptionDto { Id = 0, Name = "All Brands" });
-        FormBrands.Clear();
-        foreach (var b in lookups.Brands)
+            var prevCatId = SelectedFilterCategory?.Id ?? 0;
+            var filterCats = new List<LookupOptionDto>(lookups.Categories.Count + 1)
+            {
+                new() { Id = 0, Name = "All Categories" }
+            };
+            filterCats.AddRange(lookups.Categories);
+            FilterCategoryOptions = filterCats;
+            FormCategories = lookups.Categories;
+            SelectedFilterCategory = filterCats.FirstOrDefault(c => c.Id == prevCatId) ?? filterCats[0];
+
+            var prevBrandId = SelectedFilterBrand?.Id ?? 0;
+            var filterBrands = new List<LookupOptionDto>(lookups.Brands.Count + 1)
+            {
+                new() { Id = 0, Name = "All Brands" }
+            };
+            filterBrands.AddRange(lookups.Brands);
+            FilterBrandOptions = filterBrands;
+            FormBrands = lookups.Brands;
+            SelectedFilterBrand = filterBrands.FirstOrDefault(b => b.Id == prevBrandId) ?? filterBrands[0];
+
+            var prevSupId = SelectedFilterSupplier?.Id ?? 0;
+            var filterSups = new List<LookupOptionDto>(lookups.Suppliers.Count + 1)
+            {
+                new() { Id = 0, Name = "All Suppliers" }
+            };
+            filterSups.AddRange(lookups.Suppliers);
+            FilterSupplierOptions = filterSups;
+            FormSuppliers = lookups.Suppliers;
+            SelectedFilterSupplier = filterSups.FirstOrDefault(s => s.Id == prevSupId) ?? filterSups[0];
+
+            FormFormulations = lookups.Formulations;
+
+            PopulateLocationCollections(lookups.StorageLocations);
+            _lookupsLoaded = true;
+        }
+        finally
         {
-            FilterBrandOptions.Add(b);
-            FormBrands.Add(b);
+            _suppressFilterReload = false;
         }
-        SelectedFilterBrand ??= FilterBrandOptions.FirstOrDefault();
-
-        FilterSupplierOptions.Clear();
-        FilterSupplierOptions.Add(new LookupOptionDto { Id = 0, Name = "All Suppliers" });
-        FormSuppliers.Clear();
-        foreach (var s in lookups.Suppliers)
-        {
-            FilterSupplierOptions.Add(s);
-            FormSuppliers.Add(s);
-        }
-        SelectedFilterSupplier ??= FilterSupplierOptions.FirstOrDefault();
-
-        FormFormulations.Clear();
-        foreach (var f in lookups.Formulations)
-        {
-            FormFormulations.Add(f);
-        }
-
-        PopulateLocationCollections(lookups.StorageLocations);
     }
 
     private void PopulateLocationCollections(List<StorageLocationDto> locations)
     {
-        FilterLocationOptions.Clear();
-        FilterLocationOptions.Add(new StorageLocationDto { Id = 0, Name = "All Locations", Code = "ALL" });
+        var prevLocId = SelectedFilterLocation?.Id ?? 0;
+        var prevBatchLocId = SelectedBatchFilterLocation?.Id ?? 0;
 
-        FormStorageLocations.Clear();
+        var filterLocs = new List<StorageLocationDto>(locations.Count + 1)
+        {
+            new() { Id = 0, Name = "All Locations", Code = "ALL" }
+        };
+        filterLocs.AddRange(locations);
+
+        var batchLocs = new List<StorageLocationDto>(locations.Count + 1)
+        {
+            new() { Id = 0, Name = "All Locations", Code = "ALL" }
+        };
+        batchLocs.AddRange(locations);
+
+        FilterLocationOptions = filterLocs;
+        FormStorageLocations = locations;
+
         ManagedLocationsList.Clear();
-        BatchFilterLocations.Clear();
-        BatchFilterLocations.Add(new StorageLocationDto { Id = 0, Name = "All Locations", Code = "ALL" });
-
         foreach (var loc in locations)
         {
-            FilterLocationOptions.Add(loc);
-            FormStorageLocations.Add(loc);
             ManagedLocationsList.Add(loc);
+        }
+
+        BatchFilterLocations.Clear();
+        foreach (var loc in batchLocs)
+        {
             BatchFilterLocations.Add(loc);
         }
 
-        SelectedFilterLocation ??= FilterLocationOptions.FirstOrDefault();
-        SelectedBatchFilterLocation ??= BatchFilterLocations.FirstOrDefault();
+        SelectedFilterLocation = filterLocs.FirstOrDefault(l => l.Id == prevLocId) ?? filterLocs[0];
+        SelectedBatchFilterLocation = BatchFilterLocations.FirstOrDefault(l => l.Id == prevBatchLocId) ?? BatchFilterLocations.FirstOrDefault();
     }
 
     // =========================================================================
@@ -674,31 +715,31 @@ public partial class ProductsViewModel : ObservableObject
 
     partial void OnSelectedFilterCategoryChanged(LookupOptionDto? value)
     {
-        if (IsDirectoryMode && !IsBusy)
+        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
             _ = LoadProductsPageAsync(resetPage: true);
     }
 
     partial void OnSelectedFilterBrandChanged(LookupOptionDto? value)
     {
-        if (IsDirectoryMode && !IsBusy)
+        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
             _ = LoadProductsPageAsync(resetPage: true);
     }
 
     partial void OnSelectedFilterSupplierChanged(LookupOptionDto? value)
     {
-        if (IsDirectoryMode && !IsBusy)
+        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
             _ = LoadProductsPageAsync(resetPage: true);
     }
 
     partial void OnSelectedFilterLocationChanged(StorageLocationDto? value)
     {
-        if (IsDirectoryMode && !IsBusy)
+        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
             _ = LoadProductsPageAsync(resetPage: true);
     }
 
     partial void OnSelectedPageSizeChanged(int value)
     {
-        if (IsDirectoryMode && !IsBusy)
+        if (IsDirectoryMode && !IsBusy && !_suppressFilterReload)
             _ = LoadProductsPageAsync(resetPage: true);
     }
 
@@ -765,17 +806,19 @@ public partial class ProductsViewModel : ObservableObject
                 PerPage = SelectedPageSize
             });
 
-            ProductRows.Clear();
+            var rows = new List<SelectableProductRowViewModel>(response.Items.Count);
             foreach (var item in response.Items)
             {
-                ProductRows.Add(new SelectableProductRowViewModel(item, OnRowSelectionChanged));
+                rows.Add(new SelectableProductRowViewModel(item, OnRowSelectionChanged));
             }
+            ProductRows = rows;
 
             TotalCount = response.TotalCount;
             CurrentPage = response.CurrentPage;
             LastPage = response.LastPage;
             FromItem = response.FromItem;
             ToItem = response.ToItem;
+            _isDirectoryDirty = false;
             UpdateSelectionCounts();
         }
         catch (Exception ex)
@@ -823,19 +866,17 @@ public partial class ProductsViewModel : ObservableObject
     [RelayCommand]
     public async Task OpenCreateProductAsync()
     {
-        await LoadLookupsAsync();
-        await ResetProductFormForCreateAsync();
+        EditingProductId = null;
         ViewMode = "Form";
+        await LoadLookupsAsync(force: false);
+        await ResetProductFormForCreateAsync();
     }
 
     private async Task ResetProductFormForCreateAsync()
     {
         EditingProductId = null;
-        var codes = await _productService.GenerateNewCodeAndBarcodeAsync();
 
         _isCalculatingPrices = true;
-        FormProductCode = codes.ProductCode;
-        FormBarcode = codes.Barcode;
         FormName = string.Empty;
         FormFormulation = string.Empty;
         FormPackSize = "1";
@@ -871,6 +912,10 @@ public partial class ProductsViewModel : ObservableObject
         FilteredBatches.Clear();
         LocationBreakdownPills.Clear();
         ProductSupplierLinks.Clear();
+
+        var codes = await _productService.GenerateNewCodeAndBarcodeAsync();
+        FormProductCode = codes.ProductCode;
+        FormBarcode = codes.Barcode;
     }
 
     [RelayCommand]
@@ -885,7 +930,7 @@ public partial class ProductsViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            await LoadLookupsAsync();
+            await LoadLookupsAsync(force: false);
             var detail = await _productService.GetProductByIdAsync(productId);
             if (detail == null)
             {
@@ -930,9 +975,9 @@ public partial class ProductsViewModel : ObservableObject
             FormExpiryWarningDays = detail.ExpiryWarningDays?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
 
             _isCalculatingPrices = false;
+            ViewMode = "Form";
 
             await RefreshBatchesAndSuppliersForEditingProductAsync();
-            ViewMode = "Form";
         }
         finally
         {
@@ -944,7 +989,10 @@ public partial class ProductsViewModel : ObservableObject
     private async Task BackToDirectoryAsync()
     {
         ViewMode = "Directory";
-        await LoadProductsPageAsync(resetPage: false);
+        if (_isDirectoryDirty || ProductRows.Count == 0)
+        {
+            await LoadProductsPageAsync(resetPage: false);
+        }
     }
 
     [RelayCommand]
@@ -1181,6 +1229,12 @@ public partial class ProductsViewModel : ObservableObject
                     return;
                 }
                 _toast.ShowSuccess(res.Message);
+                _isDirectoryDirty = true;
+                if (!string.IsNullOrWhiteSpace(req.Formulation) &&
+                    !FormFormulations.Any(f => string.Equals(f.Name, req.Formulation, StringComparison.OrdinalIgnoreCase)))
+                {
+                    await LoadLookupsAsync(force: true);
+                }
                 await RefreshBatchesAndSuppliersForEditingProductAsync();
                 if (closeAfterSave)
                 {
@@ -1196,13 +1250,18 @@ public partial class ProductsViewModel : ObservableObject
                     return;
                 }
                 _toast.ShowSuccess(res.Message);
+                _isDirectoryDirty = true;
+                if (!string.IsNullOrWhiteSpace(req.Formulation) &&
+                    !FormFormulations.Any(f => string.Equals(f.Name, req.Formulation, StringComparison.OrdinalIgnoreCase)))
+                {
+                    await LoadLookupsAsync(force: true);
+                }
                 if (closeAfterSave)
                 {
                     await BackToDirectoryAsync();
                 }
                 else
                 {
-                    await LoadLookupsAsync();
                     await ResetProductFormForCreateAsync();
                 }
             }
@@ -1349,6 +1408,7 @@ public partial class ProductsViewModel : ObservableObject
         }
 
         _toast.ShowSuccess(res.Message);
+        _isDirectoryDirty = true;
         await RefreshBatchesAndSuppliersForEditingProductAsync();
     }
 
@@ -1363,6 +1423,7 @@ public partial class ProductsViewModel : ObservableObject
             return;
         }
         _toast.ShowSuccess(res.Message);
+        _isDirectoryDirty = true;
         await RefreshBatchesAndSuppliersForEditingProductAsync();
     }
 
@@ -2019,7 +2080,7 @@ public partial class ProductsViewModel : ObservableObject
             _toast.ShowSuccess(res.Message);
             IsCsvImportModalOpen = false;
             ResetCsvImport();
-            await LoadLookupsAsync();
+            await LoadLookupsAsync(force: true);
             await LoadProductsPageAsync(resetPage: true);
         }
         finally
