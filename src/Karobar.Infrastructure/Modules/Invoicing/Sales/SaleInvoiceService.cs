@@ -57,7 +57,9 @@ public sealed class SaleInvoiceService : ISaleInvoiceService
             PrinterType = !string.IsNullOrWhiteSpace(setting?.PrinterType) ? setting.PrinterType : "thermal",
             ThermalTemplate = !string.IsNullOrWhiteSpace(setting?.ThermalTemplate) ? setting.ThermalTemplate : "standard",
             A4Template = !string.IsNullOrWhiteSpace(setting?.A4Template) ? setting.A4Template : "standard",
-            FooterNote = !string.IsNullOrWhiteSpace(setting?.FooterNote) ? setting.FooterNote! : "Thank you for your business!"
+            FooterNote = !string.IsNullOrWhiteSpace(setting?.Note)
+                ? setting.Note!
+                : (!string.IsNullOrWhiteSpace(setting?.NoteEn) ? setting.NoteEn! : "Thank you for your business!")
         };
 
         var customers = await BuildCustomerLookupsAsync(db, null, cancellationToken);

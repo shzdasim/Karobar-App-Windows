@@ -90,6 +90,10 @@ public sealed class SaleStoreSettingsDto
     public string A4Template { get; set; } = "standard";
     public string FooterNote { get; set; } = "Thank you for your business!";
 
+    public string StoreAddress => Address;
+    public string StorePhone => PhoneNumber;
+    public string SaleNote => FooterNote;
+
     public bool IsPharmacy => string.Equals(ShopType, "pharmacy", StringComparison.OrdinalIgnoreCase);
     public bool HasWholesale =>
         string.Equals(SaleSystem, "retail_wholesale", StringComparison.OrdinalIgnoreCase) ||
@@ -373,8 +377,14 @@ public sealed class SaleInvoiceDetailDto
     public string FormattedDueDate => DueDate.HasValue ? DueDate.Value.ToString("dd-MM-yyyy") : "—";
     public string DocumentTitle => IsWholesale ? "Wholesale Sale Invoice" : "Retail Sale Invoice";
 
+    public decimal TotalBalance => TotalCustomerBalance;
+    public decimal EstimatedTotalCost => TotalEstimatedCost;
+    public decimal EstimatedTotalProfit => TotalEstimatedProfit;
+    public decimal OverallMarginPercentage => OverallMarginPct;
+
     public List<SaleInvoiceLineItemDto> Items { get; set; } = [];
     public List<SaleDocumentHistoryEntryDto> Histories { get; set; } = [];
+    public List<SaleDocumentHistoryEntryDto> AuditHistory => Histories;
 }
 
 public sealed class SaleInvoiceUpsertRequest
@@ -484,6 +494,7 @@ public sealed class HeldSaleDraftSummaryDto
     public string Title { get; set; } = string.Empty;
     public int ItemCount { get; set; }
     public decimal TotalAmount { get; set; }
+    public decimal Total => TotalAmount;
     public int Version { get; set; } = 1;
     public DateTime UpdatedAt { get; set; }
     public string ItemsPreview { get; set; } = string.Empty;
