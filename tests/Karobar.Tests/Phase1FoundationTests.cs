@@ -1398,11 +1398,15 @@ public sealed class Phase1FoundationTests
             var auth = provider.GetRequiredService<IAuthService>();
             var session = await auth.LoginAsync("admin", "password");
 
+            var categorySvc = provider.GetRequiredService<ICategoryService>();
+            var brandSvc = provider.GetRequiredService<IBrandService>();
             var supplierSvc = provider.GetRequiredService<ISupplierService>();
             var productSvc = provider.GetRequiredService<IProductService>();
             var purchaseSvc = provider.GetRequiredService<IPurchaseInvoiceService>();
             var returnSvc = provider.GetRequiredService<IPurchaseReturnService>();
 
+            var cat = await categorySvc.CreateAsync("Antibiotics");
+            var br = await brandSvc.CreateAsync(new BrandUpsertRequest { Name = "GSK" });
             var sup = await supplierSvc.CreateAsync(new SupplierUpsertRequest
             {
                 Name = "Premier Pharma Distributors",
@@ -1413,15 +1417,22 @@ public sealed class Phase1FoundationTests
 
             var prodRes = await productSvc.CreateProductAsync(new ProductUpsertRequest
             {
+                ProductCode = "PRD-AUG-RET1",
+                Barcode = "896400088812",
                 Name = "Augmentin 625mg Tabs",
                 PackSize = 10,
                 PackPurchasePrice = 100m,
                 UnitPurchasePrice = 10m,
                 PackSalePrice = 140m,
                 UnitSalePrice = 14m,
-                Quantity = 0
+                WholeSalePackPrice = 130m,
+                WholeSaleUnitPrice = 13m,
+                Quantity = 0,
+                CategoryId = cat.Id,
+                BrandId = br.Id,
+                SupplierId = supplierId
             });
-            prodRes.Succeeded.Should().BeTrue();
+            prodRes.Succeeded.Should().BeTrue(prodRes.Message);
             var productId = prodRes.EntityId!.Value;
 
             // 1. Create a Credit Purchase Invoice: 5 packs (50 units) of Batch B-RET1 @ Rs. 100/pack = Rs. 500 unpaid credit

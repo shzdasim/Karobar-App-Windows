@@ -2483,9 +2483,10 @@ public sealed class PurchaseReturnService : IPurchaseReturnService
             entry.PreviousBalance = runningBalance;
             if (entry.EntryType == "invoice")
             {
-                var billRemain = Math.Max(0m, entry.InvoiceTotal - entry.TotalPaid - entry.DebitedAmount);
+                var directRemain = Math.Max(0m, entry.InvoiceTotal - entry.TotalPaid);
+                var billRemain = Math.Max(0m, directRemain - entry.DebitedAmount);
                 entry.CreditRemaining = Math.Round(billRemain, 2);
-                runningBalance = Math.Round(runningBalance + billRemain, 2);
+                runningBalance = Math.Round(runningBalance + directRemain, 2);
             }
             else if (entry.EntryType == "payment")
             {
