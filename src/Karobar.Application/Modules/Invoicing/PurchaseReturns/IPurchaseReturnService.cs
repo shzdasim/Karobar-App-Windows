@@ -277,6 +277,18 @@ public sealed class PurchaseReturnPreShiftCheckResult
     public DateTime? ShiftOpenedAt { get; set; }
 }
 
+public sealed class DocumentHistoryEntryDto
+{
+    public long Id { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public string PostedNumber { get; set; } = string.Empty;
+    public string UserName { get; set; } = "System";
+    public string? Reason { get; set; }
+    public string ChangesSummary { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public string FormattedTimestamp => CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm");
+}
+
 public sealed class PurchaseReturnOperationResult
 {
     public bool Succeeded { get; set; }

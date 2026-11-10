@@ -1186,16 +1186,14 @@ public sealed class PurchaseReturnService : IPurchaseReturnService
         {
             Id = s.Id,
             Name = s.Name,
-            Phone = s.Phone,
-            Email = s.Email,
-            Address = s.Address,
-            TaxNumber = s.TaxNumber,
+            Phone = s.Phone ?? string.Empty,
+            Address = s.Address ?? string.Empty,
             CreditLimit = s.CreditLimit ?? 0m,
             CreditDays = s.CreditDays ?? 30,
-            CurrentPayableBalance = latestBalances.TryGetValue(s.Id, out var bal) ? bal : 0m,
-            ExpiryReturnPolicy = s.ExpiryReturnPolicy,
-            ExpiryReturnMonths = s.ExpiryReturnMonths,
-            ExpiryReturnDays = s.ExpiryReturnDays
+            CurrentPayable = latestBalances.TryGetValue(s.Id, out var bal) ? bal : 0m,
+            ExpiryReturnPolicy = s.ExpiryReturnPolicy ?? "before_expiry",
+            ExpiryReturnMonths = s.ExpiryReturnMonths ?? 3,
+            ExpiryReturnDays = s.ExpiryReturnDays ?? 90
         }).ToList();
     }
 
@@ -1429,7 +1427,7 @@ public sealed class PurchaseReturnService : IPurchaseReturnService
                 ProductCode = p.ProductCode,
                 Barcode = p.Barcode,
                 Name = p.Name,
-                GenericName = p.GenericName,
+                GenericName = p.Formulation,
                 Formulation = p.Formulation,
                 CategoryName = p.CategoryId.HasValue && catMap.TryGetValue(p.CategoryId.Value, out var cName) ? cName : "Uncategorized",
                 BrandName = p.BrandId.HasValue && brandMap.TryGetValue(p.BrandId.Value, out var bName) ? bName : "—",
@@ -1526,9 +1524,9 @@ public sealed class PurchaseReturnService : IPurchaseReturnService
 
             if (avail > 0 || restoredForBatch > 0)
             {
-                var bPackSize = b.PackSize > 0 ? b.PackSize : packSize;
-                var bPackCost = b.PackPurchasePrice > 0m ? b.PackPurchasePrice : defaultPackCost;
-                var bUnitCost = b.UnitPurchasePrice > 0m ? b.UnitPurchasePrice : defaultUnitCost;
+                var bPackSize = b.PackSize is > 0 ? b.PackSize.Value : packSize;
+                var bPackCost = b.PackPurchasePrice is > 0m ? b.PackPurchasePrice.Value : defaultPackCost;
+                var bUnitCost = b.UnitPurchasePrice is > 0m ? b.UnitPurchasePrice.Value : defaultUnitCost;
 
                 options.Add(new PurchaseReturnBatchOptionDto
                 {

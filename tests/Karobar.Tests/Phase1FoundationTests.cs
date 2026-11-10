@@ -1403,14 +1403,13 @@ public sealed class Phase1FoundationTests
             var purchaseSvc = provider.GetRequiredService<IPurchaseInvoiceService>();
             var returnSvc = provider.GetRequiredService<IPurchaseReturnService>();
 
-            var supRes = await supplierSvc.CreateSupplierAsync(new SupplierUpsertRequest
+            var sup = await supplierSvc.CreateAsync(new SupplierUpsertRequest
             {
                 Name = "Premier Pharma Distributors",
                 Phone = "03001112233",
                 CreditDays = 30
             });
-            supRes.Succeeded.Should().BeTrue();
-            var supplierId = supRes.EntityId!.Value;
+            var supplierId = sup.Id;
 
             var prodRes = await productSvc.CreateProductAsync(new ProductUpsertRequest
             {
@@ -1437,7 +1436,7 @@ public sealed class Phase1FoundationTests
                 TotalPaid = 0m,
                 Items =
                 [
-                    new PurchaseInvoiceLineInput
+                    new PurchaseInvoiceUpsertLineRequest
                     {
                         ProductId = productId,
                         Batch = "B-RET1",

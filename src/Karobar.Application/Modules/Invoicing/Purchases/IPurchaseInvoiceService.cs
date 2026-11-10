@@ -87,6 +87,7 @@ public sealed class PurchaseSupplierLookupDto
     public int CreditDays { get; set; } = 30;
     public decimal CreditLimit { get; set; }
     public decimal CurrentPayable { get; set; }
+    public decimal CurrentPayableBalance => CurrentPayable;
     public int OverdueCount { get; set; }
     public decimal OverdueAmount { get; set; }
     public string ExpiryReturnPolicy { get; set; } = "before_expiry";
