@@ -726,6 +726,32 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
             if (poiCols.Count > 0 && !poiCols.Contains("unit_bonus"))
                 alterCommands.Add("ALTER TABLE \"purchase_order_items\" ADD COLUMN \"unit_bonus\" INTEGER NOT NULL DEFAULT 0;");
 
+            var siCols = await GetTableColsAsync(conn, "sale_invoices", cancellationToken);
+            if (siCols.Count > 0)
+            {
+                if (!siCols.Contains("wholesale_type"))
+                    alterCommands.Add("ALTER TABLE \"sale_invoices\" ADD COLUMN \"wholesale_type\" TEXT NULL;");
+                if (!siCols.Contains("remain_this_bill"))
+                    alterCommands.Add("ALTER TABLE \"sale_invoices\" ADD COLUMN \"remain_this_bill\" TEXT NOT NULL DEFAULT '0';");
+                if (!siCols.Contains("total_balance"))
+                    alterCommands.Add("ALTER TABLE \"sale_invoices\" ADD COLUMN \"total_balance\" TEXT NOT NULL DEFAULT '0';");
+            }
+
+            var siiCols = await GetTableColsAsync(conn, "sale_invoice_items", cancellationToken);
+            if (siiCols.Count > 0)
+            {
+                if (!siiCols.Contains("sale_type"))
+                    alterCommands.Add("ALTER TABLE \"sale_invoice_items\" ADD COLUMN \"sale_type\" TEXT NULL DEFAULT 'retail';");
+                if (!siiCols.Contains("is_custom_price"))
+                    alterCommands.Add("ALTER TABLE \"sale_invoice_items\" ADD COLUMN \"is_custom_price\" INTEGER NOT NULL DEFAULT 0;");
+                if (!siiCols.Contains("cost_price_snapshot"))
+                    alterCommands.Add("ALTER TABLE \"sale_invoice_items\" ADD COLUMN \"cost_price_snapshot\" TEXT NULL;");
+                if (!siiCols.Contains("margin"))
+                    alterCommands.Add("ALTER TABLE \"sale_invoice_items\" ADD COLUMN \"margin\" TEXT NULL;");
+                if (!siiCols.Contains("batch_id"))
+                    alterCommands.Add("ALTER TABLE \"sale_invoice_items\" ADD COLUMN \"batch_id\" INTEGER NULL;");
+            }
+
             foreach (var sql in alterCommands)
             {
                 await using var alterCmd = conn.CreateCommand();

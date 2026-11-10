@@ -1146,4 +1146,215 @@ public sealed class Phase1FoundationTests
             if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
         }
     }
+
+    [Fact]
+    public async Task SaleInvoiceService_RetailAndWholesale_ShouldSupportFefoBatches_CustomerLedger_CustomWholesalePricing_AndReversal()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "karobar_sale_inv_test_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddKarobarInfrastructure(tempDir);
+
+            await using var provider = services.BuildServiceProvider();
+            var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
+            var auth = provider.GetRequiredService<IAuthService>();
+            var products = provider.GetRequiredService<IProductService>();
+            var sales = provider.GetRequiredService<ISaleInvoiceService>();
+            var dbFactory = provider.GetRequiredService<IDbContextFactory<KarobarDbContext>>();
+
+            await dbInit.InitializeAndSeedAsync();
+            var session = await auth.LoginAsync("admin", "password");
+
+            // 1. Create Product with PackSize = 10, Cost = 10/unit (100/pack), Retail = 20/unit (200/pack), Wholesale = 16/unit (160/pack)
+            var prodCreate = await products.CreateProductAsync(new ProductUpsertRequest
+            {
+                ProductCode = "PRD-PAN500",
+                Barcode = "896400099911",
+                Name = "Panadol Extra 500mg",
+                Formulation = "Paracetamol + Caffeine",
+                PackSize = 10,
+                Quantity = 0,
+                PackPurchasePrice = 100m,
+                UnitPurchasePrice = 10m,
+                PackSalePrice = 200m,
+                UnitSalePrice = 20m,
+                WholeSalePackPrice = 160m,
+                WholeSaleUnitPrice = 16m,
+                AvgPrice = 10m,
+                MaxDiscount = 15m,
+                BatchEnabled = "yes"
+            });
+            prodCreate.Succeeded.Should().BeTrue(prodCreate.Message);
+            var prodId = prodCreate.EntityId!.Value;
+
+            // Create two batches: B-LATE (expiring in 18 months, 30 units) and B-EARLY (expiring in 6 months, 20 units)
+            var bLate = await products.SaveBatchAsync(new ProductBatchUpsertRequest
+            {
+                ProductId = prodId,
+                BatchNumber = "B-LATE",
+                ExpiryDate = DateTime.Today.AddMonths(18),
+                Quantity = 30,
+                PackSize = 10,
+                UnitPurchasePrice = 10m,
+                PackSalePrice = 200m,
+                UnitSalePrice = 20m,
+                WholeSalePackPrice = 160m,
+                WholeSaleUnitPrice = 16m
+            });
+            bLate.Succeeded.Should().BeTrue(bLate.Message);
+
+            var bEarly = await products.SaveBatchAsync(new ProductBatchUpsertRequest
+            {
+                ProductId = prodId,
+                BatchNumber = "B-EARLY",
+                ExpiryDate = DateTime.Today.AddMonths(6),
+                Quantity = 20,
+                PackSize = 10,
+                UnitPurchasePrice = 10m,
+                PackSalePrice = 200m,
+                UnitSalePrice = 20m,
+                WholeSalePackPrice = 160m,
+                WholeSaleUnitPrice = 16m
+            });
+            bEarly.Succeeded.Should().BeTrue(bEarly.Message);
+
+            // 2. Verify FEFO Batch Sorting & Prefix Product Search
+            var searchResults = await sales.SearchProductsForSaleAsync("Panadol");
+            searchResults.Should().ContainSingle(p => p.Id == prodId);
+            searchResults[0].Batches.First().BatchNumber.Should().Be("B-EARLY");
+
+            // 3. Open Cash Drawer Shift & Create Retail Cash (Debit) Sale for 5 units from B-EARLY @ Rs. 20 = Rs. 100
+            await sales.OpenCashDrawerSessionAsync(10000m, "Test Shift", session.UserId);
+            var boot = await sales.GetFormBootstrapAsync();
+            boot.HasOpenCashDrawer.Should().BeTrue();
+
+            var retailRes = await sales.CreateAsync(new SaleInvoiceUpsertRequest
+            {
+                Date = DateTime.Today,
+                CustomerId = boot.WalkInCustomerId,
+                SaleType = "retail",
+                WholesaleType = "unit",
+                InvoiceType = "debit",
+                GrossAmount = 100m,
+                Total = 100m,
+                TotalReceive = 100m,
+                CashGiven = 500m,
+                PaymentMethod = "cash",
+                Items =
+                [
+                    new SaleInvoiceLineItemDto
+                    {
+                        ProductId = prodId,
+                        BatchId = bEarly.EntityId,
+                        BatchNumber = "B-EARLY",
+                        PackSize = 10,
+                        Quantity = 5,
+                        UnitQuantity = 5,
+                        Price = 20m,
+                        PackPrice = 200m,
+                        AvgPrice = 10m,
+                        UnitPurchasePrice = 10m,
+                        SubTotal = 100m
+                    }
+                ]
+            }, session.UserId);
+            retailRes.Succeeded.Should().BeTrue(retailRes.Message);
+            retailRes.PostedNumber.Should().Be("SI-000001");
+
+            // Verify B-EARLY stock decreased from 20 -> 15 and Total Product stock decreased from 50 -> 45
+            var batchesAfterRetail = await sales.GetProductBatchesForSaleAsync(prodId);
+            batchesAfterRetail.Single(b => b.BatchNumber == "B-EARLY").Quantity.Should().Be(15);
+
+            // 4. Create B2B Customer & Wholesale Credit Sale with Custom Wholesale Pack Price (175/pack = 17.50/unit) + Bonus
+            var wsCust = await sales.QuickCreateCustomerAsync("Al-Shifa Medical Store", "0321-7778899", "wholesale");
+            var wsRes = await sales.CreateAsync(new SaleInvoiceUpsertRequest
+            {
+                Date = DateTime.Today,
+                CustomerId = wsCust.Id,
+                SaleType = "wholesale",
+                WholesaleType = "pack",
+                InvoiceType = "credit",
+                TotalReceive = 75m, // Partial cash received now out of 175 => Remaining Credit Due = 100
+                PaymentMethod = "cash",
+                Items =
+                [
+                    new SaleInvoiceLineItemDto
+                    {
+                        ProductId = prodId,
+                        BatchId = bLate.EntityId,
+                        BatchNumber = "B-LATE",
+                        PackSize = 10,
+                        PackQuantity = 1m,
+                        UnitQuantity = 10,
+                        Quantity = 10,
+                        PackBonus = 0.2m,
+                        UnitBonus = 2,
+                        Bonus = 2,
+                        PackPrice = 175m,
+                        Price = 17.5m,
+                        AvgPrice = 10m,
+                        UnitPurchasePrice = 10m,
+                        IsCustomPrice = true,
+                        SubTotal = 175m
+                    }
+                ]
+            }, session.UserId);
+            wsRes.Succeeded.Should().BeTrue(wsRes.Message);
+            wsRes.PostedNumber.Should().Be("SI-000002");
+
+            // Verify B-LATE stock deducted by Quantity (10) + Bonus (2) = 12 units (30 -> 18)
+            var batchesAfterWs = await sales.GetProductBatchesForSaleAsync(prodId);
+            batchesAfterWs.Single(b => b.BatchNumber == "B-LATE").Quantity.Should().Be(18);
+
+            // Verify Custom Wholesale Price persisted for Al-Shifa Medical Store and Customer Ledger Balance = 100
+            var wsDetail = await sales.GetByIdAsync(wsRes.InvoiceId!.Value);
+            wsDetail.Should().NotBeNull();
+            wsDetail!.RemainThisBill.Should().Be(100m);
+            wsDetail.TotalBalance.Should().Be(100m);
+
+            var searchForWsCustomer = await sales.SearchProductsForSaleAsync("Panadol", wsCust.Id);
+            searchForWsCustomer[0].WholeSalePackPrice.Should().Be(175m);
+            searchForWsCustomer[0].IsCustomCustomerPrice.Should().BeTrue();
+
+            // 5. Verify 0% Wholesale Margin Floor Block (selling below cost = Rs. 8/unit when cost is Rs. 10/unit)
+            var negMarginRes = await sales.CreateAsync(new SaleInvoiceUpsertRequest
+            {
+                Date = DateTime.Today,
+                CustomerId = wsCust.Id,
+                SaleType = "wholesale",
+                InvoiceType = "debit",
+                Items =
+                [
+                    new SaleInvoiceLineItemDto
+                    {
+                        ProductId = prodId,
+                        BatchId = bLate.EntityId,
+                        PackSize = 10,
+                        PackQuantity = 1m,
+                        UnitQuantity = 10,
+                        Quantity = 10,
+                        PackPrice = 80m,
+                        Price = 8m,
+                        AvgPrice = 10m,
+                        UnitPurchasePrice = 10m
+                    }
+                ]
+            }, session.UserId);
+            negMarginRes.Succeeded.Should().BeFalse();
+            negMarginRes.Message.Should().Contain("0%");
+
+            // 6. Reverse Wholesale Invoice -> Restores 12 units to B-LATE (18 -> 30) and clears Customer Ledger
+            var revRes = await sales.ReverseAsync(wsRes.InvoiceId.Value, "Order cancelled by pharmacy", session.UserId);
+            revRes.Succeeded.Should().BeTrue(revRes.Message);
+
+            var batchesAfterRev = await sales.GetProductBatchesForSaleAsync(prodId);
+            batchesAfterRev.Single(b => b.BatchNumber == "B-LATE").Quantity.Should().Be(30);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
 }

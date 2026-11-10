@@ -573,6 +573,12 @@ public class SaleInvoiceItem
     [Column("sub_total")]
     public decimal SubTotal { get; set; }
 
+    [Column("sale_type")]
+    public string? SaleType { get; set; } = "retail";
+
+    [Column("is_custom_price")]
+    public bool IsCustomPrice { get; set; }
+
     [Column("created_at")]
     public DateTime? CreatedAt { get; set; }
 

@@ -30,6 +30,7 @@ public partial class MainWindow : Window
 
     private IPageKeyboardHandler? GetActivePageHandler()
     {
+        if (_viewModel.IsSaleInvoicesPage) return SaleInvoicesPageView;
         if (_viewModel.IsPurchaseInvoicesPage) return PurchaseInvoicesPageView;
         if (_viewModel.IsBarcodeStudioPage) return BarcodeStudioPageView;
         if (_viewModel.IsProductBatchesPage) return ProductBatchesPageView;
@@ -152,6 +153,11 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
+            if (_viewModel.IsSaleInvoicesPage && SaleInvoicesPageView.HandleExportShortcut())
+            {
+                e.Handled = true;
+                return;
+            }
         }
 
         // 8. Global Workspace & Quick-Jump Shortcuts
@@ -168,7 +174,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (isAlt && key == Key.P)
+        if (isAlt && key == Key.P && !_viewModel.IsSaleInvoicesPage && !_viewModel.IsPurchaseInvoicesPage)
         {
             _viewModel.Navigate("/products");
             ProductsPageView.FocusSearchInput();
@@ -176,7 +182,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (isAlt && key == Key.B)
+        if (isAlt && key == Key.B && !_viewModel.IsSaleInvoicesPage && !_viewModel.IsPurchaseInvoicesPage)
         {
             _viewModel.Navigate("/barcode-labels");
             BarcodeStudioPageView.HandleSearchShortcut();
@@ -212,12 +218,12 @@ public partial class MainWindow : Window
                 _viewModel.Navigate("/sale-invoices/create/retail");
                 e.Handled = true;
             }
-            else if (key == Key.W)
+            else if (key == Key.W && !_viewModel.IsSaleInvoicesPage)
             {
                 _viewModel.Navigate("/sale-invoices/create/wholesale");
                 e.Handled = true;
             }
-            else if (key == Key.D && !_viewModel.IsPurchaseInvoicesPage)
+            else if (key == Key.D && !_viewModel.IsPurchaseInvoicesPage && !_viewModel.IsSaleInvoicesPage)
             {
                 _viewModel.Navigate("/cash-drawer");
                 e.Handled = true;

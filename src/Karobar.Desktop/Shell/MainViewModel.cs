@@ -111,6 +111,12 @@ public partial class MainViewModel : ObservableObject
     public bool IsPurchaseInvoicesPage =>
         string.Equals(CurrentPath, "/purchase-invoices", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(CurrentPath, "/purchase-invoices/create", StringComparison.OrdinalIgnoreCase);
+    public bool IsSaleInvoicesPage =>
+        string.Equals(CurrentPath, "/sale-invoices", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/wholesale-invoices", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/sale-invoices/create", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/sale-invoices/create/retail", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/sale-invoices/create/wholesale", StringComparison.OrdinalIgnoreCase);
     public bool IsOtherPage =>
         !IsDashboardPage &&
         !IsCategoriesPage &&
@@ -120,7 +126,8 @@ public partial class MainViewModel : ObservableObject
         !IsProductsPage &&
         !IsProductBatchesPage &&
         !IsBarcodeStudioPage &&
-        !IsPurchaseInvoicesPage;
+        !IsPurchaseInvoicesPage &&
+        !IsSaleInvoicesPage;
 
     public ToastNotificationService ToastService { get; }
     public DashboardViewModel Dashboard { get; }
@@ -132,6 +139,7 @@ public partial class MainViewModel : ObservableObject
     public ProductBatchesViewModel ProductBatches { get; }
     public BarcodeStudioViewModel BarcodeStudio { get; }
     public PurchaseInvoicesViewModel PurchaseInvoices { get; }
+    public SaleInvoicesViewModel SaleInvoices { get; }
 
     public ObservableCollection<SidebarSectionViewModel> Sections { get; } = [];
     public ObservableCollection<SidebarItemViewModel> FavoriteItems { get; } = [];
@@ -146,6 +154,7 @@ public partial class MainViewModel : ObservableObject
         IProductService productService,
         IBarcodeStudioService barcodeStudioService,
         IPurchaseInvoiceService purchaseInvoiceService,
+        ISaleInvoiceService saleInvoiceService,
         ToastNotificationService toastService)
     {
         _authService = authService;
@@ -160,6 +169,7 @@ public partial class MainViewModel : ObservableObject
         ProductBatches = new ProductBatchesViewModel(productService, toastService, Navigate);
         BarcodeStudio = new BarcodeStudioViewModel(barcodeStudioService);
         PurchaseInvoices = new PurchaseInvoicesViewModel(purchaseInvoiceService, toastService, Navigate, productService);
+        SaleInvoices = new SaleInvoicesViewModel(saleInvoiceService, toastService, Navigate, productService);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");
@@ -194,6 +204,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsProductBatchesPage));
         OnPropertyChanged(nameof(IsBarcodeStudioPage));
         OnPropertyChanged(nameof(IsPurchaseInvoicesPage));
+        OnPropertyChanged(nameof(IsSaleInvoicesPage));
         OnPropertyChanged(nameof(IsOtherPage));
     }
 
@@ -333,6 +344,8 @@ public partial class MainViewModel : ObservableObject
         long? editPurchaseInvoiceId = null;
         long? detailPurchaseInvoiceId = null;
         long? createFromPoId = null;
+        long? editSaleInvoiceId = null;
+        long? detailSaleInvoiceId = null;
 
         if (targetPath.StartsWith("/products/edit/", StringComparison.OrdinalIgnoreCase))
         {
@@ -342,6 +355,27 @@ public partial class MainViewModel : ObservableObject
                 editProductId = pid;
             }
             targetPath = "/products";
+        }
+        else if (targetPath.StartsWith("/sale-invoices/edit/", StringComparison.OrdinalIgnoreCase))
+        {
+            var idPart = targetPath["/sale-invoices/edit/".Length..].Trim();
+            if (long.TryParse(idPart, out var siId) && siId > 0)
+            {
+                editSaleInvoiceId = siId;
+            }
+            targetPath = "/sale-invoices";
+        }
+        else if (targetPath.StartsWith("/sale-invoices/", StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(targetPath, "/sale-invoices/create", StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(targetPath, "/sale-invoices/create/retail", StringComparison.OrdinalIgnoreCase) &&
+                 !string.Equals(targetPath, "/sale-invoices/create/wholesale", StringComparison.OrdinalIgnoreCase))
+        {
+            var idPart = targetPath["/sale-invoices/".Length..].Trim();
+            if (long.TryParse(idPart, out var siId) && siId > 0)
+            {
+                detailSaleInvoiceId = siId;
+                targetPath = "/sale-invoices";
+            }
         }
         else if (targetPath.StartsWith("/purchase-invoices/edit/", StringComparison.OrdinalIgnoreCase))
         {
@@ -538,6 +572,34 @@ public partial class MainViewModel : ObservableObject
         else if (string.Equals(targetPath, "/purchase-invoices/create", StringComparison.OrdinalIgnoreCase))
         {
             _ = PurchaseInvoices.OpenCreateModeAsync(createFromPoId);
+        }
+        else if (string.Equals(targetPath, "/sale-invoices", StringComparison.OrdinalIgnoreCase))
+        {
+            if (editSaleInvoiceId.HasValue)
+            {
+                _ = SaleInvoices.OpenEditModeAsync(editSaleInvoiceId.Value);
+            }
+            else if (detailSaleInvoiceId.HasValue)
+            {
+                _ = SaleInvoices.OpenDetailModeAsync(detailSaleInvoiceId.Value);
+            }
+            else
+            {
+                _ = SaleInvoices.OpenDirectoryModeAsync("all");
+            }
+        }
+        else if (string.Equals(targetPath, "/wholesale-invoices", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = SaleInvoices.OpenDirectoryModeAsync("wholesale");
+        }
+        else if (string.Equals(targetPath, "/sale-invoices/create", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(targetPath, "/sale-invoices/create/retail", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = SaleInvoices.OpenCreateModeAsync("retail");
+        }
+        else if (string.Equals(targetPath, "/sale-invoices/create/wholesale", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = SaleInvoices.OpenCreateModeAsync("wholesale");
         }
     }
 
