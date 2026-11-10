@@ -67,6 +67,28 @@ public sealed class SaleFooterCalcModel
     public decimal TotalBalance { get; set; }
 }
 
+public sealed class PurchaseReturnLineCalcModel
+{
+    public int PackSize { get; set; } = 1;
+    public decimal PackPurchasedQuantity { get; set; }
+    public decimal ReturnPackQuantity { get; set; }
+    public int ReturnUnitQuantity { get; set; }
+    public decimal PackPurchasePrice { get; set; }
+    public decimal UnitPurchasePrice { get; set; }
+    public decimal ItemDiscountPercentage { get; set; }
+    public decimal SubTotal { get; set; }
+}
+
+public sealed class PurchaseReturnFooterCalcModel
+{
+    public decimal GrossTotal { get; set; }
+    public decimal DiscountPercentage { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal TaxPercentage { get; set; }
+    public decimal TaxAmount { get; set; }
+    public decimal Total { get; set; }
+}
+
 /// <summary>
 /// 100% Penny-for-Penny Port of app/Services/InvoiceCalculationService.php and resources/js/Formula/*.js
 /// </summary>
@@ -476,6 +498,142 @@ public static class InvoiceCalculators
 
         footer.RemainThisBill = R2(footer.Total - footer.TotalReceive);
         footer.TotalBalance = R2(footer.PreviousBalance + footer.RemainThisBill);
+        return footer;
+    }
+
+    /// <summary>
+    /// Exact port of resources/js/Formula/PurchaseReturn.js::recalcItem and InvoiceCalculationService::calculateAndValidatePurchaseReturn.
+    /// </summary>
+    public static PurchaseReturnLineCalcModel RecalcPurchaseReturnItem(
+        PurchaseReturnLineCalcModel item,
+        string? changedField = null)
+    {
+        var packSize = item.PackSize;
+        var returnPackQty = item.ReturnPackQuantity;
+        var returnUnitQty = (decimal)item.ReturnUnitQuantity;
+        var packPurchase = item.PackPurchasePrice;
+        var unitPurchase = item.UnitPurchasePrice;
+        var discountPct = Math.Clamp(item.ItemDiscountPercentage, 0m, 100m);
+
+        if (packSize > 0)
+        {
+            if (changedField == "return_pack_quantity" || changedField == "pack_quantity")
+            {
+                returnUnitQty = Math.Round(returnPackQty * packSize, 0, MidpointRounding.AwayFromZero);
+            }
+            else if (changedField == "return_unit_quantity" || changedField == "unit_quantity")
+            {
+                returnPackQty = returnUnitQty / packSize;
+            }
+            else
+            {
+                if (returnPackQty > 0m && returnUnitQty == 0m)
+                    returnUnitQty = Math.Round(returnPackQty * packSize, 0, MidpointRounding.AwayFromZero);
+                else if (returnUnitQty > 0m && returnPackQty == 0m)
+                    returnPackQty = returnUnitQty / packSize;
+            }
+
+            if (changedField == "pack_purchase_price")
+            {
+                unitPurchase = packPurchase / packSize;
+            }
+            else if (changedField == "unit_purchase_price")
+            {
+                packPurchase = unitPurchase * packSize;
+            }
+            else
+            {
+                if (packPurchase > 0m && unitPurchase == 0m)
+                    unitPurchase = packPurchase / packSize;
+                else if (unitPurchase > 0m && packPurchase == 0m)
+                    packPurchase = unitPurchase * packSize;
+            }
+        }
+        else
+        {
+            returnUnitQty = Math.Round(returnUnitQty, 0, MidpointRounding.AwayFromZero);
+        }
+
+        var unitQtyInt = Math.Max(0, (int)Math.Round(returnUnitQty, 0, MidpointRounding.AwayFromZero));
+        returnPackQty = Math.Max(0m, returnPackQty);
+        packPurchase = Math.Max(0m, packPurchase);
+        unitPurchase = Math.Max(0m, unitPurchase);
+
+        decimal subTotal;
+        if (unitQtyInt > 0 && unitPurchase > 0m)
+            subTotal = unitQtyInt * unitPurchase;
+        else
+            subTotal = returnPackQty * packPurchase;
+
+        var discountAmount = (subTotal * discountPct) / 100m;
+        var netSubTotal = Math.Max(0m, subTotal - discountAmount);
+
+        item.ReturnPackQuantity = R6(returnPackQty);
+        item.ReturnUnitQuantity = unitQtyInt;
+        item.PackPurchasePrice = R6(packPurchase);
+        item.UnitPurchasePrice = R6(unitPurchase);
+        item.ItemDiscountPercentage = R2(discountPct);
+        item.SubTotal = R2(netSubTotal);
+        return item;
+    }
+
+    /// <summary>
+    /// Exact port of resources/js/Formula/PurchaseReturn.js::recalcFooter and InvoiceCalculationService::calculateAndValidatePurchaseReturn.
+    /// </summary>
+    public static PurchaseReturnFooterCalcModel RecalcPurchaseReturnFooter(
+        IEnumerable<PurchaseReturnLineCalcModel> items,
+        PurchaseReturnFooterCalcModel footer,
+        string? changedField = null)
+    {
+        var grossTotal = R2(items.Sum(i => i.SubTotal));
+        var discountPct = footer.DiscountPercentage;
+        var discountAmt = footer.DiscountAmount;
+
+        if (changedField == "discount_percentage")
+            discountAmt = (grossTotal * discountPct) / 100m;
+        else if (changedField == "discount_amount")
+            discountPct = grossTotal > 0m ? (discountAmt / grossTotal) * 100m : 0m;
+        else if (changedField == null && discountAmt > 0m && discountPct == 0m)
+            discountPct = grossTotal > 0m ? (discountAmt / grossTotal) * 100m : 0m;
+        else if (discountPct > 0m)
+            discountAmt = (grossTotal * discountPct) / 100m;
+
+        if (discountAmt > grossTotal)
+        {
+            discountAmt = grossTotal;
+            discountPct = grossTotal > 0m ? 100m : 0m;
+        }
+        if (discountAmt < 0m)
+        {
+            discountAmt = 0m;
+            discountPct = 0m;
+        }
+
+        var afterDiscount = Math.Max(0m, grossTotal - discountAmt);
+        var taxPct = footer.TaxPercentage;
+        var taxAmt = footer.TaxAmount;
+
+        if (changedField == "tax_percentage")
+            taxAmt = (afterDiscount * taxPct) / 100m;
+        else if (changedField == "tax_amount")
+            taxPct = afterDiscount > 0m ? (taxAmt / afterDiscount) * 100m : 0m;
+        else if (changedField == null && taxAmt > 0m && taxPct == 0m)
+            taxPct = afterDiscount > 0m ? (taxAmt / afterDiscount) * 100m : 0m;
+        else if (taxPct > 0m)
+            taxAmt = (afterDiscount * taxPct) / 100m;
+
+        if (taxAmt < 0m)
+        {
+            taxAmt = 0m;
+            taxPct = 0m;
+        }
+
+        footer.GrossTotal = grossTotal;
+        footer.DiscountPercentage = R2(discountPct);
+        footer.DiscountAmount = R2(discountAmt);
+        footer.TaxPercentage = R2(taxPct);
+        footer.TaxAmount = R2(taxAmt);
+        footer.Total = R2(afterDiscount + taxAmt);
         return footer;
     }
 }

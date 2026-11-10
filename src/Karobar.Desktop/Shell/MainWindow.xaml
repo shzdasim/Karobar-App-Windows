@@ -936,6 +936,11 @@
                         <views:PurchaseInvoicesView x:Name="PurchaseInvoicesPageView" DataContext="{Binding PurchaseInvoices}" />
                     </Grid>
 
+                    <!-- I2. Purchase Returns Page (When CurrentPath == "/purchase-returns" or "/purchase-returns/create") -->
+                    <Grid Visibility="{Binding IsPurchaseReturnsPage, Converter={StaticResource BoolToVis}}">
+                        <views:PurchaseReturnsView x:Name="PurchaseReturnsPageView" DataContext="{Binding PurchaseReturns}" />
+                    </Grid>
+
                     <!-- J. Sale Invoices (Retail & Wholesale) Page -->
                     <Grid Visibility="{Binding IsSaleInvoicesPage, Converter={StaticResource BoolToVis}}">
                         <views:SaleInvoicesView x:Name="SaleInvoicesPageView" DataContext="{Binding SaleInvoices}" />

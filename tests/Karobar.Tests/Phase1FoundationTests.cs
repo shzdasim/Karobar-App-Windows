@@ -1378,4 +1378,192 @@ public sealed class Phase1FoundationTests
             if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
         }
     }
+
+    [Fact]
+    public async Task PurchaseReturnService_InvoiceLinkedAndOpenReturns_ShouldEnforceEntitlement_DeductStock_AndSyncSettlements()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "karobar_prret_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddKarobarInfrastructure(tempDir);
+            await using var provider = services.BuildServiceProvider();
+
+            var initializer = provider.GetRequiredService<IDatabaseInitializerService>();
+            await initializer.InitializeAndSeedAsync();
+
+            var auth = provider.GetRequiredService<IAuthService>();
+            var session = await auth.LoginAsync("admin", "password");
+
+            var supplierSvc = provider.GetRequiredService<ISupplierService>();
+            var productSvc = provider.GetRequiredService<IProductService>();
+            var purchaseSvc = provider.GetRequiredService<IPurchaseInvoiceService>();
+            var returnSvc = provider.GetRequiredService<IPurchaseReturnService>();
+
+            var supRes = await supplierSvc.CreateSupplierAsync(new SupplierUpsertRequest
+            {
+                Name = "Premier Pharma Distributors",
+                Phone = "03001112233",
+                CreditDays = 30
+            });
+            supRes.Succeeded.Should().BeTrue();
+            var supplierId = supRes.EntityId!.Value;
+
+            var prodRes = await productSvc.CreateProductAsync(new ProductUpsertRequest
+            {
+                Name = "Augmentin 625mg Tabs",
+                PackSize = 10,
+                PackPurchasePrice = 100m,
+                UnitPurchasePrice = 10m,
+                PackSalePrice = 140m,
+                UnitSalePrice = 14m,
+                Quantity = 0
+            });
+            prodRes.Succeeded.Should().BeTrue();
+            var productId = prodRes.EntityId!.Value;
+
+            // 1. Create a Credit Purchase Invoice: 5 packs (50 units) of Batch B-RET1 @ Rs. 100/pack = Rs. 500 unpaid credit
+            var piRes = await purchaseSvc.CreateAsync(new PurchaseInvoiceUpsertRequest
+            {
+                SupplierId = supplierId,
+                PostedDate = DateTime.Today,
+                InvoiceNumber = "BILL-5001",
+                InvoiceType = "credit",
+                InvoiceAmount = 500m,
+                TotalAmount = 500m,
+                TotalPaid = 0m,
+                Items =
+                [
+                    new PurchaseInvoiceLineInput
+                    {
+                        ProductId = productId,
+                        Batch = "B-RET1",
+                        Expiry = DateTime.Today.AddMonths(18),
+                        PackSize = 10,
+                        PackQuantity = 5m,
+                        UnitQuantity = 50,
+                        PackPurchasePrice = 100m,
+                        UnitPurchasePrice = 10m,
+                        PackSalePrice = 140m,
+                        UnitSalePrice = 14m
+                    }
+                ]
+            }, session.UserId);
+            piRes.Succeeded.Should().BeTrue(piRes.Message);
+            var purchaseInvoiceId = piRes.InvoiceId!.Value;
+
+            // Verify initial returnable items on invoice = 50 units
+            var returnableBefore = await returnSvc.GetInvoiceReturnableItemsAsync(purchaseInvoiceId);
+            returnableBefore.Should().ContainSingle();
+            returnableBefore[0].ReturnableUnits.Should().Be(50);
+
+            // 2. Create Invoice-Linked Purchase Return (PRRET-0001) for 2 packs (20 units = Rs. 200) with invoice_offset
+            var pr1Res = await returnSvc.CreateAsync(new PurchaseReturnUpsertRequest
+            {
+                SupplierId = supplierId,
+                PurchaseInvoiceId = purchaseInvoiceId,
+                Date = DateTime.Today,
+                SettlementMode = "invoice_offset",
+                Remarks = "Damaged outer cartons",
+                Items =
+                [
+                    new PurchaseReturnLineInput
+                    {
+                        ProductId = productId,
+                        Batch = "B-RET1",
+                        Expiry = DateTime.Today.AddMonths(18),
+                        PackSize = 10,
+                        PackPurchasedQuantity = 5m,
+                        ReturnPackQuantity = 2m,
+                        ReturnUnitQuantity = 20,
+                        PackPurchasePrice = 100m,
+                        UnitPurchasePrice = 10m
+                    }
+                ]
+            }, session.UserId);
+            pr1Res.Succeeded.Should().BeTrue(pr1Res.Message);
+            pr1Res.PostedNumber.Should().Be("PRRET-0001");
+
+            var pr1Detail = await returnSvc.GetByIdAsync(pr1Res.ReturnId!.Value);
+            pr1Detail.Should().NotBeNull();
+            pr1Detail!.Total.Should().Be(200m);
+            pr1Detail.CreditedAmount.Should().Be(200m);
+            pr1Detail.VoucherNumber.Should().Be("DN-PRRET-0001");
+            pr1Detail.SupplierBalanceAfter.Should().Be(300m); // 500 credit invoice - 200 debit note = 300 payable
+
+            // Verify remaining returnable units on invoice is now 30 (50 - 20)
+            var returnableAfterPr1 = await returnSvc.GetInvoiceReturnableItemsAsync(purchaseInvoiceId);
+            returnableAfterPr1[0].ReturnableUnits.Should().Be(30);
+            returnableAfterPr1[0].PhysicalAvailableUnits.Should().Be(30);
+
+            // 3. Enforce ReturnEntitlement ceiling: attempting to return 35 units (> 30 remaining) must fail
+            var overReturnRes = await returnSvc.CreateAsync(new PurchaseReturnUpsertRequest
+            {
+                SupplierId = supplierId,
+                PurchaseInvoiceId = purchaseInvoiceId,
+                Date = DateTime.Today,
+                SettlementMode = "credit_note",
+                Items =
+                [
+                    new PurchaseReturnLineInput
+                    {
+                        ProductId = productId,
+                        Batch = "B-RET1",
+                        Expiry = DateTime.Today.AddMonths(18),
+                        PackSize = 10,
+                        ReturnPackQuantity = 3.5m,
+                        ReturnUnitQuantity = 35,
+                        PackPurchasePrice = 100m,
+                        UnitPurchasePrice = 10m
+                    }
+                ]
+            }, session.UserId);
+            overReturnRes.Succeeded.Should().BeFalse();
+            overReturnRes.Message.Should().Contain("exceeds remaining returnable quantity");
+
+            // 4. Create Open / Direct Purchase Return (PRRET-0002) for 1 pack (10 units = Rs. 100) with cash_refund
+            var pr2Res = await returnSvc.CreateAsync(new PurchaseReturnUpsertRequest
+            {
+                SupplierId = supplierId,
+                PurchaseInvoiceId = null,
+                Date = DateTime.Today,
+                SettlementMode = "cash_refund",
+                PaymentMethod = "cash",
+                Items =
+                [
+                    new PurchaseReturnLineInput
+                    {
+                        ProductId = productId,
+                        Batch = "B-RET1",
+                        Expiry = DateTime.Today.AddMonths(18),
+                        PackSize = 10,
+                        ReturnPackQuantity = 1m,
+                        ReturnUnitQuantity = 10,
+                        PackPurchasePrice = 100m,
+                        UnitPurchasePrice = 10m
+                    }
+                ]
+            }, session.UserId);
+            pr2Res.Succeeded.Should().BeTrue(pr2Res.Message);
+            pr2Res.PostedNumber.Should().Be("PRRET-0002");
+
+            // Physical stock should now be 20 units (50 - 20 - 10)
+            var openBatchesAfterPr2 = await returnSvc.GetProductBatchesForReturnAsync(productId);
+            openBatchesAfterPr2.Single(b => b.BatchNumber == "B-RET1").AvailableUnits.Should().Be(20);
+
+            // 5. Delete PRRET-0002 with password confirmation -> restores 10 units back to B-RET1 (20 -> 30)
+            var delRes = await returnSvc.DeleteAsync(pr2Res.ReturnId!.Value, "password", session.UserId);
+            delRes.Succeeded.Should().BeTrue(delRes.Message);
+
+            var openBatchesAfterDel = await returnSvc.GetProductBatchesForReturnAsync(productId);
+            openBatchesAfterDel.Single(b => b.BatchNumber == "B-RET1").AvailableUnits.Should().Be(30);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) try { Directory.Delete(tempDir, recursive: true); } catch { }
+        }
+    }
 }

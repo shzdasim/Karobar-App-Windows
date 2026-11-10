@@ -752,6 +752,28 @@ public sealed class KarobarDatabaseInitializer : IDatabaseInitializerService
                     alterCommands.Add("ALTER TABLE \"sale_invoice_items\" ADD COLUMN \"batch_id\" INTEGER NULL;");
             }
 
+            var prCols = await GetTableColsAsync(conn, "purchase_returns", cancellationToken);
+            if (prCols.Count > 0)
+            {
+                if (!prCols.Contains("settlement_mode"))
+                    alterCommands.Add("ALTER TABLE \"purchase_returns\" ADD COLUMN \"settlement_mode\" TEXT NULL DEFAULT 'cash_refund';");
+                if (!prCols.Contains("payment_method"))
+                    alterCommands.Add("ALTER TABLE \"purchase_returns\" ADD COLUMN \"payment_method\" TEXT NULL DEFAULT 'cash';");
+                if (!prCols.Contains("account_id"))
+                    alterCommands.Add("ALTER TABLE \"purchase_returns\" ADD COLUMN \"account_id\" INTEGER NULL;");
+                if (!prCols.Contains("credited_amount"))
+                    alterCommands.Add("ALTER TABLE \"purchase_returns\" ADD COLUMN \"credited_amount\" TEXT NOT NULL DEFAULT '0';");
+                if (!prCols.Contains("remarks"))
+                    alterCommands.Add("ALTER TABLE \"purchase_returns\" ADD COLUMN \"remarks\" TEXT NULL;");
+            }
+
+            var priCols = await GetTableColsAsync(conn, "purchase_return_items", cancellationToken);
+            if (priCols.Count > 0)
+            {
+                if (!priCols.Contains("pack_purchased_quantity"))
+                    alterCommands.Add("ALTER TABLE \"purchase_return_items\" ADD COLUMN \"pack_purchased_quantity\" TEXT NOT NULL DEFAULT '0';");
+            }
+
             foreach (var sql in alterCommands)
             {
                 await using var alterCmd = conn.CreateCommand();

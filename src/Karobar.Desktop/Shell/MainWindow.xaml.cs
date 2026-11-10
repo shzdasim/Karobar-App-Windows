@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private IPageKeyboardHandler? GetActivePageHandler()
     {
         if (_viewModel.IsSaleInvoicesPage) return SaleInvoicesPageView;
+        if (_viewModel.IsPurchaseReturnsPage) return PurchaseReturnsPageView;
         if (_viewModel.IsPurchaseInvoicesPage) return PurchaseInvoicesPageView;
         if (_viewModel.IsBarcodeStudioPage) return BarcodeStudioPageView;
         if (_viewModel.IsProductBatchesPage) return ProductBatchesPageView;
@@ -174,7 +175,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (isAlt && key == Key.P && !_viewModel.IsSaleInvoicesPage && !_viewModel.IsPurchaseInvoicesPage)
+        if (isAlt && key == Key.P && !_viewModel.IsSaleInvoicesPage && !_viewModel.IsPurchaseInvoicesPage && !_viewModel.IsPurchaseReturnsPage)
         {
             _viewModel.Navigate("/products");
             ProductsPageView.FocusSearchInput();
@@ -182,7 +183,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (isAlt && key == Key.B && !_viewModel.IsSaleInvoicesPage && !_viewModel.IsPurchaseInvoicesPage)
+        if (isAlt && key == Key.B && !_viewModel.IsSaleInvoicesPage && !_viewModel.IsPurchaseInvoicesPage && !_viewModel.IsPurchaseReturnsPage)
         {
             _viewModel.Navigate("/barcode-labels");
             BarcodeStudioPageView.HandleSearchShortcut();
@@ -228,7 +229,7 @@ public partial class MainWindow : Window
                 _viewModel.Navigate("/cash-drawer");
                 e.Handled = true;
             }
-            else if (key == Key.A)
+            else if (key == Key.A && !_viewModel.IsPurchaseReturnsPage)
             {
                 _viewModel.Navigate("/accounts");
                 e.Handled = true;

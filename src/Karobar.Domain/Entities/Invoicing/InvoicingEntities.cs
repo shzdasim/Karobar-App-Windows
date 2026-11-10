@@ -340,13 +340,16 @@ public class PurchaseReturn
     public decimal Total { get; set; }
 
     [Column("settlement_mode")]
-    public string? SettlementMode { get; set; } = "ledger_credit";
+    public string? SettlementMode { get; set; } = "cash_refund";
 
     [Column("payment_method")]
-    public string? PaymentMethod { get; set; }
+    public string? PaymentMethod { get; set; } = "cash";
 
     [Column("account_id")]
     public long? AccountId { get; set; }
+
+    [Column("credited_amount")]
+    public decimal CreditedAmount { get; set; }
 
     [Column("created_at")]
     public DateTime? CreatedAt { get; set; }
@@ -377,8 +380,15 @@ public class PurchaseReturnItem
     [Column("pack_size")]
     public int PackSize { get; set; } = 1;
 
-    [Column("purchased_pack_quantity")]
-    public decimal? PurchasedPackQuantity { get; set; }
+    [Column("pack_purchased_quantity")]
+    public decimal PackPurchasedQuantity { get; set; }
+
+    [NotMapped]
+    public decimal? PurchasedPackQuantity
+    {
+        get => PackPurchasedQuantity;
+        set => PackPurchasedQuantity = value ?? 0m;
+    }
 
     [Column("return_pack_quantity")]
     public decimal ReturnPackQuantity { get; set; }

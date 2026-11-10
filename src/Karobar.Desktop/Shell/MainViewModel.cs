@@ -111,6 +111,9 @@ public partial class MainViewModel : ObservableObject
     public bool IsPurchaseInvoicesPage =>
         string.Equals(CurrentPath, "/purchase-invoices", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(CurrentPath, "/purchase-invoices/create", StringComparison.OrdinalIgnoreCase);
+    public bool IsPurchaseReturnsPage =>
+        string.Equals(CurrentPath, "/purchase-returns", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(CurrentPath, "/purchase-returns/create", StringComparison.OrdinalIgnoreCase);
     public bool IsSaleInvoicesPage =>
         string.Equals(CurrentPath, "/sale-invoices", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(CurrentPath, "/wholesale-invoices", StringComparison.OrdinalIgnoreCase) ||
@@ -127,6 +130,7 @@ public partial class MainViewModel : ObservableObject
         !IsProductBatchesPage &&
         !IsBarcodeStudioPage &&
         !IsPurchaseInvoicesPage &&
+        !IsPurchaseReturnsPage &&
         !IsSaleInvoicesPage;
 
     public ToastNotificationService ToastService { get; }
@@ -139,6 +143,7 @@ public partial class MainViewModel : ObservableObject
     public ProductBatchesViewModel ProductBatches { get; }
     public BarcodeStudioViewModel BarcodeStudio { get; }
     public PurchaseInvoicesViewModel PurchaseInvoices { get; }
+    public PurchaseReturnsViewModel PurchaseReturns { get; }
     public SaleInvoicesViewModel SaleInvoices { get; }
 
     public ObservableCollection<SidebarSectionViewModel> Sections { get; } = [];
@@ -154,6 +159,7 @@ public partial class MainViewModel : ObservableObject
         IProductService productService,
         IBarcodeStudioService barcodeStudioService,
         IPurchaseInvoiceService purchaseInvoiceService,
+        IPurchaseReturnService purchaseReturnService,
         ISaleInvoiceService saleInvoiceService,
         ToastNotificationService toastService)
     {
@@ -169,6 +175,7 @@ public partial class MainViewModel : ObservableObject
         ProductBatches = new ProductBatchesViewModel(productService, toastService, Navigate);
         BarcodeStudio = new BarcodeStudioViewModel(barcodeStudioService);
         PurchaseInvoices = new PurchaseInvoicesViewModel(purchaseInvoiceService, toastService, Navigate, productService);
+        PurchaseReturns = new PurchaseReturnsViewModel(purchaseReturnService, authService);
         SaleInvoices = new SaleInvoicesViewModel(saleInvoiceService, toastService, Navigate, productService);
 
         BuildSidebarNavigation();
@@ -204,6 +211,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsProductBatchesPage));
         OnPropertyChanged(nameof(IsBarcodeStudioPage));
         OnPropertyChanged(nameof(IsPurchaseInvoicesPage));
+        OnPropertyChanged(nameof(IsPurchaseReturnsPage));
         OnPropertyChanged(nameof(IsSaleInvoicesPage));
         OnPropertyChanged(nameof(IsOtherPage));
     }
@@ -344,6 +352,7 @@ public partial class MainViewModel : ObservableObject
         long? editPurchaseInvoiceId = null;
         long? detailPurchaseInvoiceId = null;
         long? createFromPoId = null;
+        long? editPurchaseReturnId = null;
         long? editSaleInvoiceId = null;
         long? detailSaleInvoiceId = null;
 
@@ -385,6 +394,15 @@ public partial class MainViewModel : ObservableObject
                 editPurchaseInvoiceId = piId;
             }
             targetPath = "/purchase-invoices";
+        }
+        else if (targetPath.StartsWith("/purchase-returns/edit/", StringComparison.OrdinalIgnoreCase))
+        {
+            var idPart = targetPath["/purchase-returns/edit/".Length..].Trim();
+            if (long.TryParse(idPart, out var prId) && prId > 0)
+            {
+                editPurchaseReturnId = prId;
+            }
+            targetPath = "/purchase-returns";
         }
         else if (targetPath.StartsWith("/purchase-invoices/create?", StringComparison.OrdinalIgnoreCase))
         {
@@ -572,6 +590,21 @@ public partial class MainViewModel : ObservableObject
         else if (string.Equals(targetPath, "/purchase-invoices/create", StringComparison.OrdinalIgnoreCase))
         {
             _ = PurchaseInvoices.OpenCreateModeAsync(createFromPoId);
+        }
+        else if (string.Equals(targetPath, "/purchase-returns", StringComparison.OrdinalIgnoreCase))
+        {
+            if (editPurchaseReturnId.HasValue)
+            {
+                _ = PurchaseReturns.OpenEditFormByIdAsync(editPurchaseReturnId.Value);
+            }
+            else
+            {
+                _ = PurchaseReturns.InitializeAsync("/purchase-returns");
+            }
+        }
+        else if (string.Equals(targetPath, "/purchase-returns/create", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = PurchaseReturns.InitializeAsync("/purchase-returns/create");
         }
         else if (string.Equals(targetPath, "/sale-invoices", StringComparison.OrdinalIgnoreCase))
         {

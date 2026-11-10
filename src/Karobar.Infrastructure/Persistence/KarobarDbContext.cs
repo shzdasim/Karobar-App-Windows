@@ -138,6 +138,13 @@ public sealed class KarobarDbContext : DbContext
         modelBuilder.Entity<PurchaseInvoice>()
             .HasIndex(pi => pi.PostedDate);
 
+        modelBuilder.Entity<PurchaseReturn>()
+            .HasIndex(pr => pr.PostedNumber)
+            .IsUnique();
+
+        modelBuilder.Entity<PurchaseReturn>()
+            .HasIndex(pr => pr.Date);
+
         modelBuilder.Entity<SaleInvoice>()
             .HasIndex(si => si.PostedNumber)
             .IsUnique();
