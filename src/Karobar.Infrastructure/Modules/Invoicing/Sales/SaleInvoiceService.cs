@@ -1648,12 +1648,34 @@ public sealed class SaleInvoiceService : ISaleInvoiceService
 
             if (customer != null && !IsWalkInCustomerName(customer.Name))
             {
+                var paymentVoucher = new Payment
+                {
+                    VoucherNumber = $"CR-{now:yyyyMMddHHmmssfff}",
+                    PartyType = "customer",
+                    CustomerId = customer.Id,
+                    PaymentDate = now.Date,
+                    Amount = payAmt,
+                    AllocatedAmount = appliedNow,
+                    UnappliedAmount = Math.Max(0m, Math.Round(payAmt - appliedNow, 2)),
+                    PaymentMethod = payMethod,
+                    AccountId = targetAccount?.Id,
+                    ReferenceNumber = string.IsNullOrWhiteSpace(paymentReference) ? invoice.PostedNumber : paymentReference.Trim(),
+                    Status = "posted",
+                    Notes = $"Payment received against {invoice.PostedNumber}",
+                    CreatedBy = effectiveActorId,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                db.Payments.Add(paymentVoucher);
+                await db.SaveChangesAsync(cancellationToken);
+
                 var ledgerEntry = new CustomerLedger
                 {
                     CustomerId = customer.Id,
                     SaleInvoiceId = invoice.Id,
+                    PaymentId = paymentVoucher.Id,
                     EntryType = "payment",
-                    PostedNumber = invoice.PostedNumber,
+                    PostedNumber = paymentVoucher.VoucherNumber,
                     InvoiceNumber = invoice.PostedNumber,
                     EntryDate = now.Date,
                     Description = $"Payment received against {invoice.PostedNumber}",
@@ -1665,15 +1687,13 @@ public sealed class SaleInvoiceService : ISaleInvoiceService
                     UpdatedAt = now
                 };
                 db.CustomerLedgers.Add(ledgerEntry);
-                await db.SaveChangesAsync(cancellationToken);
 
-                db.SalePaymentAllocations.Add(new SalePaymentAllocation
+                db.PaymentAllocations.Add(new PaymentAllocation
                 {
-                    CustomerId = customer.Id,
-                    CustomerLedgerId = ledgerEntry.Id,
-                    SaleInvoiceId = invoice.Id,
+                    PaymentId = paymentVoucher.Id,
+                    InvoiceType = "sale_invoice",
+                    InvoiceId = invoice.Id,
                     AllocatedAmount = appliedNow,
-                    AllocationDate = now.Date,
                     CreatedAt = now,
                     UpdatedAt = now
                 });
