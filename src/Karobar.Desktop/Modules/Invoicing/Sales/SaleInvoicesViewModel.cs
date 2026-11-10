@@ -32,7 +32,7 @@ public partial class SaleInvoiceLineRowViewModel : ObservableObject
         Func<string> getSaleType,
         Action<SaleInvoiceLineRowViewModel> onRecalculated)
     {
-        _rowNumber = rowNumber;
+        RowNumber = rowNumber;
         _getSaleType = getSaleType;
         _onRecalculated = onRecalculated;
     }
@@ -653,11 +653,14 @@ public partial class SaleInvoicesViewModel : ObservableObject
     public Action? RequestFocusProductModalSearch { get; set; }
     public Action? RequestFocusBatchModalSearch { get; set; }
     public Action? RequestFocusQuickAddProductName { get; set; }
+    public Action? RequestFocusShowInvoiceSearch { get; set; }
+    public Action? RequestFocusDeletePassword { get; set; }
     public Action? RequestApplyProductSearchModalLayout { get; set; }
     public Action? RequestApplyQuickAddProductModalLayout { get; set; }
     public Action<int, string>? RequestFocusLineCell { get; set; }
     public Action<string>? RequestFocusFooterField { get; set; }
     public Action? RequestPrintDocument { get; set; }
+    public Action? RequestPrintDeliveryChallan { get; set; }
 
     public SaleInvoicesViewModel(
         ISaleInvoiceService saleService,
@@ -714,11 +717,11 @@ public partial class SaleInvoicesViewModel : ObservableObject
         : (IsEditMode ? "Edit Retail Sale Invoice" : "Create Retail Sale Invoice");
 
     public string FormShortcutHintText => IsWholesaleFormMode
-        ? "Alt+S Save & Print • Alt+H Hold & New • Alt+D Drafts • Alt+N Clear • Enter Next • Shift+Tab Back • ↑↓ Rows"
-        : "Alt+S Save & Print • Alt+H Hold & New • Alt+D Drafts • Alt+N Clear • Enter Next Cell • ↑↓ Navigate Rows";
+        ? "Ctrl+S Save & Print • Ctrl+H Hold & New • Ctrl+D Drafts • Ctrl+N Clear • Enter Next • Shift+Tab Back • ↑↓ Rows"
+        : "Ctrl+S Save & Print • Ctrl+H Hold & New • Ctrl+D Drafts • Ctrl+N Clear • Enter Next Cell • ↑↓ Navigate Rows";
 
     public string FormModeBadgeText => IsWholesaleFormMode ? "WHOLESALE B2B" : "RETAIL POS";
-    public string SubmitButtonText => IsEditMode ? "Update Invoice (Alt+S)" : "Save & Print (Alt+S)";
+    public string SubmitButtonText => IsEditMode ? "Update Invoice (Ctrl+S)" : "Save & Print (Ctrl+S)";
 
     [ObservableProperty]
     private bool _isBusy;
@@ -1180,12 +1183,43 @@ public partial class SaleInvoicesViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPrintThermalMode))]
     [NotifyPropertyChangedFor(nameof(IsPrintA4Mode))]
+    [NotifyPropertyChangedFor(nameof(PrintPaperSizeUpper))]
     private string _printPaperSize = "thermal"; // thermal | a4
 
     public bool IsPrintThermalMode => string.Equals(PrintPaperSize, "thermal", StringComparison.OrdinalIgnoreCase);
     public bool IsPrintA4Mode => !IsPrintThermalMode;
+    public string PrintPaperSizeUpper => IsPrintA4Mode ? "A4" : "THERMAL";
 
-    // 4.10 Reverse & Delete Modals
+    // 4.9b Show Page Modals (SaleInvoiceSearch, RecordPaymentModal, DocumentHistoryModal)
+    [ObservableProperty]
+    private bool _isShowInvoiceSearchModalOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasShowInvoiceSearchQuery))]
+    private string _showInvoiceSearchQuery = string.Empty;
+
+    public bool HasShowInvoiceSearchQuery => !string.IsNullOrWhiteSpace(ShowInvoiceSearchQuery);
+    public ObservableCollection<SaleInvoiceDirectoryRowDto> ShowInvoiceSearchResults { get; } = [];
+
+    [ObservableProperty]
+    private SaleInvoiceDirectoryRowDto? _highlightedShowSearchInvoice;
+
+    [ObservableProperty]
+    private bool _isHistoryModalOpen;
+
+    [ObservableProperty]
+    private bool _isRecordPaymentModalOpen;
+
+    [ObservableProperty]
+    private string _recordPaymentAmountText = "0";
+
+    [ObservableProperty]
+    private SaleAccountLookupDto? _recordPaymentAccount;
+
+    [ObservableProperty]
+    private string _recordPaymentReference = string.Empty;
+
+    // 4.10 Reverse & 3-Step Delete Modals
     [ObservableProperty]
     private bool _isReverseModalOpen;
 
@@ -1202,16 +1236,43 @@ public partial class SaleInvoicesViewModel : ObservableObject
     private bool _isDeleteModalOpen;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDeleteStep1))]
+    [NotifyPropertyChangedFor(nameof(IsDeleteStep2))]
+    [NotifyPropertyChangedFor(nameof(IsDeleteStep3))]
+    private int _deleteStep = 1; // 1 = Confirm, 2 = Credit/Refund Choice, 3 = Password
+
+    public bool IsDeleteStep1 => DeleteStep == 1;
+    public bool IsDeleteStep2 => DeleteStep == 2;
+    public bool IsDeleteStep3 => DeleteStep == 3;
+
+    [ObservableProperty]
     private long? _deletingInvoiceId;
 
     [ObservableProperty]
     private string _deletingInvoiceNumber = string.Empty;
 
     [ObservableProperty]
+    private decimal _deletingInvoiceTotal;
+
+    [ObservableProperty]
+    private decimal _deletingInvoiceReceived;
+
+    [ObservableProperty]
+    private decimal _deletingInvoiceRemaining;
+
+    [ObservableProperty]
+    private bool _deletingInvoiceNeedsChoice;
+
+    [ObservableProperty]
     private string _deletePassword = string.Empty;
 
     [ObservableProperty]
-    private string _deleteRefundMode = "refund"; // refund | credit | none
+    [NotifyPropertyChangedFor(nameof(IsDeleteModeCredit))]
+    [NotifyPropertyChangedFor(nameof(IsDeleteModeRefund))]
+    private string _deleteRefundMode = "credit"; // credit | refund | none
+
+    public bool IsDeleteModeCredit => string.Equals(DeleteRefundMode, "credit", StringComparison.OrdinalIgnoreCase);
+    public bool IsDeleteModeRefund => string.Equals(DeleteRefundMode, "refund", StringComparison.OrdinalIgnoreCase);
 
     // =========================================================================
     // 5. NAVIGATION ENTRY POINTS (Called by MainViewModel)
@@ -1255,17 +1316,12 @@ public partial class SaleInvoicesViewModel : ObservableObject
         ResetFormState(normalizedMode, nextNo);
         ActiveViewMode = "form";
 
-        if (!_drawerPromptDismissedInSession)
+        // Requirement 1: When Sale Invoice Create loads, immediately open the ProductSearchInput modal!
+        if (Lines.Count == 0)
         {
-            var boot = await _saleService.GetFormBootstrapAsync();
-            if (!boot.HasOpenCashDrawer)
-            {
-                OpeningFloatAmountText = "0";
-                IsPreShiftDrawerModalOpen = true;
-            }
+            AppendEmptyLine();
         }
-
-        RequestFocusCustomerSelect?.Invoke();
+        await OpenProductSearchForLineAsync(Lines[0]);
     }
 
     public async Task OpenEditModeAsync(long invoiceId)
@@ -1510,6 +1566,25 @@ public partial class SaleInvoicesViewModel : ObservableObject
     public void PrintCurrentDetailInvoice()
     {
         RequestPrintDocument?.Invoke();
+    }
+
+    [RelayCommand]
+    public void PrintDeliveryChallan()
+    {
+        RequestPrintDeliveryChallan?.Invoke();
+    }
+
+    [RelayCommand]
+    public void CreateNewFromShowMode()
+    {
+        if (CurrentDetail?.IsWholesale == true)
+        {
+            NavigateToCreateWholesale();
+        }
+        else
+        {
+            NavigateToCreateRetail();
+        }
     }
 
     [RelayCommand]
@@ -2429,11 +2504,11 @@ public partial class SaleInvoicesViewModel : ObservableObject
 
             _toastService.ShowSuccess(
                 $"Invoice held as draft {saved.DraftNumber}. Form cleared for next customer.",
-                "Held & New (Alt+H)");
+                "Held & New (Ctrl+H)");
 
             var nextNo = await _saleService.GenerateNextPostedNumberAsync();
             ResetFormState(FormSaleType, nextNo);
-            RequestFocusCustomerSelect?.Invoke();
+            await OpenProductSearchForLineAsync(Lines.FirstOrDefault() ?? AppendEmptyLine());
         }
         catch (Exception ex)
         {
@@ -2581,8 +2656,8 @@ public partial class SaleInvoicesViewModel : ObservableObject
     {
         var nextNo = await _saleService.GenerateNextPostedNumberAsync();
         ResetFormState(FormSaleType, nextNo);
-        _toastService.ShowInfo("Form cleared for a new sale invoice.", "New Invoice (Alt+N)");
-        RequestFocusCustomerSelect?.Invoke();
+        _toastService.ShowInfo("Form cleared for a new sale invoice.", "New Invoice (Ctrl+N)");
+        await OpenProductSearchForLineAsync(Lines.FirstOrDefault() ?? AppendEmptyLine());
     }
 
     [RelayCommand]
@@ -2775,7 +2850,130 @@ public partial class SaleInvoicesViewModel : ObservableObject
         _drawerPromptDismissedInSession = true;
     }
 
-    // Reverse & Delete Modals
+    // Show Page Modals: Search Invoice (Ctrl+F), Audit History, Receive Payment, Reverse & 3-Step Delete
+    [RelayCommand]
+    public async Task OpenShowInvoiceSearchModalAsync()
+    {
+        ShowInvoiceSearchQuery = string.Empty;
+        await RefreshShowInvoiceSearchResultsAsync(string.Empty);
+        IsShowInvoiceSearchModalOpen = true;
+        RequestFocusShowInvoiceSearch?.Invoke();
+    }
+
+    [RelayCommand]
+    public void CloseShowInvoiceSearchModal()
+    {
+        IsShowInvoiceSearchModalOpen = false;
+    }
+
+    [RelayCommand]
+    public void ClearShowInvoiceSearchQuery()
+    {
+        ShowInvoiceSearchQuery = string.Empty;
+    }
+
+    partial void OnShowInvoiceSearchQueryChanged(string value)
+    {
+        if (!IsShowInvoiceSearchModalOpen) return;
+        _ = RefreshShowInvoiceSearchResultsAsync(value);
+    }
+
+    private async Task RefreshShowInvoiceSearchResultsAsync(string? query)
+    {
+        var pageDto = await _saleService.GetDirectoryPageAsync(new SaleInvoiceFilterQuery
+        {
+            Search = query?.Trim(),
+            SaleType = "all",
+            InvoiceType = "all",
+            Status = "all",
+            Page = 1,
+            PageSize = 30
+        });
+
+        ShowInvoiceSearchResults.Clear();
+        foreach (var row in pageDto.Items)
+        {
+            ShowInvoiceSearchResults.Add(row);
+        }
+        HighlightedShowSearchInvoice = ShowInvoiceSearchResults.FirstOrDefault();
+    }
+
+    public void MoveShowInvoiceSearchHighlight(int delta)
+    {
+        if (ShowInvoiceSearchResults.Count == 0) return;
+        int cur = HighlightedShowSearchInvoice != null ? ShowInvoiceSearchResults.IndexOf(HighlightedShowSearchInvoice) : 0;
+        int next = Math.Clamp(cur + delta, 0, ShowInvoiceSearchResults.Count - 1);
+        HighlightedShowSearchInvoice = ShowInvoiceSearchResults[next];
+    }
+
+    [RelayCommand]
+    public async Task CommitShowInvoiceSearchSelectionAsync(SaleInvoiceDirectoryRowDto? explicitRow = null)
+    {
+        var chosen = explicitRow ?? HighlightedShowSearchInvoice;
+        if (chosen == null) return;
+
+        IsShowInvoiceSearchModalOpen = false;
+        await OpenDetailModeAsync(chosen.Id);
+    }
+
+    [RelayCommand]
+    public void OpenHistoryModal()
+    {
+        IsHistoryModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseHistoryModal()
+    {
+        IsHistoryModalOpen = false;
+    }
+
+    [RelayCommand]
+    public void OpenRecordPaymentModal()
+    {
+        if (CurrentDetail == null || !CurrentDetail.HasRemainingDue) return;
+
+        RecordPaymentAmountText = Math.Round(CurrentDetail.RemainThisBill, 0).ToString("0", CultureInfo.InvariantCulture);
+        RecordPaymentAccount = PaymentAccounts.FirstOrDefault(a => a.IsDefault) ?? PaymentAccounts.FirstOrDefault();
+        RecordPaymentReference = string.Empty;
+        IsRecordPaymentModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseRecordPaymentModal()
+    {
+        IsRecordPaymentModalOpen = false;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmRecordPaymentAsync()
+    {
+        if (CurrentDetail == null) return;
+
+        var amt = ParseDecimal(RecordPaymentAmountText);
+        if (amt <= 0m)
+        {
+            _toastService.ShowWarning("Enter a valid payment amount greater than zero.", "Receive Payment");
+            return;
+        }
+
+        var res = await _saleService.RecordInvoicePaymentAsync(
+            CurrentDetail.Id,
+            amt,
+            RecordPaymentAccount?.Id,
+            RecordPaymentReference);
+
+        if (!res.Succeeded)
+        {
+            _toastService.ShowError(res.Message, "Payment Failed");
+            return;
+        }
+
+        IsRecordPaymentModalOpen = false;
+        _toastService.ShowSuccess(res.Message, "Payment Recorded");
+        await OpenDetailModeAsync(CurrentDetail.Id);
+    }
+
     [RelayCommand]
     public void OpenReverseModal(SaleInvoiceDirectoryRowDto? row)
     {
@@ -2828,9 +3026,60 @@ public partial class SaleInvoicesViewModel : ObservableObject
 
         DeletingInvoiceId = targetId;
         DeletingInvoiceNumber = targetNo;
+        DeletingInvoiceTotal = row?.Total ?? CurrentDetail?.Total ?? 0m;
+        DeletingInvoiceReceived = row?.TotalReceive ?? CurrentDetail?.TotalReceive ?? 0m;
+        DeletingInvoiceRemaining = row?.RemainingAmount ?? CurrentDetail?.RemainThisBill ?? 0m;
+
+        bool isCredit = row != null ? row.IsCredit : (CurrentDetail?.IsCredit ?? false);
+        bool isWalkIn = CurrentDetail?.IsWalkInCustomer ?? false;
+        DeletingInvoiceNeedsChoice = isCredit && DeletingInvoiceReceived > 0m && !isWalkIn;
+
+        DeleteStep = 1;
         DeletePassword = string.Empty;
-        DeleteRefundMode = "refund";
+        DeleteRefundMode = DeletingInvoiceNeedsChoice ? "credit" : "refund";
         IsDeleteModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void SetDeleteRefundMode(string? mode)
+    {
+        DeleteRefundMode = string.Equals(mode, "credit", StringComparison.OrdinalIgnoreCase) ? "credit" : "refund";
+    }
+
+    [RelayCommand]
+    public void ProceedDeleteStep1()
+    {
+        if (DeletingInvoiceNeedsChoice)
+        {
+            DeleteRefundMode = "credit";
+            DeleteStep = 2;
+        }
+        else
+        {
+            DeleteRefundMode = "refund";
+            DeleteStep = 3;
+            RequestFocusDeletePassword?.Invoke();
+        }
+    }
+
+    [RelayCommand]
+    public void ProceedDeleteStep2()
+    {
+        DeleteStep = 3;
+        RequestFocusDeletePassword?.Invoke();
+    }
+
+    [RelayCommand]
+    public void BackDeleteStep()
+    {
+        if (DeleteStep == 3)
+        {
+            DeleteStep = DeletingInvoiceNeedsChoice ? 2 : 1;
+        }
+        else
+        {
+            DeleteStep = 1;
+        }
     }
 
     [RelayCommand]
@@ -2843,7 +3092,8 @@ public partial class SaleInvoicesViewModel : ObservableObject
     public async Task ConfirmDeleteInvoiceAsync()
     {
         if (DeletingInvoiceId is not > 0) return;
-        var res = await _saleService.DeleteAsync(DeletingInvoiceId.Value, DeletePassword, DeleteRefundMode);
+        var deletedId = DeletingInvoiceId.Value;
+        var res = await _saleService.DeleteAsync(deletedId, DeletePassword, DeleteRefundMode);
         if (!res.Succeeded)
         {
             _toastService.ShowError(res.Message, "Delete Failed");
@@ -2852,6 +3102,21 @@ public partial class SaleInvoicesViewModel : ObservableObject
 
         IsDeleteModalOpen = false;
         _toastService.ShowSuccess(res.Message, "Invoice Deleted");
+
+        if (IsDetailMode)
+        {
+            // Match Show.jsx goToPrevOrIndex: navigate to previous/next invoice if one exists, else index list!
+            var adjId = await _saleService.GetAdjacentInvoiceIdAsync(
+                deletedId,
+                CurrentDetail?.IsWholesale == true ? "wholesale" : "retail");
+
+            if (adjId.HasValue)
+            {
+                await OpenDetailModeAsync(adjId.Value);
+                return;
+            }
+        }
+
         await OpenDirectoryModeAsync(LockedDirectorySaleType);
     }
 

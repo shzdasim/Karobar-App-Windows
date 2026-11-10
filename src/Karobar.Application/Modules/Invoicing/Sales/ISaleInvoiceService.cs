@@ -52,6 +52,7 @@ public sealed class SaleInvoiceDirectoryRowDto
     public bool IsCredit => string.Equals(InvoiceType, "credit", StringComparison.OrdinalIgnoreCase);
     public string SaleTypeBadge => IsWholesale ? "Wholesale" : "Retail";
     public string InvoiceTypeBadge => IsCredit ? "Credit" : "Debit";
+    public string StatusBadge => IsReversed ? "Reversed" : "Posted";
     public string FormattedDate => Date.ToString("dd-MM-yyyy");
     public string FormattedDisplayDate => Date.ToString("d MMM yyyy");
     public bool HasRemaining => RemainingAmount > 0.009m && !IsReversed;
@@ -254,6 +255,7 @@ public sealed class SaleProductSearchItemDto
 
 public sealed class SaleInvoiceLineItemDto
 {
+    public int RowNumber { get; set; }
     public long? Id { get; set; }
     public long ProductId { get; set; }
     public string ProductCode { get; set; } = string.Empty;
@@ -288,9 +290,16 @@ public sealed class SaleInvoiceLineItemDto
     public bool IsCustomPrice { get; set; }
     public List<SaleProductBatchOptionDto> AvailableBatches { get; set; } = [];
 
+    public bool HasFormulation => !string.IsNullOrWhiteSpace(Formulation);
+    public bool HasPackBonus => PackBonus > 0m;
+    public bool HasUnitBonus => (UnitBonus > 0 ? UnitBonus : Bonus) > 0;
+    public int DisplayUnitBonus => UnitBonus > 0 ? UnitBonus : Bonus;
+    public string BatchDisplay => string.IsNullOrWhiteSpace(BatchNumber) ? "—" : BatchNumber;
+    public string AvailPackUnitBadge => SaleProductBatchOptionDto.FormatPackUnitBadge(CurrentQuantity, PackSize);
     public string FormattedExpiry => Expiry.HasValue ? Expiry.Value.ToString("MM/yyyy") : "—";
     public string TotalUnitsDisplay => Bonus > 0 ? $"{Quantity}+{Bonus}" : $"{Quantity}";
-    public string FormattedMargin => Margin.HasValue ? $"{Margin.Value:0.0}%" : "0.0%";
+    public string FormattedMargin => Margin.HasValue ? $"{Margin.Value:0.00}%" : "0.00%";
+    public bool IsNegativeMargin => (Margin ?? 0m) < 0m;
 }
 
 public sealed class SaleSplitPaymentLineDto
@@ -369,13 +378,48 @@ public sealed class SaleInvoiceDetailDto
     public bool HasLinkedReturns { get; set; }
     public bool IsPreShiftInvoice { get; set; }
     public bool IsWholesale => string.Equals(SaleType, "wholesale", StringComparison.OrdinalIgnoreCase);
+    public bool IsRetail => !IsWholesale;
     public bool IsCredit => string.Equals(InvoiceType, "credit", StringComparison.OrdinalIgnoreCase);
+    public bool IsDebit => !IsCredit;
     public bool IsReversed => string.Equals(Status, "reversed", StringComparison.OrdinalIgnoreCase);
+    public bool IsActive => !IsReversed;
+    public bool HasRemainingDue => RemainThisBill > 0.009m && !IsReversed;
+    public bool HasCustomerPhone => !string.IsNullOrWhiteSpace(CustomerPhone);
+    public bool HasCustomerAddress => !string.IsNullOrWhiteSpace(CustomerAddress);
     public bool HasDoctorOrPatient => !string.IsNullOrWhiteSpace(DoctorName) || !string.IsNullOrWhiteSpace(PatientName);
     public bool HasRemarks => !string.IsNullOrWhiteSpace(Remarks);
     public string FormattedDate => Date.ToString("dd-MM-yyyy");
     public string FormattedDueDate => DueDate.HasValue ? DueDate.Value.ToString("dd-MM-yyyy") : "—";
     public string DocumentTitle => IsWholesale ? "Wholesale Sale Invoice" : "Retail Sale Invoice";
+    public string ShowBannerTitle => IsWholesale ? "Wholesale Invoice" : "Sale Invoice";
+    public string ShowBannerBadge => IsWholesale ? "B2B PACK & UNIT" : "RETAIL";
+    public string ShowBannerSubtitle => IsReversed
+        ? $"Reversed on {(ReversedAt.HasValue ? ReversedAt.Value.ToLocalTime().ToString("dd-MM-yyyy HH:mm") : "—")} — Reason: {(string.IsNullOrWhiteSpace(ReversalReason) ? "—" : ReversalReason)}"
+        : "Ctrl+F search · Ctrl+E edit · Ctrl+P print · Ctrl+N new · Ctrl+B back";
+    public string ShowRemarksDisplay => string.IsNullOrWhiteSpace(Remarks) ? "—" : Remarks;
+    public string ShowDoctorDisplay => string.IsNullOrWhiteSpace(DoctorName) ? "—" : DoctorName;
+    public string ShowPatientDisplay => string.IsNullOrWhiteSpace(PatientName) ? "—" : PatientName;
+    public string PaymentMethodUpper => (string.IsNullOrWhiteSpace(PaymentMethod) ? "CASH" : PaymentMethod).ToUpperInvariant();
+    public string WholesaleOrderBreakdownText
+    {
+        get
+        {
+            decimal totalPacks = 0m;
+            int billedUnits = 0;
+            decimal bonusPacks = 0m;
+            int bonusUnits = 0;
+            foreach (var it in Items)
+            {
+                var ps = Math.Max(1, it.PackSize);
+                totalPacks += it.PackQuantity > 0m ? it.PackQuantity : Math.Round((decimal)it.Quantity / ps, 2);
+                billedUnits += it.Quantity;
+                bonusPacks += it.PackBonus > 0m ? it.PackBonus : Math.Round((decimal)it.Bonus / ps, 2);
+                bonusUnits += it.Bonus;
+            }
+            var main = $"{Items.Count} lines · {totalPacks:0.##}P ({billedUnits}U)";
+            return bonusUnits > 0 ? $"{main} +{bonusPacks:0.##}PB ({bonusUnits}B)" : main;
+        }
+    }
 
     public decimal TotalBalance => TotalCustomerBalance;
     public decimal EstimatedTotalCost => TotalEstimatedCost;
@@ -579,6 +623,19 @@ public interface ISaleInvoiceService
         string userPassword,
         string refundMode = "refund",
         long? actorUserId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<SaleInvoiceOperationResult> RecordInvoicePaymentAsync(
+        long invoiceId,
+        decimal amount,
+        long? accountId = null,
+        string? paymentReference = null,
+        long? actorUserId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<long?> GetAdjacentInvoiceIdAsync(
+        long currentInvoiceId,
+        string? saleType = null,
         CancellationToken cancellationToken = default);
 
     Task<(bool Succeeded, string Message, long? ApproverUserId)> VerifySupervisorOverrideAsync(

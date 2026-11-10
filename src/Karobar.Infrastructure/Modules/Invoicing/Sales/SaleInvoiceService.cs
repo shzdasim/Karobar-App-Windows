@@ -775,6 +775,7 @@ public sealed class SaleInvoiceService : ISaleInvoiceService
 
             lineDtos.Add(new SaleInvoiceLineItemDto
             {
+                RowNumber = lineDtos.Count + 1,
                 Id = item.Id,
                 ProductId = item.ProductId,
                 ProductCode = prodDto?.ProductCode ?? string.Empty,
@@ -1582,6 +1583,185 @@ public sealed class SaleInvoiceService : ISaleInvoiceService
             await tx.RollbackAsync(cancellationToken);
             return SaleInvoiceOperationResult.Fail($"Failed to delete sale invoice: {ex.Message}");
         }
+    }
+
+    public async Task<SaleInvoiceOperationResult> RecordInvoicePaymentAsync(
+        long invoiceId,
+        decimal amount,
+        long? accountId = null,
+        string? paymentReference = null,
+        long? actorUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var payAmt = Math.Round(amount, 2);
+        if (payAmt <= 0m)
+            return SaleInvoiceOperationResult.Fail("Payment amount must be greater than zero.");
+
+        var effectiveActorId = actorUserId ?? _authService.CurrentSession?.UserId;
+
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var invoice = await db.SaleInvoices.FirstOrDefaultAsync(si => si.Id == invoiceId, cancellationToken);
+            if (invoice == null)
+                return SaleInvoiceOperationResult.Fail($"Sale invoice #{invoiceId} was not found.");
+
+            if (string.Equals(invoice.Status, "reversed", StringComparison.OrdinalIgnoreCase))
+                return SaleInvoiceOperationResult.Fail("Cannot record payment against a reversed sale invoice.");
+
+            var remaining = Math.Max(0m, Math.Round(invoice.Total - invoice.TotalReceive, 2));
+            if (remaining <= 0m)
+                return SaleInvoiceOperationResult.Fail("This sale invoice is already paid in full.");
+
+            var appliedNow = Math.Min(payAmt, remaining);
+            var customer = await db.Customers.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == invoice.CustomerId, cancellationToken);
+            var customerName = customer?.Name ?? $"Customer #{invoice.CustomerId}";
+
+            Account? targetAccount = null;
+            if (accountId is > 0)
+            {
+                var accId = accountId.Value;
+                targetAccount = await db.Accounts.AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.Id == accId && a.IsActive, cancellationToken);
+            }
+            targetAccount ??= await db.Accounts.AsNoTracking()
+                .Where(a => a.IsActive)
+                .OrderByDescending(a => a.IsDefault)
+                .ThenBy(a => a.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var payMethod = targetAccount?.AccountType switch
+            {
+                "bank" => "bank",
+                "mobile_wallet" => "wallet",
+                "card" => "card",
+                _ => "cash"
+            };
+
+            var now = DateTime.UtcNow;
+            invoice.TotalReceive = Math.Round(invoice.TotalReceive + appliedNow, 2);
+            invoice.RemainThisBill = Math.Max(0m, Math.Round(invoice.Total - invoice.TotalReceive, 2));
+            invoice.UpdatedAt = now;
+
+            if (customer != null && !IsWalkInCustomerName(customer.Name))
+            {
+                var ledgerEntry = new CustomerLedger
+                {
+                    CustomerId = customer.Id,
+                    SaleInvoiceId = invoice.Id,
+                    EntryType = "payment",
+                    PostedNumber = invoice.PostedNumber,
+                    InvoiceNumber = invoice.PostedNumber,
+                    EntryDate = now.Date,
+                    Description = $"Payment received against {invoice.PostedNumber}",
+                    PaymentMethod = payMethod,
+                    PaymentReference = string.IsNullOrWhiteSpace(paymentReference) ? invoice.PostedNumber : paymentReference.Trim(),
+                    CreditedAmount = payAmt,
+                    CreatedBy = effectiveActorId,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                db.CustomerLedgers.Add(ledgerEntry);
+                await db.SaveChangesAsync(cancellationToken);
+
+                db.SalePaymentAllocations.Add(new SalePaymentAllocation
+                {
+                    CustomerId = customer.Id,
+                    CustomerLedgerId = ledgerEntry.Id,
+                    SaleInvoiceId = invoice.Id,
+                    AllocatedAmount = appliedNow,
+                    AllocationDate = now.Date,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                await db.SaveChangesAsync(cancellationToken);
+
+                var newCustBal = await RebuildSingleCustomerLedgerAsync(db, customer.Id, cancellationToken);
+                invoice.TotalBalance = newCustBal;
+            }
+
+            await RecordSalePaymentInflowAsync(
+                db,
+                invoice,
+                customerName,
+                [
+                    new SaleSplitPaymentLineDto
+                    {
+                        PaymentMethod = payMethod,
+                        AccountId = targetAccount?.Id,
+                        Amount = payAmt,
+                        Reference = paymentReference
+                    }
+                ],
+                effectiveActorId,
+                now,
+                cancellationToken);
+
+            db.DocumentHistories.Add(new DocumentHistory
+            {
+                DocumentType = "sale_invoice",
+                DocumentId = invoice.Id,
+                PostedNumber = invoice.PostedNumber,
+                Action = "updated",
+                UserId = effectiveActorId,
+                Reason = "Payment received",
+                ChangesSummary = $"Received payment of Rs. {payAmt:N0} against {invoice.PostedNumber} (Remaining: Rs. {invoice.RemainThisBill:N0})",
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+
+            await db.SaveChangesAsync(cancellationToken);
+            await tx.CommitAsync(cancellationToken);
+
+            return new SaleInvoiceOperationResult
+            {
+                Succeeded = true,
+                InvoiceId = invoice.Id,
+                PostedNumber = invoice.PostedNumber,
+                Message = $"Payment of Rs. {payAmt:N0} recorded against {invoice.PostedNumber}."
+            };
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return SaleInvoiceOperationResult.Fail($"Failed to record payment: {ex.Message}");
+        }
+    }
+
+    public async Task<long?> GetAdjacentInvoiceIdAsync(
+        long currentInvoiceId,
+        string? saleType = null,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        var query = db.SaleInvoices.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(saleType) &&
+            !string.Equals(saleType, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            var norm = saleType.Trim().ToLowerInvariant();
+            query = query.Where(si => si.SaleType == norm);
+        }
+
+        // First try previous invoice (id < currentInvoiceId)
+        var prevId = await query
+            .Where(si => si.Id < currentInvoiceId)
+            .OrderByDescending(si => si.Id)
+            .Select(si => (long?)si.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (prevId.HasValue)
+            return prevId.Value;
+
+        // Otherwise try next invoice (id > currentInvoiceId)
+        return await query
+            .Where(si => si.Id > currentInvoiceId)
+            .OrderBy(si => si.Id)
+            .Select(si => (long?)si.Id)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<(bool Succeeded, string Message, long? ApproverUserId)> VerifySupervisorOverrideAsync(

@@ -70,10 +70,19 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
         vm.RequestFocusProductModalSearch = () => FocusTextBoxDeferred(ProductModalSearchTextBox);
         vm.RequestFocusBatchModalSearch = () => FocusTextBoxDeferred(BatchModalSearchTextBox);
         vm.RequestFocusQuickAddProductName = () => FocusTextBoxDeferred(QuickAddProductNameTextBox);
+        vm.RequestFocusShowInvoiceSearch = () => FocusTextBoxDeferred(ShowInvoiceSearchTextBox);
+        vm.RequestFocusDeletePassword = () => FocusTextBoxDeferred(DeleteInvoicePasswordTextBox);
         vm.RequestApplyProductSearchModalLayout = ApplySavedProductSearchModalLayout;
         vm.RequestFocusLineCell = FocusLineCellDeferred;
         vm.RequestFocusFooterField = FocusFooterFieldDeferred;
         vm.RequestPrintDocument = PrintCurrentDetailDocument;
+        vm.RequestPrintDeliveryChallan = PrintCurrentDeliveryChallanDocument;
+
+        if (vm.IsFormMode && vm.IsProductSearchModalOpen)
+        {
+            ApplySavedProductSearchModalLayout();
+            FocusTextBoxDeferred(ProductModalSearchTextBox);
+        }
     }
 
     private static void DetachViewModelCallbacks(SaleInvoicesViewModel vm)
@@ -89,10 +98,13 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
         vm.RequestFocusProductModalSearch = null;
         vm.RequestFocusBatchModalSearch = null;
         vm.RequestFocusQuickAddProductName = null;
+        vm.RequestFocusShowInvoiceSearch = null;
+        vm.RequestFocusDeletePassword = null;
         vm.RequestApplyProductSearchModalLayout = null;
         vm.RequestFocusLineCell = null;
         vm.RequestFocusFooterField = null;
         vm.RequestPrintDocument = null;
+        vm.RequestPrintDeliveryChallan = null;
     }
 
     // =========================================================================
@@ -107,6 +119,12 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
         if (vm.IsFormMode)
         {
             _ = vm.ClearOrNewInvoiceAsync();
+            return true;
+        }
+
+        if (vm.IsDetailMode)
+        {
+            vm.CreateNewFromShowMode();
             return true;
         }
 
@@ -144,6 +162,12 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
         {
             var line = vm.Lines.LastOrDefault() ?? vm.AppendEmptyLine();
             _ = vm.OpenProductSearchForLineAsync(line);
+            return true;
+        }
+
+        if (vm.IsDetailMode)
+        {
+            _ = vm.OpenShowInvoiceSearchModalAsync();
             return true;
         }
 
@@ -195,6 +219,21 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
             vm.SkipPreShiftDrawerPrompt();
             return true;
         }
+        if (vm.IsShowInvoiceSearchModalOpen)
+        {
+            vm.CloseShowInvoiceSearchModal();
+            return true;
+        }
+        if (vm.IsRecordPaymentModalOpen)
+        {
+            vm.CloseRecordPaymentModal();
+            return true;
+        }
+        if (vm.IsHistoryModalOpen)
+        {
+            vm.CloseHistoryModal();
+            return true;
+        }
         if (vm.IsReverseModalOpen)
         {
             vm.CloseReverseModal();
@@ -224,7 +263,9 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
 
     public bool HandleImportShortcut() => false;
 
-    public bool HandleExportShortcut()
+    public bool HandleExportShortcut() => false;
+
+    public bool HandlePrintShortcut()
     {
         var vm = Vm;
         if (vm == null || !vm.IsDetailMode) return false;
@@ -233,7 +274,7 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
     }
 
     // =========================================================================
-    // 2. PAGE-LEVEL KEYBOARD SHORTCUTS (Alt+H, Alt+D, Alt+W, Alt+E, Alt+P, Alt+B)
+    // 2. PAGE-LEVEL KEYBOARD SHORTCUTS (Ctrl+<Key> primary, Alt+<Key> fallback)
     // =========================================================================
 
     private void SaleInvoicesView_OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -253,7 +294,11 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
             }
         }
 
-        if ((mods & ModifierKeys.Alt) == ModifierKeys.Alt)
+        bool hasCtrlOrAlt = ((mods & ModifierKeys.Control) == ModifierKeys.Control ||
+                             (mods & ModifierKeys.Alt) == ModifierKeys.Alt) &&
+                            (mods & ModifierKeys.Shift) == 0;
+
+        if (hasCtrlOrAlt)
         {
             switch (key)
             {
@@ -269,6 +314,11 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
                     if (vm.IsFormMode)
                     {
                         _ = vm.HoldAndNewAsync();
+                        e.Handled = true;
+                    }
+                    else if (vm.IsDetailMode || vm.IsDirectoryMode)
+                    {
+                        _ = vm.OpenDraftsModalAsync();
                         e.Handled = true;
                     }
                     return;
@@ -326,6 +376,13 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
                     if (vm.IsFormMode || vm.IsDetailMode)
                     {
                         vm.NavigateBackToList();
+                        e.Handled = true;
+                    }
+                    return;
+
+                case Key.F:
+                    if (HandleSearchShortcut())
+                    {
                         e.Handled = true;
                     }
                     return;
@@ -629,11 +686,21 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
     private void FocusTextBoxDeferred(TextBox? textBox)
     {
         if (textBox == null) return;
-        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
             textBox.Focus();
             Keyboard.Focus(textBox);
             textBox.SelectAll();
+
+            if (!textBox.IsKeyboardFocusWithin)
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                {
+                    textBox.Focus();
+                    Keyboard.Focus(textBox);
+                    textBox.SelectAll();
+                }));
+            }
         }));
     }
 
@@ -1113,6 +1180,164 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
         catch (Exception ex)
         {
             MessageBox.Show($"Failed to print invoice: {ex.Message}", "Print Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void PrintCurrentDeliveryChallanDocument()
+    {
+        var vm = Vm;
+        var detail = vm?.CurrentDetail;
+        if (vm == null || detail == null) return;
+
+        try
+        {
+            var dlg = new PrintDialog();
+            if (dlg.ShowDialog() != true) return;
+
+            var doc = new FlowDocument
+            {
+                PageWidth = 760,
+                PagePadding = new Thickness(32, 28, 32, 28),
+                ColumnWidth = double.PositiveInfinity,
+                FontFamily = new FontFamily("Segoe UI")
+            };
+
+            doc.Blocks.Add(new Paragraph(new Run(vm.StoreSettings.StoreName))
+            {
+                FontSize = 18,
+                FontWeight = FontWeights.Bold,
+                TextAlignment = TextAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 2)
+            });
+
+            doc.Blocks.Add(new Paragraph(new Run(
+                $"DELIVERY CHALLAN / GATE PASS\n" +
+                $"{vm.StoreSettings.StoreAddress} • Tel: {vm.StoreSettings.StorePhone}\n" +
+                $"Challan / Invoice #: {detail.PostedNumber} • Date: {detail.FormattedDate}\n" +
+                $"Customer: {detail.CustomerName}"))
+            {
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                TextAlignment = TextAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 12)
+            });
+
+            var table = new Table { CellSpacing = 0 };
+            table.Columns.Add(new TableColumn { Width = new GridLength(0.5, GridUnitType.Star) });
+            table.Columns.Add(new TableColumn { Width = new GridLength(2.6, GridUnitType.Star) });
+            table.Columns.Add(new TableColumn { Width = new GridLength(0.9, GridUnitType.Star) });
+            table.Columns.Add(new TableColumn { Width = new GridLength(1.1, GridUnitType.Star) });
+            table.Columns.Add(new TableColumn { Width = new GridLength(1.0, GridUnitType.Star) });
+            table.Columns.Add(new TableColumn { Width = new GridLength(1.1, GridUnitType.Star) });
+
+            var rg = new TableRowGroup();
+            var headerRow = new TableRow { Background = Brushes.WhiteSmoke };
+            headerRow.Cells.Add(CreateCell("#", true, TextAlignment.Center, false));
+            headerRow.Cells.Add(CreateCell("Product Description", true, TextAlignment.Left, false));
+            headerRow.Cells.Add(CreateCell("Pack Size", true, TextAlignment.Center, false));
+            headerRow.Cells.Add(CreateCell("Batch", true, TextAlignment.Left, false));
+            headerRow.Cells.Add(CreateCell("Expiry", true, TextAlignment.Center, false));
+            headerRow.Cells.Add(CreateCell("Total Units", true, TextAlignment.Right, false));
+            rg.Rows.Add(headerRow);
+
+            foreach (var item in detail.Items)
+            {
+                var r = new TableRow();
+                r.Cells.Add(CreateCell(item.RowNumber.ToString(), false, TextAlignment.Center, false));
+                r.Cells.Add(CreateCell(item.ProductName, false, TextAlignment.Left, false));
+                r.Cells.Add(CreateCell($"1x{item.PackSize}", false, TextAlignment.Center, false));
+                r.Cells.Add(CreateCell(item.BatchDisplay, false, TextAlignment.Left, false));
+                r.Cells.Add(CreateCell(item.Expiry, false, TextAlignment.Center, false));
+                r.Cells.Add(CreateCell(item.TotalUnitsDisplay, true, TextAlignment.Right, false));
+                rg.Rows.Add(r);
+            }
+
+            table.RowGroups.Add(rg);
+            doc.Blocks.Add(table);
+
+            doc.Blocks.Add(new Paragraph(new Run(
+                $"\nTotal Items: {detail.TotalItemsCount}   •   Total Billed Units: {detail.TotalBilledUnits:N0}   •   Bonus Units: {detail.TotalBonusUnits:N0}\n\n" +
+                "Prepared / Dispatched By: _______________________          Received By: _______________________"))
+            {
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 16, 0, 8)
+            });
+
+            IDocumentPaginatorSource idp = doc;
+            dlg.PrintDocument(idp.DocumentPaginator, $"Delivery Challan {detail.PostedNumber}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to print Delivery Challan: {ex.Message}", "Print Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    // =========================================================================
+    // 9. SHOW PAGE SEARCH MODAL & DELETE PASSWORD HANDLERS
+    // =========================================================================
+
+    private void ShowInvoiceSearchOverlay_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ReferenceEquals(e.OriginalSource, sender))
+        {
+            Vm?.CloseShowInvoiceSearchModal();
+        }
+    }
+
+    private void ShowInvoiceSearchTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var vm = Vm;
+        if (vm == null) return;
+
+        if (e.Key == Key.Down)
+        {
+            vm.MoveShowInvoiceSearchHighlight(1);
+            ShowInvoiceSearchResultsListBox.ScrollIntoView(vm.HighlightedShowSearchInvoice);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Up)
+        {
+            vm.MoveShowInvoiceSearchHighlight(-1);
+            ShowInvoiceSearchResultsListBox.ScrollIntoView(vm.HighlightedShowSearchInvoice);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            _ = vm.CommitShowInvoiceSearchSelectionAsync();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            vm.CloseShowInvoiceSearchModal();
+            e.Handled = true;
+        }
+    }
+
+    private void ShowInvoiceSearchResultsListBox_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (Vm == null) return;
+        if (ItemsControl.ContainerFromElement(ShowInvoiceSearchResultsListBox, e.OriginalSource as DependencyObject) is ListBoxItem item &&
+            item.DataContext is SaleInvoiceDirectoryRowDto row)
+        {
+            _ = Vm.CommitShowInvoiceSearchSelectionAsync(row);
+        }
+    }
+
+    private void DeleteInvoicePasswordTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var vm = Vm;
+        if (vm == null) return;
+
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            _ = vm.ConfirmDeleteInvoiceAsync();
+        }
+        else if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            vm.CloseDeleteModal();
         }
     }
 

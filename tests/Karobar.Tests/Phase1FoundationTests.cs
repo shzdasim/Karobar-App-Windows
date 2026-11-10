@@ -1318,6 +1318,23 @@ public sealed class Phase1FoundationTests
             wsDetail!.RemainThisBill.Should().Be(100m);
             wsDetail.TotalBalance.Should().Be(100m);
 
+            // Verify Show-page adjacent navigation & Record Payment against remaining credit balance
+            var adjId = await sales.GetAdjacentInvoiceIdAsync(wsRes.InvoiceId.Value);
+            adjId.Should().Be(retailRes.InvoiceId);
+
+            var payRes = await sales.RecordInvoicePaymentAsync(
+                wsRes.InvoiceId.Value,
+                40m,
+                bootstrap.PaymentAccounts.FirstOrDefault()?.Id,
+                "CHQ-9988",
+                session.UserId);
+            payRes.Succeeded.Should().BeTrue(payRes.Message);
+
+            var wsDetailAfterPay = await sales.GetByIdAsync(wsRes.InvoiceId.Value);
+            wsDetailAfterPay!.TotalReceive.Should().Be(115m);
+            wsDetailAfterPay.RemainThisBill.Should().Be(60m);
+            wsDetailAfterPay.TotalBalance.Should().Be(60m);
+
             var searchForWsCustomer = await sales.SearchProductsForSaleAsync("Panadol", wsCust.Id);
             searchForWsCustomer[0].WholeSalePackPrice.Should().Be(175m);
             searchForWsCustomer[0].IsCustomCustomerPrice.Should().BeTrue();

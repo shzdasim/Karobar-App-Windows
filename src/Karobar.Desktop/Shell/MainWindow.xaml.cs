@@ -153,7 +153,7 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 return;
             }
-            if (_viewModel.IsSaleInvoicesPage && SaleInvoicesPageView.HandleExportShortcut())
+            if (_viewModel.IsSaleInvoicesPage && SaleInvoicesPageView.HandlePrintShortcut())
             {
                 e.Handled = true;
                 return;
