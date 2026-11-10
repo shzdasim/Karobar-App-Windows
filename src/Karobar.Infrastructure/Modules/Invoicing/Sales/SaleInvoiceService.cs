@@ -702,24 +702,25 @@ public sealed class SaleInvoiceService : ISaleInvoiceService
 
         if (!isWalkIn && customer != null)
         {
-            var ledgerRow = await db.CustomerLedgers.AsNoTracking()
+            var invoiceLedgerRow = await db.CustomerLedgers.AsNoTracking()
                 .Where(l => l.SaleInvoiceId == invoice.Id && l.EntryType == "invoice")
                 .OrderByDescending(l => l.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (ledgerRow != null)
+            var latestCustomerLedger = await db.CustomerLedgers.AsNoTracking()
+                .Where(l => l.CustomerId == customer.Id)
+                .OrderBy(l => l.EntryDate)
+                .ThenBy(l => l.Id)
+                .LastOrDefaultAsync(cancellationToken);
+
+            if (invoiceLedgerRow != null)
             {
-                prevCustBalance = ledgerRow.PreviousBalance;
-                totalCustBalance = ledgerRow.TotalBalance;
+                prevCustBalance = invoiceLedgerRow.PreviousBalance;
+                totalCustBalance = latestCustomerLedger?.TotalBalance ?? invoiceLedgerRow.TotalBalance;
             }
             else
             {
-                var latestLedger = await db.CustomerLedgers.AsNoTracking()
-                    .Where(l => l.CustomerId == customer.Id)
-                    .OrderBy(l => l.EntryDate)
-                    .ThenBy(l => l.Id)
-                    .LastOrDefaultAsync(cancellationToken);
-                totalCustBalance = latestLedger?.TotalBalance ?? 0m;
+                totalCustBalance = latestCustomerLedger?.TotalBalance ?? invoice.TotalBalance;
                 prevCustBalance = Math.Max(0m, totalCustBalance - invoice.RemainThisBill);
             }
         }
