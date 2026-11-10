@@ -15,6 +15,24 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
 {
     private PurchaseInvoicesViewModel? _wiredVm;
 
+    private sealed record ModalResizeState(
+        string Direction,
+        double StartX,
+        double StartY,
+        double StartWidth,
+        double StartHeight,
+        double StartLeft,
+        double StartTop);
+
+    private bool _isDraggingProductSearch;
+    private Point _productSearchDragOffset;
+    private ModalResizeState? _productSearchResizeState;
+    private Point _lastProductModalMousePos;
+
+    private bool _isDraggingQuickAddProduct;
+    private Point _quickAddProductDragOffset;
+    private ModalResizeState? _quickAddProductResizeState;
+
     public PurchaseInvoicesView()
     {
         InitializeComponent();
@@ -32,6 +50,8 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
             _wiredVm.RequestFocusDirectorySearch = null;
             _wiredVm.RequestFocusProductModalSearch = null;
             _wiredVm.RequestFocusQuickAddProductName = null;
+            _wiredVm.RequestApplyProductSearchModalLayout = null;
+            _wiredVm.RequestApplyQuickAddProductModalLayout = null;
             _wiredVm.RequestFocusLineCell = null;
             _wiredVm.RequestFocusFooterField = null;
             _wiredVm.RequestPrintDocument = null;
@@ -53,6 +73,8 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
             _wiredVm.RequestFocusDirectorySearch = () => FocusAndSelectTextBox(DirectorySearchTextBox);
             _wiredVm.RequestFocusProductModalSearch = () => FocusAndSelectTextBox(ProductModalSearchTextBox);
             _wiredVm.RequestFocusQuickAddProductName = () => FocusAndSelectTextBox(QuickAddProductNameTextBox);
+            _wiredVm.RequestApplyProductSearchModalLayout = () => Dispatcher.BeginInvoke(ApplyProductSearchModalLayout, DispatcherPriority.Loaded);
+            _wiredVm.RequestApplyQuickAddProductModalLayout = () => Dispatcher.BeginInvoke(ApplyQuickAddProductModalLayout, DispatcherPriority.Loaded);
             _wiredVm.RequestFocusLineCell = (rowIndex, fieldTag) => FocusLineCell(rowIndex, fieldTag);
             _wiredVm.RequestFocusFooterField = FocusFooterField;
             _wiredVm.RequestPrintDocument = ExecutePrintPurchaseInvoice;
@@ -526,6 +548,27 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         }
     }
 
+    private void ProductModalResultsListBox_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (DataContext is not PurchaseInvoicesViewModel vm)
+            return;
+
+        var pos = e.GetPosition(ProductModalResultsListBox);
+        if (Math.Abs(pos.X - _lastProductModalMousePos.X) < 1.0 &&
+            Math.Abs(pos.Y - _lastProductModalMousePos.Y) < 1.0)
+        {
+            return;
+        }
+        _lastProductModalMousePos = pos;
+
+        if (ItemsControl.ContainerFromElement(ProductModalResultsListBox, e.OriginalSource as DependencyObject) is ListBoxItem lbi &&
+            lbi.DataContext is PurchaseProductSearchItemDto hovered &&
+            !ReferenceEquals(vm.HighlightedSearchProduct, hovered))
+        {
+            vm.HighlightedSearchProduct = hovered;
+        }
+    }
+
     private async void ProductModalResultsListBox_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (DataContext is not PurchaseInvoicesViewModel vm)
@@ -536,6 +579,510 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         {
             await vm.CommitProductSelectionAsync(item);
         }
+    }
+
+    // =========================================================================
+    // 4B. DRAGGABLE & 8-WAY RESIZABLE PRODUCT SEARCH & QUICK-ADD MODALS
+    //     (Exact ProductSearchInput.jsx:66-131, 367-506 & ProductFormModal.jsx)
+    // =========================================================================
+
+    private void ProductSearchOverlay_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not PurchaseInvoicesViewModel vm)
+            return;
+
+        // Close on backdrop click (ProductSearchInput.jsx:552-554)
+        if (ReferenceEquals(e.OriginalSource, ProductSearchOverlayGrid) ||
+            ReferenceEquals(e.OriginalSource, ProductSearchOverlayCanvas))
+        {
+            e.Handled = true;
+            vm.CloseProductSearchModal();
+        }
+    }
+
+    private void ProductSearchOverlayCanvas_OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is PurchaseInvoicesViewModel { IsProductSearchModalOpen: true })
+        {
+            ApplyProductSearchModalLayout();
+        }
+    }
+
+    private void ApplyProductSearchModalLayout()
+    {
+        if (DataContext is not PurchaseInvoicesViewModel vm ||
+            ProductSearchDialogBorder == null ||
+            ProductSearchOverlayCanvas == null)
+        {
+            return;
+        }
+
+        const double minW = 640d;
+        const double minH = 420d;
+
+        double canvasW = ProductSearchOverlayCanvas.ActualWidth > 100
+            ? ProductSearchOverlayCanvas.ActualWidth
+            : (ActualWidth > 100 ? ActualWidth : 1280d);
+        double canvasH = ProductSearchOverlayCanvas.ActualHeight > 100
+            ? ProductSearchOverlayCanvas.ActualHeight
+            : (ActualHeight > 100 ? ActualHeight : 800d);
+
+        var layout = vm.ProductSearchModalLayout;
+        double maxW = Math.Max(minW, canvasW - 16d);
+        double maxH = Math.Max(minH, canvasH - 24d);
+
+        double width = Math.Clamp(layout.Width > 0 ? layout.Width : 960d, minW, maxW);
+        double height = Math.Clamp(layout.Height > 0 ? layout.Height : 600d, minH, maxH);
+
+        double left;
+        double top;
+        if (layout.HasSavedPosition && double.IsFinite(layout.X!.Value) && double.IsFinite(layout.Y!.Value))
+        {
+            left = Math.Clamp(layout.X.Value, 8d, Math.Max(8d, canvasW - width - 8d));
+            top = Math.Clamp(layout.Y.Value, 8d, Math.Max(8d, canvasH - height - 8d));
+        }
+        else
+        {
+            left = Math.Max(8d, (canvasW - width) / 2d);
+            top = Math.Max(8d, (canvasH - height) / 2d);
+        }
+
+        ProductSearchDialogBorder.Width = width;
+        ProductSearchDialogBorder.Height = height;
+        Canvas.SetLeft(ProductSearchDialogBorder, left);
+        Canvas.SetTop(ProductSearchDialogBorder, top);
+    }
+
+    private void ProductSearchHeader_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ProductSearchDialogBorder == null || ProductSearchOverlayCanvas == null)
+            return;
+
+        // Do not start dragging when clicking inside the search TextBox or header Buttons
+        if (IsInteractiveHeaderChild(e.OriginalSource as DependencyObject, ProductSearchHeaderBorder))
+            return;
+
+        var pos = e.GetPosition(ProductSearchOverlayCanvas);
+        var curLeft = Canvas.GetLeft(ProductSearchDialogBorder);
+        var curTop = Canvas.GetTop(ProductSearchDialogBorder);
+        if (double.IsNaN(curLeft)) curLeft = 120d;
+        if (double.IsNaN(curTop)) curTop = 60d;
+
+        _productSearchDragOffset = new Point(pos.X - curLeft, pos.Y - curTop);
+        _isDraggingProductSearch = true;
+        (sender as UIElement)?.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void ProductSearchHeader_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingProductSearch || ProductSearchDialogBorder == null || ProductSearchOverlayCanvas == null)
+            return;
+
+        var pos = e.GetPosition(ProductSearchOverlayCanvas);
+        double canvasW = Math.Max(ProductSearchDialogBorder.Width + 16d, ProductSearchOverlayCanvas.ActualWidth);
+        double canvasH = Math.Max(ProductSearchDialogBorder.Height + 16d, ProductSearchOverlayCanvas.ActualHeight);
+
+        double nextLeft = Math.Clamp(
+            pos.X - _productSearchDragOffset.X,
+            0d,
+            Math.Max(0d, canvasW - ProductSearchDialogBorder.Width));
+        double nextTop = Math.Clamp(
+            pos.Y - _productSearchDragOffset.Y,
+            0d,
+            Math.Max(0d, canvasH - ProductSearchDialogBorder.Height));
+
+        Canvas.SetLeft(ProductSearchDialogBorder, nextLeft);
+        Canvas.SetTop(ProductSearchDialogBorder, nextTop);
+    }
+
+    private void ProductSearchHeader_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndProductSearchDrag(sender as UIElement);
+        e.Handled = true;
+    }
+
+    private void ProductSearchHeader_OnLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        EndProductSearchDrag(sender as UIElement);
+    }
+
+    private void EndProductSearchDrag(UIElement? senderElement)
+    {
+        if (!_isDraggingProductSearch)
+            return;
+
+        _isDraggingProductSearch = false;
+        if (senderElement?.IsMouseCaptured == true)
+            senderElement.ReleaseMouseCapture();
+
+        PersistCurrentProductSearchLayout();
+        FocusAndPlaceCaretAtEnd(ProductModalSearchTextBox);
+    }
+
+    private void ProductSearchResizeHandle_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ProductSearchDialogBorder == null || ProductSearchOverlayCanvas == null || sender is not FrameworkElement handle)
+            return;
+
+        var dir = (handle.Tag as string ?? "se").ToLowerInvariant();
+        var pos = e.GetPosition(ProductSearchOverlayCanvas);
+        var curLeft = Canvas.GetLeft(ProductSearchDialogBorder);
+        var curTop = Canvas.GetTop(ProductSearchDialogBorder);
+        if (double.IsNaN(curLeft)) curLeft = 120d;
+        if (double.IsNaN(curTop)) curTop = 60d;
+
+        _productSearchResizeState = new ModalResizeState(
+            dir,
+            pos.X,
+            pos.Y,
+            ProductSearchDialogBorder.Width,
+            ProductSearchDialogBorder.Height,
+            curLeft,
+            curTop);
+
+        handle.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void ProductSearchResizeHandle_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_productSearchResizeState == null || ProductSearchDialogBorder == null || ProductSearchOverlayCanvas == null)
+            return;
+
+        var r = _productSearchResizeState;
+        var pos = e.GetPosition(ProductSearchOverlayCanvas);
+        ApplyEightWayResize(
+            r,
+            pos.X - r.StartX,
+            pos.Y - r.StartY,
+            minW: 640d,
+            minH: 420d,
+            ProductSearchOverlayCanvas,
+            ProductSearchDialogBorder);
+    }
+
+    private void ProductSearchResizeHandle_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndProductSearchResize(sender as UIElement);
+        e.Handled = true;
+    }
+
+    private void ProductSearchResizeHandle_OnLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        EndProductSearchResize(sender as UIElement);
+    }
+
+    private void EndProductSearchResize(UIElement? handleElement)
+    {
+        if (_productSearchResizeState == null)
+            return;
+
+        _productSearchResizeState = null;
+        if (handleElement?.IsMouseCaptured == true)
+            handleElement.ReleaseMouseCapture();
+
+        PersistCurrentProductSearchLayout();
+        FocusAndPlaceCaretAtEnd(ProductModalSearchTextBox);
+    }
+
+    private void PersistCurrentProductSearchLayout()
+    {
+        if (DataContext is not PurchaseInvoicesViewModel vm || ProductSearchDialogBorder == null)
+            return;
+
+        var left = Canvas.GetLeft(ProductSearchDialogBorder);
+        var top = Canvas.GetTop(ProductSearchDialogBorder);
+        var width = ProductSearchDialogBorder.Width;
+        var height = ProductSearchDialogBorder.Height;
+
+        if (double.IsFinite(left) && double.IsFinite(top) && double.IsFinite(width) && double.IsFinite(height))
+        {
+            _ = vm.SaveProductSearchModalLayoutAsync(left, top, width, height);
+        }
+    }
+
+    // Quick "+ Add Product" Modal Drag & 8-Way Resize (ProductFormModal.jsx parity)
+    private void QuickAddProductOverlay_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not PurchaseInvoicesViewModel vm)
+            return;
+
+        if (ReferenceEquals(e.OriginalSource, QuickAddProductOverlayGrid) ||
+            ReferenceEquals(e.OriginalSource, QuickAddProductOverlayCanvas))
+        {
+            e.Handled = true;
+            vm.CloseQuickAddProductModal();
+        }
+    }
+
+    private void QuickAddProductOverlayCanvas_OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is PurchaseInvoicesViewModel { IsQuickAddProductModalOpen: true })
+        {
+            ApplyQuickAddProductModalLayout();
+        }
+    }
+
+    private void ApplyQuickAddProductModalLayout()
+    {
+        if (DataContext is not PurchaseInvoicesViewModel vm ||
+            QuickAddProductDialogBorder == null ||
+            QuickAddProductOverlayCanvas == null)
+        {
+            return;
+        }
+
+        const double minW = 600d;
+        const double minH = 400d;
+
+        double canvasW = QuickAddProductOverlayCanvas.ActualWidth > 100
+            ? QuickAddProductOverlayCanvas.ActualWidth
+            : (ActualWidth > 100 ? ActualWidth : 1280d);
+        double canvasH = QuickAddProductOverlayCanvas.ActualHeight > 100
+            ? QuickAddProductOverlayCanvas.ActualHeight
+            : (ActualHeight > 100 ? ActualHeight : 800d);
+
+        var layout = vm.QuickAddProductModalLayout;
+        double maxW = Math.Max(minW, canvasW - 16d);
+        double maxH = Math.Max(minH, canvasH - 24d);
+
+        double width = Math.Clamp(layout.Width > 0 ? layout.Width : 800d, minW, maxW);
+        double height = Math.Clamp(layout.Height > 0 ? layout.Height : 560d, minH, maxH);
+
+        double left;
+        double top;
+        if (layout.HasSavedPosition && double.IsFinite(layout.X!.Value) && double.IsFinite(layout.Y!.Value))
+        {
+            left = Math.Clamp(layout.X.Value, 8d, Math.Max(8d, canvasW - width - 8d));
+            top = Math.Clamp(layout.Y.Value, 8d, Math.Max(8d, canvasH - height - 8d));
+        }
+        else
+        {
+            left = Math.Max(8d, (canvasW - width) / 2d);
+            top = Math.Max(8d, (canvasH - height) / 2d);
+        }
+
+        QuickAddProductDialogBorder.Width = width;
+        QuickAddProductDialogBorder.Height = height;
+        Canvas.SetLeft(QuickAddProductDialogBorder, left);
+        Canvas.SetTop(QuickAddProductDialogBorder, top);
+    }
+
+    private void QuickAddProductHeader_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (QuickAddProductDialogBorder == null || QuickAddProductOverlayCanvas == null)
+            return;
+
+        if (IsInteractiveHeaderChild(e.OriginalSource as DependencyObject, sender as DependencyObject))
+            return;
+
+        var pos = e.GetPosition(QuickAddProductOverlayCanvas);
+        var curLeft = Canvas.GetLeft(QuickAddProductDialogBorder);
+        var curTop = Canvas.GetTop(QuickAddProductDialogBorder);
+        if (double.IsNaN(curLeft)) curLeft = 160d;
+        if (double.IsNaN(curTop)) curTop = 70d;
+
+        _quickAddProductDragOffset = new Point(pos.X - curLeft, pos.Y - curTop);
+        _isDraggingQuickAddProduct = true;
+        (sender as UIElement)?.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void QuickAddProductHeader_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingQuickAddProduct || QuickAddProductDialogBorder == null || QuickAddProductOverlayCanvas == null)
+            return;
+
+        var pos = e.GetPosition(QuickAddProductOverlayCanvas);
+        double canvasW = Math.Max(QuickAddProductDialogBorder.Width + 16d, QuickAddProductOverlayCanvas.ActualWidth);
+        double canvasH = Math.Max(QuickAddProductDialogBorder.Height + 16d, QuickAddProductOverlayCanvas.ActualHeight);
+
+        double nextLeft = Math.Clamp(
+            pos.X - _quickAddProductDragOffset.X,
+            0d,
+            Math.Max(0d, canvasW - QuickAddProductDialogBorder.Width));
+        double nextTop = Math.Clamp(
+            pos.Y - _quickAddProductDragOffset.Y,
+            0d,
+            Math.Max(0d, canvasH - QuickAddProductDialogBorder.Height));
+
+        Canvas.SetLeft(QuickAddProductDialogBorder, nextLeft);
+        Canvas.SetTop(QuickAddProductDialogBorder, nextTop);
+    }
+
+    private void QuickAddProductHeader_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndQuickAddProductDrag(sender as UIElement);
+        e.Handled = true;
+    }
+
+    private void QuickAddProductHeader_OnLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        EndQuickAddProductDrag(sender as UIElement);
+    }
+
+    private void EndQuickAddProductDrag(UIElement? senderElement)
+    {
+        if (!_isDraggingQuickAddProduct)
+            return;
+
+        _isDraggingQuickAddProduct = false;
+        if (senderElement?.IsMouseCaptured == true)
+            senderElement.ReleaseMouseCapture();
+
+        PersistCurrentQuickAddProductLayout();
+    }
+
+    private void QuickAddProductResizeHandle_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (QuickAddProductDialogBorder == null || QuickAddProductOverlayCanvas == null || sender is not FrameworkElement handle)
+            return;
+
+        var dir = (handle.Tag as string ?? "se").ToLowerInvariant();
+        var pos = e.GetPosition(QuickAddProductOverlayCanvas);
+        var curLeft = Canvas.GetLeft(QuickAddProductDialogBorder);
+        var curTop = Canvas.GetTop(QuickAddProductDialogBorder);
+        if (double.IsNaN(curLeft)) curLeft = 160d;
+        if (double.IsNaN(curTop)) curTop = 70d;
+
+        _quickAddProductResizeState = new ModalResizeState(
+            dir,
+            pos.X,
+            pos.Y,
+            QuickAddProductDialogBorder.Width,
+            QuickAddProductDialogBorder.Height,
+            curLeft,
+            curTop);
+
+        handle.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void QuickAddProductResizeHandle_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_quickAddProductResizeState == null || QuickAddProductDialogBorder == null || QuickAddProductOverlayCanvas == null)
+            return;
+
+        var r = _quickAddProductResizeState;
+        var pos = e.GetPosition(QuickAddProductOverlayCanvas);
+        ApplyEightWayResize(
+            r,
+            pos.X - r.StartX,
+            pos.Y - r.StartY,
+            minW: 600d,
+            minH: 400d,
+            QuickAddProductOverlayCanvas,
+            QuickAddProductDialogBorder);
+    }
+
+    private void QuickAddProductResizeHandle_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndQuickAddProductResize(sender as UIElement);
+        e.Handled = true;
+    }
+
+    private void QuickAddProductResizeHandle_OnLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        EndQuickAddProductResize(sender as UIElement);
+    }
+
+    private void EndQuickAddProductResize(UIElement? handleElement)
+    {
+        if (_quickAddProductResizeState == null)
+            return;
+
+        _quickAddProductResizeState = null;
+        if (handleElement?.IsMouseCaptured == true)
+            handleElement.ReleaseMouseCapture();
+
+        PersistCurrentQuickAddProductLayout();
+    }
+
+    private void PersistCurrentQuickAddProductLayout()
+    {
+        if (DataContext is not PurchaseInvoicesViewModel vm || QuickAddProductDialogBorder == null)
+            return;
+
+        var left = Canvas.GetLeft(QuickAddProductDialogBorder);
+        var top = Canvas.GetTop(QuickAddProductDialogBorder);
+        var width = QuickAddProductDialogBorder.Width;
+        var height = QuickAddProductDialogBorder.Height;
+
+        if (double.IsFinite(left) && double.IsFinite(top) && double.IsFinite(width) && double.IsFinite(height))
+        {
+            _ = vm.SaveQuickAddProductModalLayoutAsync(left, top, width, height);
+        }
+    }
+
+    private static void ApplyEightWayResize(
+        ModalResizeState r,
+        double dx,
+        double dy,
+        double minW,
+        double minH,
+        Canvas overlayCanvas,
+        Border dialogBorder)
+    {
+        double width = r.StartWidth;
+        double height = r.StartHeight;
+        double left = r.StartLeft;
+        double top = r.StartTop;
+
+        double maxCanvasW = overlayCanvas.ActualWidth > minW ? overlayCanvas.ActualWidth : 1920d;
+        double maxCanvasH = overlayCanvas.ActualHeight > minH ? overlayCanvas.ActualHeight : 1080d;
+
+        if (r.Direction.Contains('e'))
+        {
+            width = Math.Clamp(r.StartWidth + dx, minW, Math.Max(minW, maxCanvasW - left));
+        }
+        if (r.Direction.Contains('s'))
+        {
+            height = Math.Clamp(r.StartHeight + dy, minH, Math.Max(minH, maxCanvasH - top));
+        }
+        if (r.Direction.Contains('w'))
+        {
+            double targetW = Math.Max(minW, r.StartWidth - dx);
+            double nextLeft = r.StartLeft + (r.StartWidth - targetW);
+            if (nextLeft < 0d)
+            {
+                nextLeft = 0d;
+                targetW = r.StartLeft + r.StartWidth;
+            }
+            width = Math.Max(minW, targetW);
+            left = nextLeft;
+        }
+        if (r.Direction.Contains('n'))
+        {
+            double targetH = Math.Max(minH, r.StartHeight - dy);
+            double nextTop = r.StartTop + (r.StartHeight - targetH);
+            if (nextTop < 0d)
+            {
+                nextTop = 0d;
+                targetH = r.StartTop + r.StartHeight;
+            }
+            height = Math.Max(minH, targetH);
+            top = nextTop;
+        }
+
+        dialogBorder.Width = width;
+        dialogBorder.Height = height;
+        Canvas.SetLeft(dialogBorder, left);
+        Canvas.SetTop(dialogBorder, top);
+    }
+
+    private static bool IsInteractiveHeaderChild(DependencyObject? source, DependencyObject? stopAt)
+    {
+        var cur = source;
+        while (cur != null && !ReferenceEquals(cur, stopAt))
+        {
+            if (cur is TextBoxBase or ButtonBase)
+                return true;
+            cur = cur is Visual || cur is System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(cur)
+                : LogicalTreeHelper.GetParent(cur);
+        }
+        return false;
     }
 
     private void FooterDiscountPctTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)

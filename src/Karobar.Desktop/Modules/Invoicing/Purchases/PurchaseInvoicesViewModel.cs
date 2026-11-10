@@ -661,6 +661,8 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     public Action? RequestFocusDirectorySearch { get; set; }
     public Action? RequestFocusProductModalSearch { get; set; }
     public Action? RequestFocusQuickAddProductName { get; set; }
+    public Action? RequestApplyProductSearchModalLayout { get; set; }
+    public Action? RequestApplyQuickAddProductModalLayout { get; set; }
     public Action<int, string>? RequestFocusLineCell { get; set; }
     public Action<string>? RequestFocusFooterField { get; set; }
     public Action<PurchaseInvoiceDetailDto, bool>? RequestPrintDocument { get; set; }
@@ -1185,6 +1187,13 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     }
 
     // A. Fast Product Search Modal (ProductSearchInput.jsx parity)
+    private static readonly Regex ValidProductSearchRegex = new(@"^[a-zA-Z0-9\-\.()/+%,&_:\s]*$", RegexOptions.Compiled);
+    private string _lastValidProductSearchQuery = string.Empty;
+    private bool _suppressProductSearchQueryValidation;
+
+    public PurchaseModalWindowLayoutDto ProductSearchModalLayout { get; private set; } = new() { Width = 960, Height = 600 };
+    public PurchaseModalWindowLayoutDto QuickAddProductModalLayout { get; private set; } = new() { Width = 800, Height = 600 };
+
     [ObservableProperty]
     private bool _isProductSearchModalOpen;
 
@@ -1192,8 +1201,13 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     private int _activeSearchLineIndex;
 
     [ObservableProperty]
+    private bool _isProductSearchInputInvalid;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasProductSearchQuery))]
+    [NotifyPropertyChangedFor(nameof(ShowAllProductsFooterText))]
     [NotifyPropertyChangedFor(nameof(ProductSearchFooterCountText))]
+    [NotifyPropertyChangedFor(nameof(ProductSearchTrimmedQueryText))]
     private string _productSearchQuery = string.Empty;
 
     public ObservableCollection<PurchaseProductSearchItemDto> ProductSearchResults { get; } = [];
@@ -1202,15 +1216,40 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     private PurchaseProductSearchItemDto? _highlightedSearchProduct;
 
     public bool HasProductSearchQuery => !string.IsNullOrWhiteSpace(ProductSearchQuery);
+    public bool ShowAllProductsFooterText => !HasProductSearchQuery;
+    public bool HasProductSearchResults => ProductSearchResults.Count > 0;
     public bool ShowEmptyProductSearchState => ProductSearchResults.Count == 0;
+    public int ProductSearchResultsCount => ProductSearchResults.Count;
+    public string ProductSearchTrimmedQueryText => $"\"{(ProductSearchQuery ?? string.Empty).Trim()}\"";
     public string ProductSearchFooterCountText => HasProductSearchQuery
         ? $"{ProductSearchResults.Count} results for \"{ProductSearchQuery.Trim()}\""
         : "All products";
 
     partial void OnProductSearchQueryChanged(string value)
     {
+        if (_suppressProductSearchQueryValidation)
+            return;
+
+        var candidate = value ?? string.Empty;
+        if (!ValidProductSearchRegex.IsMatch(candidate))
+        {
+            _suppressProductSearchQueryValidation = true;
+            ProductSearchQuery = _lastValidProductSearchQuery;
+            _suppressProductSearchQueryValidation = false;
+            _ = TriggerProductSearchInvalidFlashAsync();
+            return;
+        }
+
+        _lastValidProductSearchQuery = candidate;
         if (!IsProductSearchModalOpen) return;
-        DebounceProductSearch(value);
+        DebounceProductSearch(candidate);
+    }
+
+    private async Task TriggerProductSearchInvalidFlashAsync()
+    {
+        IsProductSearchInputInvalid = true;
+        await Task.Delay(200);
+        IsProductSearchInputInvalid = false;
     }
 
     // A2. Quick "+ Add Product" Catalog Creation Modal (ProductFormModal.jsx parity)
@@ -2068,12 +2107,57 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
             ? seedChar
             : (targetRow is { HasProduct: true } ? targetRow.ProductName : string.Empty);
 
-        IsProductSearchModalOpen = true;
+        _suppressProductSearchQueryValidation = true;
+        _lastValidProductSearchQuery = initialQuery;
         ProductSearchQuery = initialQuery;
+        _suppressProductSearchQueryValidation = false;
+
+        IsProductSearchModalOpen = true;
+        RequestApplyProductSearchModalLayout?.Invoke();
         _productSearchDebounceCts?.Cancel();
 
         await ExecuteProductSearchAsync(initialQuery);
         RequestFocusProductModalSearch?.Invoke();
+    }
+
+    public async Task SaveProductSearchModalLayoutAsync(double x, double y, double width, double height)
+    {
+        ProductSearchModalLayout = new PurchaseModalWindowLayoutDto
+        {
+            X = Math.Round(x, 1),
+            Y = Math.Round(y, 1),
+            Width = Math.Round(Math.Max(640d, width), 1),
+            Height = Math.Round(Math.Max(420d, height), 1)
+        };
+
+        try
+        {
+            await _purchaseService.SaveModalWindowLayoutAsync("productSearchModal", ProductSearchModalLayout);
+        }
+        catch
+        {
+            // Ignore non-critical preference save failure
+        }
+    }
+
+    public async Task SaveQuickAddProductModalLayoutAsync(double x, double y, double width, double height)
+    {
+        QuickAddProductModalLayout = new PurchaseModalWindowLayoutDto
+        {
+            X = Math.Round(x, 1),
+            Y = Math.Round(y, 1),
+            Width = Math.Round(Math.Max(600d, width), 1),
+            Height = Math.Round(Math.Max(400d, height), 1)
+        };
+
+        try
+        {
+            await _purchaseService.SaveModalWindowLayoutAsync("productModal", QuickAddProductModalLayout);
+        }
+        catch
+        {
+            // Ignore non-critical preference save failure
+        }
     }
 
     [RelayCommand]
@@ -2137,6 +2221,7 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
         }
 
         IsQuickAddProductModalOpen = true;
+        RequestApplyQuickAddProductModalLayout?.Invoke();
         RequestFocusQuickAddProductName?.Invoke();
     }
 
@@ -2848,6 +2933,8 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
         HasOpenCashDrawer = boot.HasOpenCashDrawer;
         OpenCashDrawerBalance = boot.OpenCashDrawerExpectedBalance;
         HeldDraftsCount = boot.HeldDraftsCount;
+        ProductSearchModalLayout = boot.ProductSearchModalLayout ?? new PurchaseModalWindowLayoutDto { Width = 960, Height = 600 };
+        QuickAddProductModalLayout = boot.QuickAddProductModalLayout ?? new PurchaseModalWindowLayoutDto { Width = 800, Height = 600 };
     }
 
     private void RefreshFilteredAccounts(string paymentMethod, long? preserveCurrentAccountId)
@@ -3121,7 +3208,9 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
                     foreach (var item in results)
                         ProductSearchResults.Add(item);
                     HighlightedSearchProduct = ProductSearchResults.FirstOrDefault();
+                    OnPropertyChanged(nameof(HasProductSearchResults));
                     OnPropertyChanged(nameof(ShowEmptyProductSearchState));
+                    OnPropertyChanged(nameof(ProductSearchResultsCount));
                     OnPropertyChanged(nameof(ProductSearchFooterCountText));
                 });
             }
@@ -3140,7 +3229,9 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
         foreach (var item in results)
             ProductSearchResults.Add(item);
         HighlightedSearchProduct = ProductSearchResults.FirstOrDefault();
+        OnPropertyChanged(nameof(HasProductSearchResults));
         OnPropertyChanged(nameof(ShowEmptyProductSearchState));
+        OnPropertyChanged(nameof(ProductSearchResultsCount));
         OnPropertyChanged(nameof(ProductSearchFooterCountText));
     }
 

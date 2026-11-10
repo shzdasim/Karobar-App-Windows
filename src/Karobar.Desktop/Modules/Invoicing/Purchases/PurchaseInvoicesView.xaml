@@ -1926,204 +1926,164 @@
         </Grid>
 
         <!-- =================================================================== -->
-        <!-- MODAL 2: PRODUCT SEARCH MODAL (Exact ProductSearchInput.jsx Design) -->
+        <!-- MODAL 2: PRODUCT SEARCH MODAL (Exact ProductSearchInput.jsx Design  -->
+        <!--          with Dragging, 8-Way Resizing & Saved User Placement/Size) -->
         <!-- =================================================================== -->
-        <Grid Visibility="{Binding IsProductSearchModalOpen, Converter={StaticResource BoolToVis}}"
-              Background="#800F172A">
-            <Border Width="940" Height="560"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="20"
-                    ClipToBounds="True">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+        <Grid x:Name="ProductSearchOverlayGrid"
+              Visibility="{Binding IsProductSearchModalOpen, Converter={StaticResource BoolToVis}}"
+              Background="#73000000"
+              MouseLeftButtonDown="ProductSearchOverlay_OnMouseLeftButtonDown">
+            <Canvas x:Name="ProductSearchOverlayCanvas"
+                    SizeChanged="ProductSearchOverlayCanvas_OnSizeChanged">
+                <Border x:Name="ProductSearchDialogBorder"
+                        Canvas.Left="120"
+                        Canvas.Top="60"
+                        Width="960"
+                        Height="600"
+                        MinWidth="640"
+                        MinHeight="420"
+                        Background="#FFFFFF"
+                        BorderBrush="#CBD5E1"
+                        BorderThickness="1"
+                        CornerRadius="16">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="32" ShadowDepth="8" Direction="270" Color="#0F172A" Opacity="0.28" />
+                    </Border.Effect>
 
-                    <!-- Header Bar (.product-search-header) -->
-                    <Border Grid.Row="0" Padding="18,10" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
-                        <Border.Background>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                <GradientStop Color="#EFF6FF" Offset="0.0" />
-                                <GradientStop Color="#F5F3FF" Offset="0.6" />
-                                <GradientStop Color="#FFFFFF" Offset="1.0" />
-                            </LinearGradientBrush>
-                        </Border.Background>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                    <Grid>
+                        <!-- Inner clipped dialog content -->
+                        <Border CornerRadius="16" ClipToBounds="True">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                            <Path Grid.Column="0"
-                                  Data="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"
-                                  Fill="#2563EB" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0" />
-
-                            <Grid Grid.Column="1">
-                                <TextBox x:Name="ProductModalSearchTextBox"
-                                         Height="34" Padding="10,5" FontSize="13.5" Foreground="#0F172A"
-                                         Background="#FFFFFF" BorderThickness="0" VerticalContentAlignment="Center"
-                                         Text="{Binding ProductSearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                                         PreviewKeyDown="ProductModalSearchTextBox_OnPreviewKeyDown">
-                                    <TextBox.Template>
-                                        <ControlTemplate TargetType="TextBox">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
-                                            </Border>
-                                        </ControlTemplate>
-                                    </TextBox.Template>
-                                </TextBox>
-                                <TextBlock Text="Search by product name..." FontSize="13.5" Foreground="#94A3B8" VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed" />
+                                <!-- Draggable Header Bar (.product-search-header in ProductSearchInput.jsx:575-610) -->
+                                <Border x:Name="ProductSearchHeaderBorder"
+                                        Grid.Row="0"
+                                        Padding="20,11"
+                                        Cursor="SizeAll"
+                                        BorderBrush="#E2E8F0"
+                                        BorderThickness="0,0,0,1"
+                                        ToolTip="Drag header to move window • Drag any edge or corner to resize"
+                                        MouseLeftButtonDown="ProductSearchHeader_OnMouseLeftButtonDown"
+                                        MouseMove="ProductSearchHeader_OnMouseMove"
+                                        MouseLeftButtonUp="ProductSearchHeader_OnMouseLeftButtonUp"
+                                        LostMouseCapture="ProductSearchHeader_OnLostMouseCapture">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#FFFFFF" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Text, ElementName=ProductModalSearchTextBox}" Value="">
-                                                    <Setter Property="Visibility" Value="Visible" />
+                                                <DataTrigger Binding="{Binding IsProductSearchInputInvalid}" Value="True">
+                                                    <Setter Property="Background" Value="#FFF1F2" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Grid>
+                                    </Border.Style>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
 
-                            <Button Grid.Column="2" Style="{StaticResource RowIconBtnStyle}" Width="24" Height="24" Margin="8,0,4,0"
-                                    Visibility="{Binding HasProductSearchQuery, Converter={StaticResource BoolToVis}}"
-                                    Command="{Binding ClearProductSearchQueryCommand}" ToolTip="Clear search">
-                                <TextBlock Text="✕" FontSize="11" Foreground="#64748B" />
-                            </Button>
+                                        <!-- MagnifyingGlassIcon (w-5 h-5 text-slate-400) -->
+                                        <Path Grid.Column="0"
+                                              Data="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"
+                                              Fill="#94A3B8" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0"
+                                              IsHitTestVisible="False" />
 
-                            <Border Grid.Column="3" Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="8,0,8,0">
-                                <TextBlock Text="Esc" FontFamily="Consolas" FontSize="10" Foreground="#64748B" />
-                            </Border>
-
-                            <Button Grid.Column="4" Cursor="Hand"
-                                    Command="{Binding CloseProductSearchModalCommand}" ToolTip="Close product search">
-                                <Button.Template>
-                                                    <ControlTemplate TargetType="Button">
-                                                        <Border x:Name="CloseBd" Background="#FFF1F2" BorderBrush="#FDA4AF" BorderThickness="1" CornerRadius="10" Padding="10,4">
-                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <TextBlock Text="✕" FontSize="11" FontWeight="Bold" Foreground="#E11D48" Margin="0,0,4,0" />
-                                                                <TextBlock Text="Close" FontSize="11.5" FontWeight="Bold" Foreground="#E11D48" />
-                                                            </StackPanel>
+                                        <!-- Clean Borderless Search Input (ProductSearchInput.jsx:580-596) -->
+                                        <Grid Grid.Column="1">
+                                            <TextBox x:Name="ProductModalSearchTextBox"
+                                                     Height="34"
+                                                     Padding="4,4"
+                                                     FontSize="14"
+                                                     Foreground="#0F172A"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     Cursor="IBeam"
+                                                     VerticalContentAlignment="Center"
+                                                     Text="{Binding ProductSearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                     PreviewKeyDown="ProductModalSearchTextBox_OnPreviewKeyDown">
+                                                <TextBox.Template>
+                                                    <ControlTemplate TargetType="TextBox">
+                                                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
                                                         </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="CloseBd" Property="Background" Value="#FFE4E6" />
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
                                                     </ControlTemplate>
-                                                </Button.Template>
-                            </Button>
-                        </Grid>
-                    </Border>
+                                                </TextBox.Template>
+                                            </TextBox>
+                                            <TextBlock Text="Search by product name..." FontSize="14" Foreground="#94A3B8" VerticalAlignment="Center" Margin="6,0,0,0" IsHitTestVisible="False">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Text, ElementName=ProductModalSearchTextBox}" Value="">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
 
-                    <!-- 2-Row Grouped Table Header (ProductSearchInput.jsx:622-640) -->
-                    <Border Grid.Row="1" Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="24" />
-                                <RowDefinition Height="22" />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2.8*" />
-                                <ColumnDefinition Width="0.85*" />
-                                <ColumnDefinition Width="0.85*" />
-                                <ColumnDefinition Width="0.95*" />
-                                <ColumnDefinition Width="0.85*" />
-                                <ColumnDefinition Width="0.95*" />
-                                <ColumnDefinition Width="0.85*" />
-                                <ColumnDefinition Width="0.85*" />
-                                <ColumnDefinition Width="0.90*" />
-                            </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="2" Style="{StaticResource RowIconBtnStyle}" Width="24" Height="24" Margin="6,0,4,0"
+                                                Visibility="{Binding HasProductSearchQuery, Converter={StaticResource BoolToVis}}"
+                                                Command="{Binding ClearProductSearchQueryCommand}" ToolTip="Clear search">
+                                            <TextBlock Text="✕" FontSize="11" Foreground="#64748B" />
+                                        </Button>
 
-                            <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Background="#E2E8F0" Padding="14,0">
-                                <TextBlock Text="Product" FontSize="11.5" FontWeight="Bold" Foreground="#334155" VerticalAlignment="Center" />
-                            </Border>
-                            <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1">
-                                <TextBlock Text="PACK SIZE" FontSize="9.5" FontWeight="SemiBold" Foreground="#0891B2" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="2">
-                                <TextBlock Text="QTY" FontSize="9.5" FontWeight="SemiBold" Foreground="#0284C7" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <Border Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="2" BorderBrush="#E2E8F0" BorderThickness="1,0,0,1">
-                                <TextBlock Text="PURCHASE" FontSize="9.5" FontWeight="SemiBold" Foreground="#0891B2" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <Border Grid.Row="0" Grid.Column="5" Grid.ColumnSpan="2" BorderBrush="#E2E8F0" BorderThickness="1,0,0,1">
-                                <TextBlock Text="SALE" FontSize="9.5" FontWeight="SemiBold" Foreground="#16A34A" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="7">
-                                <TextBlock Text="AVG" FontSize="9.5" FontWeight="SemiBold" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="8">
-                                <TextBlock Text="MRG %" FontSize="9.5" FontWeight="SemiBold" Foreground="#059669" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
+                                        <!-- <kbd>Esc</kbd> Badge (ProductSearchInput.jsx:597-599) -->
+                                        <Border Grid.Column="3" Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="3" Padding="6,2" VerticalAlignment="Center" Margin="8,0,10,0">
+                                            <TextBlock Text="Esc" FontFamily="Consolas" FontSize="10" Foreground="#64748B" />
+                                        </Border>
 
-                            <Border Grid.Row="1" Grid.Column="3" BorderBrush="#CBD5E1" BorderThickness="1,0,0,0">
-                                <TextBlock Text="Pack" FontSize="10.5" FontWeight="Medium" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <Border Grid.Row="1" Grid.Column="4">
-                                <TextBlock Text="Unit" FontSize="10.5" FontWeight="Medium" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <Border Grid.Row="1" Grid.Column="5" BorderBrush="#CBD5E1" BorderThickness="1,0,0,0">
-                                <TextBlock Text="Pack" FontSize="10.5" FontWeight="Medium" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <Border Grid.Row="1" Grid.Column="6">
-                                <TextBlock Text="Unit" FontSize="10.5" FontWeight="Medium" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                        </Grid>
-                    </Border>
+                                        <!-- Rose Close Button (ProductSearchInput.jsx:600-609) -->
+                                        <Button Grid.Column="4" Cursor="Hand"
+                                                Command="{Binding CloseProductSearchModalCommand}" ToolTip="Close product search">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="CloseBd" Background="#FFF1F2" BorderBrush="#FDA4AF" BorderThickness="1" CornerRadius="10" Padding="10,4">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock x:Name="CloseIcon" Text="✕" FontSize="11" FontWeight="Bold" Foreground="#E11D48" Margin="0,0,4,0" />
+                                                            <TextBlock x:Name="CloseLbl" Text="Close" FontSize="11.5" FontWeight="Bold" Foreground="#E11D48" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="CloseBd" Property="Background" Value="#F43F5E" />
+                                                            <Setter TargetName="CloseBd" Property="BorderBrush" Value="#F43F5E" />
+                                                            <Setter TargetName="CloseIcon" Property="Foreground" Value="#FFFFFF" />
+                                                            <Setter TargetName="CloseLbl" Property="Foreground" Value="#FFFFFF" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </Grid>
+                                </Border>
 
-                    <!-- Results Table Body (ProductSearchInput.jsx:642-768) -->
-                    <Grid Grid.Row="2">
-                        <ListBox x:Name="ProductModalResultsListBox"
-                                 ItemsSource="{Binding ProductSearchResults}"
-                                 SelectedItem="{Binding HighlightedSearchProduct, Mode=TwoWay}"
-                                 BorderThickness="0"
-                                 Background="#FFFFFF"
-                                 HorizontalContentAlignment="Stretch"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 PreviewMouseLeftButtonUp="ProductModalResultsListBox_OnPreviewMouseLeftButtonUp">
-                            <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
-                                    <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Margin" Value="0" />
-                                    <Setter Property="BorderThickness" Value="0" />
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="ListBoxItem">
-                                                <Border x:Name="RowBd" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Background="#FFFFFF" Cursor="Hand">
-                                                    <Grid>
-                                                        <Border x:Name="AccentBar" Width="3" HorizontalAlignment="Left" Background="Transparent" />
-                                                        <ContentPresenter />
-                                                    </Grid>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="RowBd" Property="Background" Value="#F8FAFC" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsSelected" Value="True">
-                                                        <Setter TargetName="RowBd" Property="Background" Value="#EEF2FF" />
-                                                        <Setter TargetName="AccentBar" Property="Background" Value="#4F46E5" />
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </ListBox.ItemContainerStyle>
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,8,0,8">
+                                <!-- Sticky 2-Row Grouped Table Header (ProductSearchInput.jsx:622-640) -->
+                                <Border Grid.Row="1"
+                                        Background="#F1F5F9"
+                                        BorderBrush="#E2E8F0"
+                                        BorderThickness="0,0,0,1"
+                                        Visibility="{Binding HasProductSearchResults, Converter={StaticResource BoolToVis}}">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="24" />
+                                            <RowDefinition Height="22" />
+                                        </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="2.8*" />
-                                            <ColumnDefinition Width="0.85*" />
-                                            <ColumnDefinition Width="0.85*" />
+                                            <ColumnDefinition Width="0.90*" />
+                                            <ColumnDefinition Width="0.90*" />
                                             <ColumnDefinition Width="0.95*" />
                                             <ColumnDefinition Width="0.85*" />
                                             <ColumnDefinition Width="0.95*" />
@@ -2132,292 +2092,555 @@
                                             <ColumnDefinition Width="0.90*" />
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Col 0: Product Identity -->
-                                        <StackPanel Grid.Column="0" Margin="14,0,8,0" VerticalAlignment="Center">
-                                            <WrapPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="ExtraBold" Foreground="#0F172A" Margin="0,0,6,0" />
-                                                <TextBlock Text="{Binding BrandName}" FontSize="10.5" FontWeight="Bold" Foreground="#64748B" VerticalAlignment="Center"
-                                                           Visibility="{Binding HasBrand, Converter={StaticResource BoolToVis}}" />
-                                            </WrapPanel>
-                                            <TextBlock Text="{Binding Formulation}" FontSize="10.5" FontWeight="SemiBold" Foreground="#2563EB" Margin="0,2,0,0"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Visibility="{Binding HasFormulation, Converter={StaticResource BoolToVis}}" />
-                                            <WrapPanel Margin="0,2,0,0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding SupplierBulletText}" FontSize="10.5" FontWeight="SemiBold" Foreground="#64748B" Margin="0,0,6,0"
-                                                           Visibility="{Binding HasSupplier, Converter={StaticResource BoolToVis}}" />
-                                                <Border Background="#FEF3C7" CornerRadius="3" Padding="5,1"
-                                                        Visibility="{Binding HasRack, Converter={StaticResource BoolToVis}}">
-                                                    <TextBlock Text="{Binding RackBadgeText}" FontSize="9.5" FontWeight="Bold" Foreground="#B45309" />
-                                                </Border>
-                                            </WrapPanel>
-                                        </StackPanel>
-
-                                        <!-- Col 1: Pack Size Pill -->
-                                        <Border Grid.Column="1" Background="#CFFAFE" BorderBrush="#A5F3FC" BorderThickness="1" CornerRadius="6" Padding="8,3"
-                                                HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding PackSize}" FontSize="11.5" FontWeight="ExtraBold" Foreground="#0E7490" />
+                                        <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Background="#E2E8F0" Padding="16,0">
+                                            <TextBlock Text="Product" FontSize="12" FontWeight="Bold" Foreground="#475569" VerticalAlignment="Center" />
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="1">
+                                            <TextBlock Text="PACK SIZE" FontSize="9.5" FontWeight="SemiBold" Foreground="#0891B2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="2">
+                                            <TextBlock Text="QTY" FontSize="9.5" FontWeight="SemiBold" Foreground="#0284C7" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="2">
+                                            <TextBlock Text="PURCHASE" FontSize="9.5" FontWeight="SemiBold" Foreground="#0891B2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.Column="5" Grid.ColumnSpan="2">
+                                            <TextBlock Text="SALE" FontSize="9.5" FontWeight="SemiBold" Foreground="#16A34A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.Column="7">
+                                            <TextBlock Text="AVG" FontSize="9.5" FontWeight="SemiBold" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.Column="8">
+                                            <TextBlock Text="MRG %" FontSize="9.5" FontWeight="SemiBold" Foreground="#059669" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
 
-                                        <!-- Col 2: Qty Pill (Red when LowStock, Sky-Blue otherwise) -->
-                                        <Border Grid.Column="2" CornerRadius="10" Padding="8,3" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="#E0F2FE" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsLowStock}" Value="True">
-                                                            <Setter Property="Background" Value="#DC2626" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding StockTrendArrow}" FontSize="9.5" FontWeight="Bold" Margin="0,0,3,0" VerticalAlignment="Center">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#0369A1" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsLowStock}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#FFFFFF" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                                <TextBlock Text="{Binding Quantity}" FontSize="11.5" FontWeight="ExtraBold" VerticalAlignment="Center">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#0369A1" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsLowStock}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#FFFFFF" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </StackPanel>
+                                        <Border Grid.Row="1" Grid.Column="3" BorderBrush="#E2E8F0" BorderThickness="1,0,0,0">
+                                            <TextBlock Text="Pack" FontSize="11" FontWeight="Medium" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-
-                                        <!-- Col 3 & 4: Purchase Pack / Unit -->
-                                        <Border Grid.Column="3" BorderBrush="#F1F5F9" BorderThickness="1,0,0,0">
-                                            <TextBlock Text="{Binding PackPurchasePrice, StringFormat='{}{0:N2}'}" FontSize="12" FontWeight="ExtraBold" Foreground="#0E7490" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Border Grid.Row="1" Grid.Column="4">
+                                            <TextBlock Text="Unit" FontSize="11" FontWeight="Medium" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <TextBlock Grid.Column="4" Text="{Binding UnitPurchasePrice, StringFormat='{}{0:0.##}'}" FontSize="11.5" FontWeight="Bold" Foreground="#475569" HorizontalAlignment="Center" VerticalAlignment="Center" />
-
-                                        <!-- Col 5 & 6: Sale Pack / Unit -->
-                                        <Border Grid.Column="5" BorderBrush="#F1F5F9" BorderThickness="1,0,0,0">
-                                            <TextBlock Text="{Binding PackSalePrice, StringFormat='{}{0:N2}'}" FontSize="12" FontWeight="ExtraBold" Foreground="#15803D" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Border Grid.Row="1" Grid.Column="5" BorderBrush="#E2E8F0" BorderThickness="1,0,0,0">
+                                            <TextBlock Text="Pack" FontSize="11" FontWeight="Medium" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <TextBlock Grid.Column="6" Text="{Binding UnitSalePrice, StringFormat='{}{0:0.##}'}" FontSize="11.5" FontWeight="Bold" Foreground="#475569" HorizontalAlignment="Center" VerticalAlignment="Center" />
-
-                                        <!-- Col 7: Avg -->
-                                        <TextBlock Grid.Column="7" Text="{Binding AvgPrice, StringFormat='{}{0:0.##}'}" FontSize="11.5" FontWeight="ExtraBold" Foreground="#334155" HorizontalAlignment="Center" VerticalAlignment="Center" />
-
-                                        <!-- Col 8: Margin % Pill -->
-                                        <Border Grid.Column="8" Background="#D1FAE5" CornerRadius="10" Padding="8,3" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding MarginBadgeText}" FontSize="11" FontWeight="ExtraBold" Foreground="#047857" />
+                                        <Border Grid.Row="1" Grid.Column="6">
+                                            <TextBlock Text="Unit" FontSize="11" FontWeight="Medium" Foreground="#64748B" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
                                     </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                                </Border>
 
-                        <StackPanel Visibility="{Binding ShowEmptyProductSearchState, Converter={StaticResource BoolToVis}}"
-                                    HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Path Data="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z"
-                                  Fill="#94A3B8" Width="28" Height="28" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,8" />
-                            <TextBlock Text="No products found" FontSize="13.5" Foreground="#64748B" HorizontalAlignment="Center" />
-                        </StackPanel>
+                                <!-- Results Table Body (ProductSearchInput.jsx:642-771) -->
+                                <Grid Grid.Row="2">
+                                    <ListBox x:Name="ProductModalResultsListBox"
+                                             ItemsSource="{Binding ProductSearchResults}"
+                                             SelectedItem="{Binding HighlightedSearchProduct, Mode=TwoWay}"
+                                             BorderThickness="0"
+                                             Background="#FFFFFF"
+                                             HorizontalContentAlignment="Stretch"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                             MouseMove="ProductModalResultsListBox_OnMouseMove"
+                                             PreviewMouseLeftButtonUp="ProductModalResultsListBox_OnPreviewMouseLeftButtonUp">
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="Padding" Value="0" />
+                                                <Setter Property="Margin" Value="0" />
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListBoxItem">
+                                                            <Border x:Name="RowBd" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Background="#FFFFFF" Cursor="Hand">
+                                                                <Grid>
+                                                                    <Border x:Name="AccentBar" Width="3" HorizontalAlignment="Left" Background="Transparent" />
+                                                                    <ContentPresenter />
+                                                                </Grid>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="RowBd" Property="Background" Value="#F8FAFC" />
+                                                                </Trigger>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter TargetName="RowBd" Property="Background" Value="#EEF2FF" />
+                                                                    <Setter TargetName="AccentBar" Property="Background" Value="#4F46E5" />
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,9,0,9">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="2.8*" />
+                                                        <ColumnDefinition Width="0.90*" />
+                                                        <ColumnDefinition Width="0.90*" />
+                                                        <ColumnDefinition Width="0.95*" />
+                                                        <ColumnDefinition Width="0.85*" />
+                                                        <ColumnDefinition Width="0.95*" />
+                                                        <ColumnDefinition Width="0.85*" />
+                                                        <ColumnDefinition Width="0.85*" />
+                                                        <ColumnDefinition Width="0.90*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Col 0: Product Identity (ProductSearchInput.jsx:668-698) -->
+                                                    <StackPanel Grid.Column="0" Margin="16,0,8,0" VerticalAlignment="Center">
+                                                        <WrapPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Name}" FontSize="13.5" FontWeight="ExtraBold" Margin="0,0,6,0" TextTrimming="CharacterEllipsis">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="#0F172A" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                                                <Setter Property="Foreground" Value="#4338CA" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                            <TextBlock Text="{Binding BrandName}" FontSize="11" FontWeight="Bold" Foreground="#64748B" VerticalAlignment="Center"
+                                                                       Visibility="{Binding HasBrand, Converter={StaticResource BoolToVis}}" />
+                                                        </WrapPanel>
+                                                        <TextBlock Text="{Binding Formulation}" FontSize="11" FontWeight="SemiBold" Foreground="#2563EB" Margin="0,2,0,0"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Visibility="{Binding HasFormulation, Converter={StaticResource BoolToVis}}" />
+                                                        <WrapPanel Margin="0,2,0,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding SupplierBulletText}" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" Margin="0,0,6,0"
+                                                                       Visibility="{Binding HasSupplier, Converter={StaticResource BoolToVis}}" />
+                                                            <Border Background="#FEF3C7" CornerRadius="3" Padding="5,1"
+                                                                    Visibility="{Binding HasRack, Converter={StaticResource BoolToVis}}">
+                                                                <TextBlock Text="{Binding RackBadgeText}" FontSize="10" FontWeight="Bold" Foreground="#B45309" />
+                                                            </Border>
+                                                        </WrapPanel>
+                                                    </StackPanel>
+
+                                                    <!-- Col 1: Pack Size Badge with TagIcon (ProductSearchInput.jsx:700-710) -->
+                                                    <Border Grid.Column="1" Background="#CFFAFE" BorderBrush="#A5F3FC" BorderThickness="1" CornerRadius="6" Padding="8,3"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Path Data="M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.45 21.77,11.94 21.41,11.58Z"
+                                                                  Fill="#0E7490" Width="11" Height="11" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding PackSize}" FontSize="12" FontWeight="ExtraBold" Foreground="#0E7490" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Col 2: Qty Pill with SVG Chevron (ProductSearchInput.jsx:712-736) -->
+                                                    <Border Grid.Column="2" CornerRadius="12" Padding="9,3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="#E0F2FE" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsLowStock}" Value="True">
+                                                                        <Setter Property="Background" Value="#DC2626" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Path Width="9" Height="9" Stretch="Uniform" StrokeThickness="2.4" Margin="0,0,4,0" VerticalAlignment="Center">
+                                                                <Path.Style>
+                                                                    <Style TargetType="Path">
+                                                                        <Setter Property="Data" Value="M6,15 L12,9 L18,15" />
+                                                                        <Setter Property="Stroke" Value="#0369A1" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsLowStock}" Value="True">
+                                                                                <Setter Property="Data" Value="M6,9 L12,15 L18,9" />
+                                                                                <Setter Property="Stroke" Value="#FFFFFF" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Path.Style>
+                                                            </Path>
+                                                            <TextBlock Text="{Binding Quantity}" FontSize="12" FontWeight="ExtraBold" VerticalAlignment="Center">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="#0369A1" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsLowStock}" Value="True">
+                                                                                <Setter Property="Foreground" Value="#FFFFFF" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Col 3 & 4: Purchase Pack / Unit (ProductSearchInput.jsx:738-744) -->
+                                                    <Border Grid.Column="3" BorderBrush="#F1F5F9" BorderThickness="1,0,0,0">
+                                                        <TextBlock Text="{Binding FormattedPackPurchasePrice}" FontSize="12" FontWeight="ExtraBold" Foreground="#0E7490" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <TextBlock Grid.Column="4" Text="{Binding FormattedUnitPurchasePrice}" FontSize="12" FontWeight="Bold" Foreground="#475569" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                                    <!-- Col 5 & 6: Sale Pack / Unit (ProductSearchInput.jsx:746-752) -->
+                                                    <Border Grid.Column="5" BorderBrush="#F1F5F9" BorderThickness="1,0,0,0">
+                                                        <TextBlock Text="{Binding FormattedPackSalePrice}" FontSize="12" FontWeight="ExtraBold" Foreground="#15803D" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                    <TextBlock Grid.Column="6" Text="{Binding FormattedUnitSalePrice}" FontSize="12" FontWeight="Bold" Foreground="#475569" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                                    <!-- Col 7: Avg (ProductSearchInput.jsx:754-757) -->
+                                                    <TextBlock Grid.Column="7" Text="{Binding FormattedAvgPrice}" FontSize="12" FontWeight="ExtraBold" Foreground="#334155" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                                    <!-- Col 8: Margin % Pill (ProductSearchInput.jsx:759-764) -->
+                                                    <Border Grid.Column="8" Background="#D1FAE5" CornerRadius="12" Padding="9,3" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding MarginBadgeText}" FontSize="11.5" FontWeight="ExtraBold" Foreground="#047857" />
+                                                    </Border>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <!-- Empty State (ProductSearchInput.jsx:613-617) -->
+                                    <StackPanel Visibility="{Binding ShowEmptyProductSearchState, Converter={StaticResource BoolToVis}}"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Path Data="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z"
+                                              Fill="#94A3B8" Width="30" Height="30" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,8" />
+                                        <TextBlock Text="No products found" FontSize="14" Foreground="#94A3B8" HorizontalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Footer Toolbar (.product-search-footer in ProductSearchInput.jsx:774-803) -->
+                                <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,8">
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                            <TextBlock Text="All products" FontSize="12" Foreground="#64748B" VerticalAlignment="Center"
+                                                       Visibility="{Binding ShowAllProductsFooterText, Converter={StaticResource BoolToVis}}" />
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                                        Visibility="{Binding HasProductSearchQuery, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="{Binding ProductSearchResultsCount}" FontSize="12" FontWeight="Bold" Foreground="#64748B" />
+                                                <TextBlock Text=" results for " FontSize="12" Foreground="#64748B" />
+                                                <TextBlock Text="{Binding ProductSearchTrimmedQueryText}" FontSize="12" FontWeight="Medium" Foreground="#64748B" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="3" Padding="5,1" Margin="0,0,4,0">
+                                                <TextBlock Text="↑↓" FontSize="9.5" Foreground="#94A3B8" />
+                                            </Border>
+                                            <TextBlock Text="Navigate" FontSize="10.5" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                            <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="3" Padding="5,1" Margin="0,0,4,0">
+                                                <TextBlock Text="↵" FontSize="9.5" Foreground="#94A3B8" />
+                                            </Border>
+                                            <TextBlock Text="Select" FontSize="10.5" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                            <Button Cursor="Hand"
+                                                    Command="{Binding CloseProductSearchModalCommand}">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="FooterCloseBd" Background="#E2E8F0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Padding="8,2">
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <TextBlock x:Name="FooterCloseX" Text="✕" FontSize="9.5" FontWeight="Bold" Foreground="#334155" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                                <TextBlock x:Name="FooterCloseTxt" Text="Close (Esc)" FontSize="10.5" FontWeight="Bold" Foreground="#334155" VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="FooterCloseBd" Property="Background" Value="#F43F5E" />
+                                                                <Setter TargetName="FooterCloseBd" Property="BorderBrush" Value="#F43F5E" />
+                                                                <Setter TargetName="FooterCloseX" Property="Foreground" Value="#FFFFFF" />
+                                                                <Setter TargetName="FooterCloseTxt" Property="Foreground" Value="#FFFFFF" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <!-- 8-Way Resize Handles (n, s, e, w, ne, nw, se, sw) matching ProductSearchInput.jsx:487-506 -->
+                        <Border Tag="n" VerticalAlignment="Top" Height="6" Margin="12,0,12,0" Background="Transparent" Cursor="SizeNS" Panel.ZIndex="30"
+                                MouseLeftButtonDown="ProductSearchResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="ProductSearchResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="ProductSearchResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="ProductSearchResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="s" VerticalAlignment="Bottom" Height="6" Margin="12,0,12,0" Background="Transparent" Cursor="SizeNS" Panel.ZIndex="30"
+                                MouseLeftButtonDown="ProductSearchResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="ProductSearchResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="ProductSearchResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="ProductSearchResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="e" HorizontalAlignment="Right" Width="6" Margin="0,12,0,12" Background="Transparent" Cursor="SizeWE" Panel.ZIndex="30"
+                                MouseLeftButtonDown="ProductSearchResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="ProductSearchResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="ProductSearchResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="ProductSearchResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="w" HorizontalAlignment="Left" Width="6" Margin="0,12,0,12" Background="Transparent" Cursor="SizeWE" Panel.ZIndex="30"
+                                MouseLeftButtonDown="ProductSearchResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="ProductSearchResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="ProductSearchResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="ProductSearchResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="ne" HorizontalAlignment="Right" VerticalAlignment="Top" Width="14" Height="14" Background="Transparent" Cursor="SizeNESW" Panel.ZIndex="31"
+                                MouseLeftButtonDown="ProductSearchResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="ProductSearchResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="ProductSearchResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="ProductSearchResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="nw" HorizontalAlignment="Left" VerticalAlignment="Top" Width="14" Height="14" Background="Transparent" Cursor="SizeNWSE" Panel.ZIndex="31"
+                                MouseLeftButtonDown="ProductSearchResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="ProductSearchResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="ProductSearchResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="ProductSearchResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="sw" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="14" Height="14" Background="Transparent" Cursor="SizeNESW" Panel.ZIndex="31"
+                                MouseLeftButtonDown="ProductSearchResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="ProductSearchResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="ProductSearchResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="ProductSearchResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="se" HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="16" Height="16" Background="Transparent" Cursor="SizeNWSE" Panel.ZIndex="31"
+                                ToolTip="Drag to resize window"
+                                MouseLeftButtonDown="ProductSearchResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="ProductSearchResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="ProductSearchResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="ProductSearchResizeHandle_OnLostMouseCapture">
+                            <Path Data="M10,14 L14,10 M6,14 L14,6" Stroke="#94A3B8" StrokeThickness="1.3" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,3,3" IsHitTestVisible="False" />
+                        </Border>
                     </Grid>
-
-                    <!-- Footer Toolbar (ProductSearchInput.jsx:774-804) -->
-                    <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,8">
-                        <Grid>
-                            <TextBlock Text="{Binding ProductSearchFooterCountText}" FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center" HorizontalAlignment="Left" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="3" Padding="5,1" Margin="0,0,4,0">
-                                    <TextBlock Text="↑↓" FontSize="9.5" Foreground="#94A3B8" />
-                                </Border>
-                                <TextBlock Text="Navigate" FontSize="10.5" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,12,0" />
-                                <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="3" Padding="5,1" Margin="0,0,4,0">
-                                    <TextBlock Text="↵" FontSize="9.5" Foreground="#94A3B8" />
-                                </Border>
-                                <TextBlock Text="Select" FontSize="10.5" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,12,0" />
-                                <Button Style="{StaticResource OutlineBtnStyle}" Padding="8,2" FontSize="10.5"
-                                        Command="{Binding CloseProductSearchModalCommand}" Content="✕ Close (Esc)" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </Grid>
-            </Border>
+                </Border>
+            </Canvas>
         </Grid>
 
         <!-- =================================================================== -->
-        <!-- MODAL 3: QUICK "+ ADD PRODUCT" MODAL (Exact ProductFormModal.jsx)   -->
+        <!-- MODAL 3: QUICK "+ ADD PRODUCT" MODAL (Exact ProductFormModal.jsx    -->
+        <!--          with Dragging, 8-Way Resizing & Saved User Placement/Size) -->
         <!-- =================================================================== -->
-        <Grid Visibility="{Binding IsQuickAddProductModalOpen, Converter={StaticResource BoolToVis}}"
-              Background="#800F172A">
-            <Border Width="720"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="20"
-                    ClipToBounds="True">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+        <Grid x:Name="QuickAddProductOverlayGrid"
+              Visibility="{Binding IsQuickAddProductModalOpen, Converter={StaticResource BoolToVis}}"
+              Background="#73000000"
+              MouseLeftButtonDown="QuickAddProductOverlay_OnMouseLeftButtonDown">
+            <Canvas x:Name="QuickAddProductOverlayCanvas"
+                    SizeChanged="QuickAddProductOverlayCanvas_OnSizeChanged">
+                <Border x:Name="QuickAddProductDialogBorder"
+                        Canvas.Left="160"
+                        Canvas.Top="70"
+                        Width="800"
+                        Height="560"
+                        MinWidth="600"
+                        MinHeight="400"
+                        Background="#FFFFFF"
+                        BorderBrush="#CBD5E1"
+                        BorderThickness="1"
+                        CornerRadius="20">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="32" ShadowDepth="8" Direction="270" Color="#0F172A" Opacity="0.28" />
+                    </Border.Effect>
 
-                    <!-- Header (.product-modal-header) -->
-                    <Border Grid.Row="0" Padding="16,12" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
-                        <Border.Background>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                <GradientStop Color="#EFF6FF" Offset="0.0" />
-                                <GradientStop Color="#F5F3FF" Offset="0.6" />
-                                <GradientStop Color="#FFFFFF" Offset="1.0" />
-                            </LinearGradientBrush>
-                        </Border.Background>
-                        <Grid>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border Width="38" Height="38" CornerRadius="10" Background="#DBEAFE" Margin="0,0,12,0">
-                                    <Path Data="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z"
-                                          Fill="#2563EB" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Add New Product" FontSize="15" FontWeight="SemiBold" Foreground="#0F172A" />
-                                    <TextBlock Text="Product details and inventory classification" FontSize="11.5" Foreground="#64748B" />
-                                </StackPanel>
-                            </StackPanel>
-                            <Button Style="{StaticResource RowIconBtnStyle}" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                    Command="{Binding CloseQuickAddProductModalCommand}">
-                                <TextBlock Text="✕" FontSize="13" Foreground="#64748B" />
-                            </Button>
-                        </Grid>
-                    </Border>
+                    <Grid>
+                        <Border CornerRadius="20" ClipToBounds="True">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                    <!-- Body (.product-modal-body) -->
-                    <Border Grid.Row="1" Background="#F8FAFC" Padding="18,14">
-                        <StackPanel>
-                            <!-- Row 1: Product Code / Barcode / Rack -->
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Product Code" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
-                                    <Border Style="{StaticResource ReadOnlyBoxStyle}" Height="32">
-                                        <TextBlock Text="{Binding NewProdCode}" FontFamily="Consolas" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" />
-                                    </Border>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <Grid Margin="0,0,0,4">
-                                        <TextBlock Text="Barcode" FontSize="11.5" FontWeight="Medium" Foreground="#334155" />
-                                        <Button Cursor="Hand" HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Padding="0"
-                                                Command="{Binding RegenerateQuickProductBarcodeCommand}">
-                                            <TextBlock Text="Auto-generate" FontSize="10.5" FontWeight="SemiBold" Foreground="#2563EB" />
+                                <!-- Draggable Header (.product-modal-header) -->
+                                <Border Grid.Row="0"
+                                        Padding="16,12"
+                                        Cursor="SizeAll"
+                                        BorderBrush="#E2E8F0"
+                                        BorderThickness="0,0,0,1"
+                                        ToolTip="Drag header to move window • Drag any edge or corner to resize"
+                                        MouseLeftButtonDown="QuickAddProductHeader_OnMouseLeftButtonDown"
+                                        MouseMove="QuickAddProductHeader_OnMouseMove"
+                                        MouseLeftButtonUp="QuickAddProductHeader_OnMouseLeftButtonUp"
+                                        LostMouseCapture="QuickAddProductHeader_OnLostMouseCapture">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#EFF6FF" Offset="0.0" />
+                                            <GradientStop Color="#F5F3FF" Offset="0.6" />
+                                            <GradientStop Color="#FFFFFF" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" IsHitTestVisible="False">
+                                            <Border Width="38" Height="38" CornerRadius="10" Background="#DBEAFE" Margin="0,0,12,0">
+                                                <Path Data="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5Z"
+                                                      Fill="#2563EB" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="Add New Product" FontSize="15" FontWeight="SemiBold" Foreground="#0F172A" />
+                                                <TextBlock Text="Product details and inventory classification" FontSize="11.5" Foreground="#64748B" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Button Style="{StaticResource RowIconBtnStyle}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                Command="{Binding CloseQuickAddProductModalCommand}">
+                                            <TextBlock Text="✕" FontSize="13" Foreground="#64748B" />
                                         </Button>
                                     </Grid>
-                                    <TextBox Style="{StaticResource WebInputStyle}" Height="32" Text="{Binding NewProdBarcode, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="4">
-                                    <TextBlock Text="Rack" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
-                                    <TextBox Style="{StaticResource WebInputStyle}" Height="32" Text="{Binding NewProdRack, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
+                                </Border>
+
+                                <!-- Body (.product-modal-body) -->
+                                <Border Grid.Row="1" Background="#F8FAFC" Padding="18,14">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel>
+                                            <!-- Row 1: Product Code / Barcode / Rack -->
+                                            <Grid Margin="0,0,0,12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Product Code" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
+                                                    <Border Style="{StaticResource ReadOnlyBoxStyle}" Height="32">
+                                                        <TextBlock Text="{Binding NewProdCode}" FontFamily="Consolas" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <Grid Margin="0,0,0,4">
+                                                        <TextBlock Text="Barcode" FontSize="11.5" FontWeight="Medium" Foreground="#334155" />
+                                                        <Button Cursor="Hand" HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Padding="0"
+                                                                Command="{Binding RegenerateQuickProductBarcodeCommand}">
+                                                            <TextBlock Text="Auto-generate" FontSize="10.5" FontWeight="SemiBold" Foreground="#2563EB" />
+                                                        </Button>
+                                                    </Grid>
+                                                    <TextBox Style="{StaticResource WebInputStyle}" Height="32" Text="{Binding NewProdBarcode, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="Rack" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
+                                                    <TextBox Style="{StaticResource WebInputStyle}" Height="32" Text="{Binding NewProdRack, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Row 2: Name * / Formulation / Pack Size -->
+                                            <Grid Margin="0,0,0,12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.3*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="1.2*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="0.7*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Name *" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
+                                                    <TextBox x:Name="QuickAddProductNameTextBox" Style="{StaticResource WebInputStyle}" Height="32"
+                                                             Text="{Binding NewProdName, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Formulation (Generic / Salt)" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
+                                                    <local:SearchableSelect ItemsSource="{Binding QuickProductFormulations}"
+                                                                            SelectedItem="{Binding SelectedNewProdFormulationOption, Mode=TwoWay}"
+                                                                            Text="{Binding NewProdFormulation, Mode=TwoWay}"
+                                                                            DisplayMemberPath="Name"
+                                                                            Placeholder="Search or type formulation..."
+                                                                            IsCreatable="True"
+                                                                            IsClearable="True" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="Pack Size" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
+                                                    <TextBox Style="{StaticResource WebInputStyle}" Height="32" Text="{Binding NewProdPackSizeText, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Row 3: Category / Brand / Supplier -->
+                                            <Grid Margin="0,0,0,12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Category" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
+                                                    <local:SearchableSelect ItemsSource="{Binding QuickProductCategories}"
+                                                                            SelectedItem="{Binding SelectedNewProdCategory, Mode=TwoWay}"
+                                                                            DisplayMemberPath="Name"
+                                                                            Placeholder="Select..." />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Brand" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
+                                                    <local:SearchableSelect ItemsSource="{Binding QuickProductBrands}"
+                                                                            SelectedItem="{Binding SelectedNewProdBrand, Mode=TwoWay}"
+                                                                            DisplayMemberPath="Name"
+                                                                            Placeholder="Search brand..." />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4">
+                                                    <TextBlock Text="Supplier" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
+                                                    <local:SearchableSelect ItemsSource="{Binding QuickProductSuppliers}"
+                                                                            SelectedItem="{Binding SelectedNewProdSupplier, Mode=TwoWay}"
+                                                                            DisplayMemberPath="Name"
+                                                                            Placeholder="Select..." />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Row 4: Description + Narcotic -->
+                                            <TextBlock Text="Description" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
+                                            <TextBox Style="{StaticResource WebInputStyle}" Height="56" TextWrapping="Wrap" AcceptsReturn="True"
+                                                     Text="{Binding NewProdDescription, UpdateSourceTrigger=PropertyChanged}" />
+
+                                            <CheckBox Content="Narcotic" IsChecked="{Binding NewProdIsNarcotic, Mode=TwoWay}"
+                                                      FontSize="12" Foreground="#334155" Margin="0,10,0,0"
+                                                      Visibility="{Binding IsPharmacyShop, Converter={StaticResource BoolToVis}}" />
+
+                                            <TextBlock Text="{Binding NewProdError}" FontSize="11.5" FontWeight="SemiBold" Foreground="#DC2626" Margin="0,6,0,0" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </Border>
+
+                                <!-- Footer (.product-modal-footer) -->
+                                <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,12">
+                                    <Grid>
+                                        <TextBlock Text="Alt+S to save • Esc to close" FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Style="{StaticResource OutlineBtnStyle}" Padding="14,7" Margin="0,0,8,0"
+                                                    Command="{Binding CloseQuickAddProductModalCommand}" Content="Cancel" />
+                                            <Button Style="{StaticResource PrimaryBtnStyle}" Padding="16,7"
+                                                    Command="{Binding SaveQuickAddProductCommand}" Content="Save Product" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
                             </Grid>
+                        </Border>
 
-                            <!-- Row 2: Name * / Formulation / Pack Size -->
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.3*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="1.2*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="0.7*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Name *" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
-                                    <TextBox x:Name="QuickAddProductNameTextBox" Style="{StaticResource WebInputStyle}" Height="32"
-                                             Text="{Binding NewProdName, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Formulation (Generic / Salt)" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
-                                    <local:SearchableSelect ItemsSource="{Binding QuickProductFormulations}"
-                                                            SelectedItem="{Binding SelectedNewProdFormulationOption, Mode=TwoWay}"
-                                                            Text="{Binding NewProdFormulation, Mode=TwoWay}"
-                                                            DisplayMemberPath="Name"
-                                                            Placeholder="Search or type formulation..."
-                                                            IsCreatable="True"
-                                                            IsClearable="True" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="4">
-                                    <TextBlock Text="Pack Size" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
-                                    <TextBox Style="{StaticResource WebInputStyle}" Height="32" Text="{Binding NewProdPackSizeText, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- Row 3: Category / Brand / Supplier -->
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="12" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Category" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
-                                    <local:SearchableSelect ItemsSource="{Binding QuickProductCategories}"
-                                                            SelectedItem="{Binding SelectedNewProdCategory, Mode=TwoWay}"
-                                                            DisplayMemberPath="Name"
-                                                            Placeholder="Select..." />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Brand" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
-                                    <local:SearchableSelect ItemsSource="{Binding QuickProductBrands}"
-                                                            SelectedItem="{Binding SelectedNewProdBrand, Mode=TwoWay}"
-                                                            DisplayMemberPath="Name"
-                                                            Placeholder="Search brand..." />
-                                </StackPanel>
-                                <StackPanel Grid.Column="4">
-                                    <TextBlock Text="Supplier" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
-                                    <local:SearchableSelect ItemsSource="{Binding QuickProductSuppliers}"
-                                                            SelectedItem="{Binding SelectedNewProdSupplier, Mode=TwoWay}"
-                                                            DisplayMemberPath="Name"
-                                                            Placeholder="Select..." />
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- Row 4: Description + Narcotic -->
-                            <TextBlock Text="Description" FontSize="11.5" FontWeight="Medium" Foreground="#334155" Margin="0,0,0,4" />
-                            <TextBox Style="{StaticResource WebInputStyle}" Height="56" TextWrapping="Wrap" AcceptsReturn="True"
-                                     Text="{Binding NewProdDescription, UpdateSourceTrigger=PropertyChanged}" />
-
-                            <CheckBox Content="Narcotic" IsChecked="{Binding NewProdIsNarcotic, Mode=TwoWay}"
-                                      FontSize="12" Foreground="#334155" Margin="0,10,0,0"
-                                      Visibility="{Binding IsPharmacyShop, Converter={StaticResource BoolToVis}}" />
-
-                            <TextBlock Text="{Binding NewProdError}" FontSize="11.5" FontWeight="SemiBold" Foreground="#DC2626" Margin="0,6,0,0" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Footer (.product-modal-footer) -->
-                    <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,12">
-                        <Grid>
-                            <TextBlock Text="Alt+S to save • Esc to close" FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center" HorizontalAlignment="Left" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Style="{StaticResource OutlineBtnStyle}" Padding="14,7" Margin="0,0,8,0"
-                                        Command="{Binding CloseQuickAddProductModalCommand}" Content="Cancel" />
-                                <Button Style="{StaticResource PrimaryBtnStyle}" Padding="16,7"
-                                        Command="{Binding SaveQuickAddProductCommand}" Content="Save Product" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </Grid>
-            </Border>
+                        <!-- 8-Way Resize Handles for Quick Add Product Modal -->
+                        <Border Tag="n" VerticalAlignment="Top" Height="6" Margin="12,0,12,0" Background="Transparent" Cursor="SizeNS" Panel.ZIndex="30"
+                                MouseLeftButtonDown="QuickAddProductResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="QuickAddProductResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="QuickAddProductResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="QuickAddProductResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="s" VerticalAlignment="Bottom" Height="6" Margin="12,0,12,0" Background="Transparent" Cursor="SizeNS" Panel.ZIndex="30"
+                                MouseLeftButtonDown="QuickAddProductResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="QuickAddProductResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="QuickAddProductResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="QuickAddProductResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="e" HorizontalAlignment="Right" Width="6" Margin="0,12,0,12" Background="Transparent" Cursor="SizeWE" Panel.ZIndex="30"
+                                MouseLeftButtonDown="QuickAddProductResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="QuickAddProductResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="QuickAddProductResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="QuickAddProductResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="w" HorizontalAlignment="Left" Width="6" Margin="0,12,0,12" Background="Transparent" Cursor="SizeWE" Panel.ZIndex="30"
+                                MouseLeftButtonDown="QuickAddProductResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="QuickAddProductResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="QuickAddProductResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="QuickAddProductResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="ne" HorizontalAlignment="Right" VerticalAlignment="Top" Width="14" Height="14" Background="Transparent" Cursor="SizeNESW" Panel.ZIndex="31"
+                                MouseLeftButtonDown="QuickAddProductResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="QuickAddProductResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="QuickAddProductResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="QuickAddProductResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="nw" HorizontalAlignment="Left" VerticalAlignment="Top" Width="14" Height="14" Background="Transparent" Cursor="SizeNWSE" Panel.ZIndex="31"
+                                MouseLeftButtonDown="QuickAddProductResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="QuickAddProductResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="QuickAddProductResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="QuickAddProductResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="sw" HorizontalAlignment="Left" VerticalAlignment="Bottom" Width="14" Height="14" Background="Transparent" Cursor="SizeNESW" Panel.ZIndex="31"
+                                MouseLeftButtonDown="QuickAddProductResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="QuickAddProductResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="QuickAddProductResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="QuickAddProductResizeHandle_OnLostMouseCapture" />
+                        <Border Tag="se" HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="16" Height="16" Background="Transparent" Cursor="SizeNWSE" Panel.ZIndex="31"
+                                ToolTip="Drag to resize window"
+                                MouseLeftButtonDown="QuickAddProductResizeHandle_OnMouseLeftButtonDown"
+                                MouseMove="QuickAddProductResizeHandle_OnMouseMove"
+                                MouseLeftButtonUp="QuickAddProductResizeHandle_OnMouseLeftButtonUp"
+                                LostMouseCapture="QuickAddProductResizeHandle_OnLostMouseCapture">
+                            <Path Data="M10,14 L14,10 M6,14 L14,6" Stroke="#94A3B8" StrokeThickness="1.3" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,3,3" IsHitTestVisible="False" />
+                        </Border>
+                    </Grid>
+                </Border>
+            </Canvas>
         </Grid>
 
         <!-- =================================================================== -->

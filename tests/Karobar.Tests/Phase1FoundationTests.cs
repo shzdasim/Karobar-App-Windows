@@ -1115,6 +1115,31 @@ public sealed class Phase1FoundationTests
                 var drawerFinal = await checkDb4.CashDrawerSessions.AsNoTracking().SingleAsync(s => s.Status == "open");
                 drawerFinal.ExpectedClosingBalance.Should().Be(50000m); // All cash refunded
             }
+
+            // Verify ProductSearchInput.jsx / ProductFormModal.jsx Modal Window Size & Placement Persistence per User
+            var defaultLayout = await purchases.GetModalWindowLayoutAsync("productSearchModal", session.UserId);
+            defaultLayout.Width.Should().Be(960d);
+            defaultLayout.Height.Should().Be(600d);
+            defaultLayout.HasSavedPosition.Should().BeFalse();
+
+            await purchases.SaveModalWindowLayoutAsync(
+                "productSearchModal",
+                new PurchaseModalWindowLayoutDto { X = 148.5, Y = 84.0, Width = 1080.0, Height = 680.0 },
+                session.UserId);
+
+            // Also test MIN_WIDTH (640) & MIN_HEIGHT (420) clamping on save/read
+            var savedSearchLayout = await purchases.GetModalWindowLayoutAsync("productSearchModal", session.UserId);
+            savedSearchLayout.HasSavedPosition.Should().BeTrue();
+            savedSearchLayout.X.Should().Be(148.5);
+            savedSearchLayout.Y.Should().Be(84.0);
+            savedSearchLayout.Width.Should().Be(1080.0);
+            savedSearchLayout.Height.Should().Be(680.0);
+
+            var bootAfterLayoutSave = await purchases.GetFormBootstrapAsync();
+            bootAfterLayoutSave.ProductSearchModalLayout.Width.Should().Be(1080.0);
+            bootAfterLayoutSave.ProductSearchModalLayout.Height.Should().Be(680.0);
+            bootAfterLayoutSave.ProductSearchModalLayout.X.Should().Be(148.5);
+            bootAfterLayoutSave.ProductSearchModalLayout.Y.Should().Be(84.0);
         }
         finally
         {

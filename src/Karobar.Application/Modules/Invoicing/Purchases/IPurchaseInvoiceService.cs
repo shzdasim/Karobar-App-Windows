@@ -127,6 +127,15 @@ public sealed class ReceivablePurchaseOrderLookupDto
     public string DisplayLabel => $"{OrderNumber} — {SupplierName} ({RemainingUnits} units pending)";
 }
 
+public sealed class PurchaseModalWindowLayoutDto
+{
+    public double? X { get; set; }
+    public double? Y { get; set; }
+    public double Width { get; set; } = 960;
+    public double Height { get; set; } = 600;
+    public bool HasSavedPosition => X.HasValue && Y.HasValue;
+}
+
 public sealed class PurchaseFormBootstrapDto
 {
     public string NextPostedNumber { get; set; } = "PRINV-0001";
@@ -138,6 +147,8 @@ public sealed class PurchaseFormBootstrapDto
     public DateTime? OpenCashDrawerOpenedAt { get; set; }
     public decimal OpenCashDrawerExpectedBalance { get; set; }
     public int HeldDraftsCount { get; set; }
+    public PurchaseModalWindowLayoutDto ProductSearchModalLayout { get; set; } = new() { Width = 960, Height = 600 };
+    public PurchaseModalWindowLayoutDto QuickAddProductModalLayout { get; set; } = new() { Width = 800, Height = 600 };
 }
 
 public sealed class PurchaseProductBatchOptionDto
@@ -185,6 +196,11 @@ public sealed class PurchaseProductSearchItemDto
     public string RackBadgeText => HasRack ? $"Rack: {Rack}" : string.Empty;
     public string StockTrendArrow => IsLowStock ? "▼" : "▲";
     public string MarginBadgeText => Margin.HasValue ? $"{Margin.Value:0.##}%" : "—";
+    public string FormattedPackPurchasePrice => PackPurchasePrice.ToString("#,##0.###");
+    public string FormattedUnitPurchasePrice => UnitPurchasePrice.ToString("#,##0.###");
+    public string FormattedPackSalePrice => PackSalePrice.ToString("#,##0.###");
+    public string FormattedUnitSalePrice => UnitSalePrice.ToString("#,##0.###");
+    public string FormattedAvgPrice => AvgPrice.ToString("#,##0.###");
     public List<PurchaseProductBatchOptionDto> Batches { get; set; } = [];
 }
 
@@ -452,4 +468,15 @@ public interface IPurchaseInvoiceService
     Task<List<HeldPurchaseDraftSummaryDto>> GetHeldDraftsAsync(CancellationToken cancellationToken = default);
     Task<HeldPurchaseDraftDetailDto?> GetDraftByIdAsync(long draftId, CancellationToken cancellationToken = default);
     Task<bool> DeleteDraftAsync(long draftId, CancellationToken cancellationToken = default);
+
+    // User Modal Window Size & Placement Preferences (ProductSearchInput.jsx / ProductFormModal.jsx parity)
+    Task<PurchaseModalWindowLayoutDto> GetModalWindowLayoutAsync(
+        string modalKey = "productSearchModal",
+        long? actorUserId = null,
+        CancellationToken cancellationToken = default);
+    Task SaveModalWindowLayoutAsync(
+        string modalKey,
+        PurchaseModalWindowLayoutDto layout,
+        long? actorUserId = null,
+        CancellationToken cancellationToken = default);
 }

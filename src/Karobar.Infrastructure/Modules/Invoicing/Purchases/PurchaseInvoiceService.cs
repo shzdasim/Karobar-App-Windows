@@ -86,6 +86,9 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
                 d.DeletedAt == null,
                 cancellationToken);
 
+        var productSearchLayout = await ReadModalWindowLayoutInternalAsync(db, "productSearchModal", null, cancellationToken);
+        var quickAddProductLayout = await ReadModalWindowLayoutInternalAsync(db, "productModal", null, cancellationToken);
+
         return new PurchaseFormBootstrapDto
         {
             NextPostedNumber = nextCode,
@@ -96,7 +99,9 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
             HasOpenCashDrawer = openSession != null,
             OpenCashDrawerOpenedAt = openSession?.OpenedAt,
             OpenCashDrawerExpectedBalance = openSession?.ExpectedClosingBalance ?? 0m,
-            HeldDraftsCount = heldDraftsCount
+            HeldDraftsCount = heldDraftsCount,
+            ProductSearchModalLayout = productSearchLayout,
+            QuickAddProductModalLayout = quickAddProductLayout
         };
     }
 
@@ -2024,6 +2029,281 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
         draft.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    // =========================================================================
+    // 8. MODAL WINDOW SIZE & PLACEMENT PREFERENCES (ProductSearchInput.jsx)
+    // =========================================================================
+
+    public async Task<PurchaseModalWindowLayoutDto> GetModalWindowLayoutAsync(
+        string modalKey = "productSearchModal",
+        long? actorUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        return await ReadModalWindowLayoutInternalAsync(db, modalKey, actorUserId, cancellationToken);
+    }
+
+    public async Task SaveModalWindowLayoutAsync(
+        string modalKey,
+        PurchaseModalWindowLayoutDto layout,
+        long? actorUserId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (layout == null)
+            return;
+
+        var cleanKey = string.IsNullOrWhiteSpace(modalKey) ? "productSearchModal" : modalKey.Trim();
+        var isQuickAdd = string.Equals(cleanKey, "productModal", StringComparison.OrdinalIgnoreCase);
+        double minW = isQuickAdd ? 600d : 640d;
+        double minH = isQuickAdd ? 400d : 420d;
+        double safeW = Math.Round(Math.Max(minW, layout.Width), 1);
+        double safeH = Math.Round(Math.Max(minH, layout.Height), 1);
+
+        var posKey = $"{cleanKey}Pos";
+        var sizeKey = $"{cleanKey}Size";
+
+        await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
+        var effectiveUserId = await ResolvePreferenceUserIdAsync(db, actorUserId, cancellationToken);
+        var now = DateTime.UtcNow;
+
+        var sizeJson = JsonSerializer.Serialize(new { width = safeW, height = safeH });
+        await UpsertUserPreferenceRowAsync(db, effectiveUserId, sizeKey, sizeJson, now, cancellationToken);
+
+        string? posJson = null;
+        if (layout.X.HasValue && layout.Y.HasValue &&
+            double.IsFinite(layout.X.Value) && double.IsFinite(layout.Y.Value))
+        {
+            var safeX = Math.Round(layout.X.Value, 1);
+            var safeY = Math.Round(layout.Y.Value, 1);
+            posJson = JsonSerializer.Serialize(new { x = safeX, y = safeY });
+            await UpsertUserPreferenceRowAsync(db, effectiveUserId, posKey, posJson, now, cancellationToken);
+        }
+
+        // Also sync users.preferences JSON column for 100% Laravel UserPreferenceController parity
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == effectiveUserId, cancellationToken);
+        if (user != null)
+        {
+            var dict = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+            if (!string.IsNullOrWhiteSpace(user.Preferences))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(user.Preferences);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var prop in doc.RootElement.EnumerateObject())
+                        {
+                            dict[prop.Name] = prop.Value.Clone();
+                        }
+                    }
+                }
+                catch
+                {
+                    // Ignore malformed legacy JSON
+                }
+            }
+
+            using var sizeDoc = JsonDocument.Parse(sizeJson);
+            dict[sizeKey] = sizeDoc.RootElement.Clone();
+
+            if (posJson != null)
+            {
+                using var posDoc = JsonDocument.Parse(posJson);
+                dict[posKey] = posDoc.RootElement.Clone();
+            }
+
+            user.Preferences = JsonSerializer.Serialize(dict);
+            user.UpdatedAt = now;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<PurchaseModalWindowLayoutDto> ReadModalWindowLayoutInternalAsync(
+        KarobarDbContext db,
+        string modalKey,
+        long? actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var cleanKey = string.IsNullOrWhiteSpace(modalKey) ? "productSearchModal" : modalKey.Trim();
+        var isQuickAdd = string.Equals(cleanKey, "productModal", StringComparison.OrdinalIgnoreCase);
+        double defaultW = isQuickAdd ? 800d : 960d;
+        double defaultH = isQuickAdd ? 600d : 600d;
+        double minW = isQuickAdd ? 600d : 640d;
+        double minH = isQuickAdd ? 400d : 420d;
+
+        var result = new PurchaseModalWindowLayoutDto
+        {
+            Width = defaultW,
+            Height = defaultH
+        };
+
+        var posKey = $"{cleanKey}Pos";
+        var sizeKey = $"{cleanKey}Size";
+        var effectiveUserId = await ResolvePreferenceUserIdAsync(db, actorUserId, cancellationToken);
+
+        // 1. Check users.preferences JSON first (web app UserPreferenceController storage)
+        var userPrefsJson = await db.Users.AsNoTracking()
+            .Where(u => u.Id == effectiveUserId)
+            .Select(u => u.Preferences)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(userPrefsJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(userPrefsJson);
+                if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    if (doc.RootElement.TryGetProperty(sizeKey, out var sizeEl))
+                    {
+                        TryApplySizeElement(sizeEl, minW, minH, result);
+                    }
+                    if (doc.RootElement.TryGetProperty(posKey, out var posEl))
+                    {
+                        TryApplyPosElement(posEl, result);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore malformed JSON
+            }
+        }
+
+        // 2. Also check user_preferences table rows (overrides/supplements)
+        var rows = await db.UserPreferences.AsNoTracking()
+            .Where(p => p.UserId == effectiveUserId && (p.Key == posKey || p.Key == sizeKey))
+            .ToListAsync(cancellationToken);
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.Value))
+                continue;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(row.Value);
+                if (string.Equals(row.Key, sizeKey, StringComparison.Ordinal))
+                {
+                    TryApplySizeElement(doc.RootElement, minW, minH, result);
+                }
+                else if (string.Equals(row.Key, posKey, StringComparison.Ordinal))
+                {
+                    TryApplyPosElement(doc.RootElement, result);
+                }
+            }
+            catch
+            {
+                // Ignore malformed JSON
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<long> ResolvePreferenceUserIdAsync(
+        KarobarDbContext db,
+        long? actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var effective = actorUserId ?? _authService.CurrentSession?.UserId;
+        if (effective is > 0)
+            return effective.Value;
+
+        var firstUserId = await db.Users.AsNoTracking()
+            .OrderBy(u => u.Id)
+            .Select(u => (long?)u.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return firstUserId is > 0 ? firstUserId.Value : 1L;
+    }
+
+    private static async Task UpsertUserPreferenceRowAsync(
+        KarobarDbContext db,
+        long userId,
+        string key,
+        string jsonValue,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var existing = await db.UserPreferences
+            .FirstOrDefaultAsync(p => p.UserId == userId && p.Key == key, cancellationToken);
+
+        if (existing == null)
+        {
+            db.UserPreferences.Add(new UserPreference
+            {
+                UserId = userId,
+                Key = key,
+                Value = jsonValue,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+        else
+        {
+            existing.Value = jsonValue;
+            existing.UpdatedAt = now;
+        }
+    }
+
+    private static void TryApplySizeElement(
+        JsonElement el,
+        double minW,
+        double minH,
+        PurchaseModalWindowLayoutDto target)
+    {
+        if (el.ValueKind != JsonValueKind.Object)
+            return;
+
+        if (TryGetDoubleProperty(el, "width", out var w) &&
+            TryGetDoubleProperty(el, "height", out var h) &&
+            w > 0 && h > 0)
+        {
+            target.Width = Math.Max(minW, w);
+            target.Height = Math.Max(minH, h);
+        }
+    }
+
+    private static void TryApplyPosElement(
+        JsonElement el,
+        PurchaseModalWindowLayoutDto target)
+    {
+        if (el.ValueKind != JsonValueKind.Object)
+            return;
+
+        if (TryGetDoubleProperty(el, "x", out var x) &&
+            TryGetDoubleProperty(el, "y", out var y))
+        {
+            target.X = x;
+            target.Y = y;
+        }
+    }
+
+    private static bool TryGetDoubleProperty(JsonElement obj, string propName, out double value)
+    {
+        value = 0;
+        foreach (var prop in obj.EnumerateObject())
+        {
+            if (string.Equals(prop.Name, propName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (prop.Value.ValueKind == JsonValueKind.Number && prop.Value.TryGetDouble(out var d) && double.IsFinite(d))
+                {
+                    value = d;
+                    return true;
+                }
+                if (prop.Value.ValueKind == JsonValueKind.String &&
+                    double.TryParse(prop.Value.GetString(), out var parsed) &&
+                    double.IsFinite(parsed))
+                {
+                    value = parsed;
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // =========================================================================
