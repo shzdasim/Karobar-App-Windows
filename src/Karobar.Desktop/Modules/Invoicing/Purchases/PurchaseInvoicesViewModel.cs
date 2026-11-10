@@ -2869,49 +2869,57 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
     private void InitializeStaticOptions()
     {
-        DirectoryTypeOptions.Add(new PurchaseSelectOption { Key = "all", Label = "All Types" });
-        DirectoryTypeOptions.Add(new PurchaseSelectOption { Key = "debit", Label = "Debit (Cash)" });
-        DirectoryTypeOptions.Add(new PurchaseSelectOption { Key = "credit", Label = "Credit (Payable)" });
-        _selectedDirectoryTypeOption = DirectoryTypeOptions[0];
+        _suppressDirectoryReload = true;
+        try
+        {
+            DirectoryTypeOptions.Add(new PurchaseSelectOption { Key = "all", Label = "All Types" });
+            DirectoryTypeOptions.Add(new PurchaseSelectOption { Key = "debit", Label = "Debit (Cash)" });
+            DirectoryTypeOptions.Add(new PurchaseSelectOption { Key = "credit", Label = "Credit (Payable)" });
+            SelectedDirectoryTypeOption = DirectoryTypeOptions[0];
 
-        DirectoryStatusOptions.Add(new PurchaseSelectOption { Key = "all", Label = "All Statuses" });
-        DirectoryStatusOptions.Add(new PurchaseSelectOption { Key = "posted", Label = "Posted Only" });
-        DirectoryStatusOptions.Add(new PurchaseSelectOption { Key = "reversed", Label = "Reversed (Void)" });
-        _selectedDirectoryStatusOption = DirectoryStatusOptions[0];
+            DirectoryStatusOptions.Add(new PurchaseSelectOption { Key = "all", Label = "All Statuses" });
+            DirectoryStatusOptions.Add(new PurchaseSelectOption { Key = "posted", Label = "Posted Only" });
+            DirectoryStatusOptions.Add(new PurchaseSelectOption { Key = "reversed", Label = "Reversed (Void)" });
+            SelectedDirectoryStatusOption = DirectoryStatusOptions[0];
 
-        PageSizeOptions.Add(new PurchaseSelectOption { Key = "10", Label = "10" });
-        PageSizeOptions.Add(new PurchaseSelectOption { Key = "25", Label = "25" });
-        PageSizeOptions.Add(new PurchaseSelectOption { Key = "50", Label = "50" });
-        PageSizeOptions.Add(new PurchaseSelectOption { Key = "100", Label = "100" });
-        _selectedPageSizeOption = PageSizeOptions[0];
+            PageSizeOptions.Add(new PurchaseSelectOption { Key = "10", Label = "10" });
+            PageSizeOptions.Add(new PurchaseSelectOption { Key = "25", Label = "25" });
+            PageSizeOptions.Add(new PurchaseSelectOption { Key = "50", Label = "50" });
+            PageSizeOptions.Add(new PurchaseSelectOption { Key = "100", Label = "100" });
+            SelectedPageSizeOption = PageSizeOptions[0];
 
-        PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "cash", Label = "Cash" });
-        PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "bank_transfer", Label = "Bank Transfer" });
-        PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "card", Label = "Card / POS" });
-        PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "mobile_wallet", Label = "Mobile Wallet" });
-        PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "cheque", Label = "Cheque" });
-        PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "other", Label = "Other" });
-        _selectedPaymentMethodOption = PaymentMethodOptions[0];
+            PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "cash", Label = "Cash" });
+            PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "bank_transfer", Label = "Bank Transfer" });
+            PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "card", Label = "Card / POS" });
+            PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "mobile_wallet", Label = "Mobile Wallet" });
+            PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "cheque", Label = "Cheque" });
+            PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "other", Label = "Other" });
+            SelectedPaymentMethodOption = PaymentMethodOptions[0];
 
-        // 16 Row Arrangement Presets matching purchaseInvoiceArrangement.js + Supplier Remembered Order
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "original", Label = "Entry Order (Original)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "supplier_saved", Label = "Supplier Saved Order" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "name_asc", Label = "Product Name (A → Z)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "name_desc", Label = "Product Name (Z → A)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "brand_asc", Label = "Brand Name (A → Z)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "brand_desc", Label = "Brand Name (Z → A)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "brand_code", Label = "Brand + Product Code" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "code_asc", Label = "Product Code (Low → High)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "code_desc", Label = "Product Code (High → Low)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "packs_asc", Label = "Pack Qty (Low → High)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "packs_desc", Label = "Pack Qty (High → Low)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "amount_asc", Label = "Line Net Total (Low → High)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "amount_desc", Label = "Line Net Total (High → Low)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "price_asc", Label = "Unit Cost (Low → High)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "price_desc", Label = "Unit Cost (High → Low)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "size_asc", Label = "Pack Size (Small → Large)" });
-        ArrangementOptions.Add(new PurchaseSelectOption { Key = "size_desc", Label = "Pack Size (Large → Small)" });
-        _selectedArrangementOption = ArrangementOptions[0];
+            // 16 Row Arrangement Presets matching purchaseInvoiceArrangement.js + Supplier Remembered Order
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "original", Label = "Entry Order (Original)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "supplier_saved", Label = "Supplier Saved Order" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "name_asc", Label = "Product Name (A → Z)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "name_desc", Label = "Product Name (Z → A)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "brand_asc", Label = "Brand Name (A → Z)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "brand_desc", Label = "Brand Name (Z → A)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "brand_code", Label = "Brand + Product Code" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "code_asc", Label = "Product Code (Low → High)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "code_desc", Label = "Product Code (High → Low)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "packs_asc", Label = "Pack Qty (Low → High)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "packs_desc", Label = "Pack Qty (High → Low)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "amount_asc", Label = "Line Net Total (Low → High)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "amount_desc", Label = "Line Net Total (High → Low)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "price_asc", Label = "Unit Cost (Low → High)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "price_desc", Label = "Unit Cost (High → Low)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "size_asc", Label = "Pack Size (Small → Large)" });
+            ArrangementOptions.Add(new PurchaseSelectOption { Key = "size_desc", Label = "Pack Size (Large → Small)" });
+            SelectedArrangementOption = ArrangementOptions[0];
+        }
+        finally
+        {
+            _suppressDirectoryReload = false;
+        }
     }
 
     private void ApplyBootstrap(PurchaseFormBootstrapDto boot)

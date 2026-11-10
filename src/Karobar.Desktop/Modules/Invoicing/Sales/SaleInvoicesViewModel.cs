@@ -1704,7 +1704,6 @@ public partial class SaleInvoicesViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
     public SaleInvoiceLineRowViewModel AppendEmptyLine()
     {
         var row = new SaleInvoiceLineRowViewModel(Lines.Count + 1, () => FormSaleType, _ => RecalculateFooter(null));
@@ -2247,8 +2246,7 @@ public partial class SaleInvoicesViewModel : ObservableObject
             UnitSalePrice = Math.Round(packSale / packSize, 2),
             WholeSalePackPrice = wsPack,
             WholeSaleUnitPrice = Math.Round(wsPack / packSize, 2),
-            Rack = QuickAddProductRack?.Trim(),
-            BatchEnabled = "yes"
+            Rack = QuickAddProductRack?.Trim()
         });
 
         if (!res.Succeeded)

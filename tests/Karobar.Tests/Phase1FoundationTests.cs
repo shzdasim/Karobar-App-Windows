@@ -1183,40 +1183,29 @@ public sealed class Phase1FoundationTests
                 WholeSalePackPrice = 160m,
                 WholeSaleUnitPrice = 16m,
                 AvgPrice = 10m,
-                MaxDiscount = 15m,
-                BatchEnabled = "yes"
+                MaxDiscount = 15m
             });
             prodCreate.Succeeded.Should().BeTrue(prodCreate.Message);
             var prodId = prodCreate.EntityId!.Value;
 
             // Create two batches: B-LATE (expiring in 18 months, 30 units) and B-EARLY (expiring in 6 months, 20 units)
-            var bLate = await products.SaveBatchAsync(new ProductBatchUpsertRequest
+            var bLate = await products.SaveProductBatchAsync(prodId, new BatchSaveRequest
             {
-                ProductId = prodId,
                 BatchNumber = "B-LATE",
                 ExpiryDate = DateTime.Today.AddMonths(18),
                 Quantity = 30,
-                PackSize = 10,
                 UnitPurchasePrice = 10m,
-                PackSalePrice = 200m,
-                UnitSalePrice = 20m,
-                WholeSalePackPrice = 160m,
-                WholeSaleUnitPrice = 16m
+                UnitSalePrice = 20m
             });
             bLate.Succeeded.Should().BeTrue(bLate.Message);
 
-            var bEarly = await products.SaveBatchAsync(new ProductBatchUpsertRequest
+            var bEarly = await products.SaveProductBatchAsync(prodId, new BatchSaveRequest
             {
-                ProductId = prodId,
                 BatchNumber = "B-EARLY",
                 ExpiryDate = DateTime.Today.AddMonths(6),
                 Quantity = 20,
-                PackSize = 10,
                 UnitPurchasePrice = 10m,
-                PackSalePrice = 200m,
-                UnitSalePrice = 20m,
-                WholeSalePackPrice = 160m,
-                WholeSaleUnitPrice = 16m
+                UnitSalePrice = 20m
             });
             bEarly.Succeeded.Should().BeTrue(bEarly.Message);
 
