@@ -151,6 +151,16 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
             baseQuery = baseQuery.Where(pi => pi.PostedDate < toDateExclusive);
         }
 
+        if (!string.IsNullOrWhiteSpace(query.SupplierSearch))
+        {
+            var supTerm = query.SupplierSearch.Trim();
+            var matchingSupIds = supplierMap
+                .Where(kv => kv.Value.Contains(supTerm, StringComparison.OrdinalIgnoreCase))
+                .Select(kv => kv.Key)
+                .ToList();
+            baseQuery = baseQuery.Where(pi => matchingSupIds.Contains(pi.SupplierId));
+        }
+
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var term = query.Search.Trim();
@@ -240,7 +250,7 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
                 d.DeletedAt == null,
                 cancellationToken);
 
-        var items = pageSlice.Select(h =>
+        var items = pageSlice.Select((h, idx) =>
         {
             var isCredit = string.Equals(h.InvoiceType, "credit", StringComparison.OrdinalIgnoreCase);
             var effectivePaid = !isCredit && h.TotalPaid <= 0m ? h.TotalAmount : h.TotalPaid;
@@ -248,6 +258,7 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
 
             return new PurchaseInvoiceDirectoryRowDto
             {
+                RowIndex = ((page - 1) * pageSize) + idx + 1,
                 Id = h.Id,
                 PostedNumber = h.PostedNumber,
                 InvoiceNumber = h.InvoiceNumber ?? string.Empty,
@@ -304,35 +315,37 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
     public async Task<List<PurchaseProductSearchItemDto>> SearchProductsForPurchaseAsync(
         string? search = null,
         long? supplierId = null,
-        int limit = 60,
+        int limit = 200,
         CancellationToken cancellationToken = default)
     {
         await using var db = await _dbFactory.CreateDbContextAsync(cancellationToken);
 
-        var query = db.Products.AsNoTracking().AsQueryable();
+        var safeLimit = Math.Clamp(limit, 1, 300);
+        List<Product> products;
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            var matchingBrandIds = await db.Brands.AsNoTracking()
-                .Where(b => EF.Functions.Like(b.Name, $"%{term}%"))
-                .Select(b => b.Id)
-                .ToListAsync(cancellationToken);
+            var termLower = term.ToLowerInvariant();
 
-            query = query.Where(p =>
-                EF.Functions.Like(p.Name, $"%{term}%") ||
-                EF.Functions.Like(p.ProductCode, $"%{term}%") ||
-                (p.Barcode != null && EF.Functions.Like(p.Barcode, $"%{term}%")) ||
-                (p.Formulation != null && EF.Functions.Like(p.Formulation, $"%{term}%")) ||
-                (p.Rack != null && EF.Functions.Like(p.Rack, $"%{term}%")) ||
-                (p.BrandId != null && matchingBrandIds.Contains(p.BrandId.Value)));
+            // Search strictly by Product Name in exact typed character order (StartsWith, not Contains)
+            products = (await db.Products.AsNoTracking()
+                .Where(p => p.Name != null && p.Name.ToLower().StartsWith(termLower))
+                .OrderBy(p => p.Name)
+                .ThenBy(p => p.Id)
+                .Take(safeLimit)
+                .ToListAsync(cancellationToken))
+                .Where(p => p.Name != null && p.Name.StartsWith(term, StringComparison.OrdinalIgnoreCase))
+                .ToList();
         }
-
-        var safeLimit = Math.Clamp(limit, 1, 200);
-        var products = await query
-            .OrderBy(p => p.Name)
-            .ThenBy(p => p.Id)
-            .Take(safeLimit)
-            .ToListAsync(cancellationToken);
+        else
+        {
+            products = await db.Products.AsNoTracking()
+                .OrderBy(p => p.Name)
+                .ThenBy(p => p.Id)
+                .Take(safeLimit)
+                .ToListAsync(cancellationToken);
+        }
 
         return await BuildProductSearchDtosAsync(db, products, supplierId, cancellationToken);
     }
@@ -3454,6 +3467,7 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
             {
                 Id = s.Id,
                 Name = s.Name,
+                Address = s.Address ?? string.Empty,
                 Phone = s.Phone ?? string.Empty,
                 CreditDays = s.CreditDays is > 0 ? s.CreditDays.Value : 30,
                 CreditLimit = s.CreditLimit ?? 0m,
@@ -3569,6 +3583,7 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
         var productIds = products.Select(p => p.Id).ToList();
         var brandIds = products.Where(p => p.BrandId.HasValue).Select(p => p.BrandId!.Value).Distinct().ToList();
         var catIds = products.Where(p => p.CategoryId.HasValue).Select(p => p.CategoryId!.Value).Distinct().ToList();
+        var supIds = products.Where(p => p.SupplierId.HasValue).Select(p => p.SupplierId!.Value).Distinct().ToList();
 
         var brandMap = brandIds.Count > 0
             ? await db.Brands.AsNoTracking()
@@ -3580,6 +3595,12 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
             ? await db.Categories.AsNoTracking()
                 .Where(c => catIds.Contains(c.Id))
                 .ToDictionaryAsync(c => c.Id, c => c.Name, cancellationToken)
+            : new Dictionary<long, string>();
+
+        var supNameMap = supIds.Count > 0
+            ? await db.Suppliers.AsNoTracking()
+                .Where(s => supIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.Name, cancellationToken)
             : new Dictionary<long, string>();
 
         var allBatches = await db.Batches.AsNoTracking()
@@ -3629,6 +3650,7 @@ public sealed class PurchaseInvoiceService : IPurchaseInvoiceService
                 BrandId = p.BrandId,
                 BrandName = p.BrandId.HasValue && brandMap.TryGetValue(p.BrandId.Value, out var bName) ? bName : string.Empty,
                 CategoryName = p.CategoryId.HasValue && catMap.TryGetValue(p.CategoryId.Value, out var cName) ? cName : string.Empty,
+                SupplierName = p.SupplierId.HasValue && supNameMap.TryGetValue(p.SupplierId.Value, out var supName) ? supName : string.Empty,
                 Rack = p.Rack ?? string.Empty,
                 StorageLocationId = p.StorageLocationId,
                 PackSize = p.PackSize > 0 ? p.PackSize : 1,

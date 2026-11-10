@@ -26,10 +26,12 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         if (_wiredVm != null)
         {
             _wiredVm.RequestFocusSupplierSelect = null;
+            _wiredVm.RequestFocusSupplierModalSearch = null;
             _wiredVm.RequestFocusInvoiceNumber = null;
             _wiredVm.RequestFocusBillAmount = null;
             _wiredVm.RequestFocusDirectorySearch = null;
             _wiredVm.RequestFocusProductModalSearch = null;
+            _wiredVm.RequestFocusQuickAddProductName = null;
             _wiredVm.RequestFocusLineCell = null;
             _wiredVm.RequestFocusFooterField = null;
             _wiredVm.RequestPrintDocument = null;
@@ -40,13 +42,17 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         {
             _wiredVm.RequestFocusSupplierSelect = () => Dispatcher.BeginInvoke(() =>
             {
-                SupplierSelect?.FocusSearchInput();
+                SupplierTriggerButton?.Focus();
+                if (SupplierTriggerButton != null)
+                    Keyboard.Focus(SupplierTriggerButton);
             }, DispatcherPriority.Input);
 
+            _wiredVm.RequestFocusSupplierModalSearch = () => FocusAndPlaceCaretAtEnd(SupplierModalSearchTextBox);
             _wiredVm.RequestFocusInvoiceNumber = () => FocusAndSelectTextBox(InvoiceNumberTextBox);
             _wiredVm.RequestFocusBillAmount = () => FocusAndSelectTextBox(BillAmountTextBox);
             _wiredVm.RequestFocusDirectorySearch = () => FocusAndSelectTextBox(DirectorySearchTextBox);
             _wiredVm.RequestFocusProductModalSearch = () => FocusAndSelectTextBox(ProductModalSearchTextBox);
+            _wiredVm.RequestFocusQuickAddProductName = () => FocusAndSelectTextBox(QuickAddProductNameTextBox);
             _wiredVm.RequestFocusLineCell = (rowIndex, fieldTag) => FocusLineCell(rowIndex, fieldTag);
             _wiredVm.RequestFocusFooterField = FocusFooterField;
             _wiredVm.RequestPrintDocument = ExecutePrintPurchaseInvoice;
@@ -123,12 +129,72 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
     }
 
     // =========================================================================
-    // 2. HEADER KEYBOARD CHAIN (Supplier -> Invoice # -> Bill Amt -> Row 0 Product)
+    // 2. HEADER KEYBOARD CHAIN (Supplier Modal -> Invoice # -> Bill Amt -> Row 0 Product Modal)
     // =========================================================================
 
-    private void SupplierSelect_OnEnterCommitted(object? sender, EventArgs e)
+    private void SupplierTriggerButton_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        FocusAndSelectTextBox(InvoiceNumberTextBox);
+        if (DataContext is not PurchaseInvoicesViewModel vm)
+            return;
+
+        var mods = Keyboard.Modifiers;
+        if (mods == ModifierKeys.None && (e.Key == Key.Enter || e.Key == Key.Space || e.Key == Key.Down))
+        {
+            e.Handled = true;
+            vm.OpenSupplierSearchModal();
+            return;
+        }
+
+        var seed = TryMapKeyToSeedChar(e.Key, mods);
+        if (seed != null)
+        {
+            e.Handled = true;
+            vm.OpenSupplierSearchModal(seed);
+        }
+    }
+
+    private void SupplierModalSearchTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (DataContext is not PurchaseInvoicesViewModel vm)
+            return;
+
+        if (e.Key == Key.Down)
+        {
+            e.Handled = true;
+            vm.MoveSupplierModalHighlight(1);
+            if (vm.HighlightedModalSupplier != null)
+                SupplierModalResultsListBox.ScrollIntoView(vm.HighlightedModalSupplier);
+        }
+        else if (e.Key == Key.Up)
+        {
+            e.Handled = true;
+            vm.MoveSupplierModalHighlight(-1);
+            if (vm.HighlightedModalSupplier != null)
+                SupplierModalResultsListBox.ScrollIntoView(vm.HighlightedModalSupplier);
+        }
+        else if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            vm.CommitSupplierModalSelection();
+        }
+        else if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            vm.CloseSupplierSearchModal();
+            Dispatcher.BeginInvoke(() => SupplierTriggerButton?.Focus(), DispatcherPriority.Input);
+        }
+    }
+
+    private void SupplierModalResultsListBox_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not PurchaseInvoicesViewModel vm)
+            return;
+
+        if (ItemsControl.ContainerFromElement(SupplierModalResultsListBox, e.OriginalSource as DependencyObject) is ListBoxItem lbi &&
+            lbi.DataContext is PurchaseSupplierLookupDto sup)
+        {
+            vm.CommitSupplierModalSelection(sup);
+        }
     }
 
     private void InvoiceNumberTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -140,12 +206,21 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         }
     }
 
-    private void BillAmountTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    private async void BillAmountTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (DataContext is not PurchaseInvoicesViewModel vm)
+            return;
+
         if (Keyboard.Modifiers == ModifierKeys.None && (e.Key == Key.Enter || e.Key == Key.Tab))
         {
             e.Handled = true;
-            FocusLineCell(0, "product");
+            if (vm.Lines.Count == 0)
+            {
+                vm.AppendEmptyLine();
+            }
+
+            // Requirement #2: hitting Enter in Bill Amt automatically opens the Add/Search Product Modal for Row 0!
+            await vm.OpenProductSearchForLineAsync(vm.Lines[0]);
         }
     }
 
@@ -168,7 +243,15 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         if (mods == ModifierKeys.None && e.Key == Key.Enter)
         {
             e.Handled = true;
-            await vm.OpenProductSearchForLineAsync(row);
+            if (!row.HasProduct)
+            {
+                await vm.OpenProductSearchForLineAsync(row);
+            }
+            else
+            {
+                var nextCol = row.BatchOptions.Count > 1 ? "batch" : "pack_quantity";
+                FocusLineCell(rowIndex, nextCol);
+            }
             return;
         }
 
@@ -192,13 +275,27 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
             e.Handled = true;
             if (rowIndex + 1 < vm.Lines.Count)
             {
-                FocusLineCell(rowIndex + 1, "product");
+                var nextRow = vm.Lines[rowIndex + 1];
+                if (!nextRow.HasProduct)
+                    await vm.OpenProductSearchForLineAsync(nextRow);
+                else
+                    FocusLineCell(rowIndex + 1, "product");
             }
-            else if (row.HasProduct)
+            else
             {
+                // Requirement #4: ArrowDown on last row appends new row AND opens Add Product Modal!
                 vm.AppendEmptyLine();
-                FocusLineCell(vm.Lines.Count - 1, "product");
+                await vm.OpenProductSearchForLineAsync(vm.Lines[^1]);
             }
+            return;
+        }
+
+        // Typing any alphanumeric character on the Product trigger opens the Product Search Modal seeded with that character!
+        var seed = TryMapKeyToSeedChar(e.Key, mods);
+        if (seed != null)
+        {
+            e.Handled = true;
+            await vm.OpenProductSearchWithSeedAsync(row, seed);
         }
     }
 
@@ -225,7 +322,7 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         }
     }
 
-    private void LineExpiryDatePicker_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    private async void LineExpiryDatePicker_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (DataContext is not PurchaseInvoicesViewModel vm ||
             sender is not FrameworkElement fe ||
@@ -234,14 +331,27 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
             return;
         }
 
+        var rowIndex = vm.Lines.IndexOf(row);
+        if (rowIndex < 0)
+            return;
+
         if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Enter)
         {
-            var rowIndex = vm.Lines.IndexOf(row);
-            if (rowIndex >= 0)
-            {
-                e.Handled = true;
-                FocusLineCell(rowIndex, "pack_quantity");
-            }
+            e.Handled = true;
+            FocusLineCell(rowIndex, "pack_quantity");
+            return;
+        }
+
+        if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Down)
+        {
+            e.Handled = true;
+            await HandleRowArrowDownAsync(vm, rowIndex, "expiry");
+        }
+        else if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Up && rowIndex > 0)
+        {
+            e.Handled = true;
+            var targetTag = vm.Lines[rowIndex - 1].HasProduct ? "expiry" : "product";
+            FocusLineCell(rowIndex - 1, targetTag);
         }
     }
 
@@ -253,7 +363,7 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         }
     }
 
-    private void LineCellTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    private async void LineCellTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (DataContext is not PurchaseInvoicesViewModel vm ||
             sender is not TextBox tb ||
@@ -300,7 +410,7 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
                     if (vm.HasWholesale)
                         FocusLineCell(rowIndex, "whole_sale_pack_price");
                     else
-                        AdvanceToNextRowProduct(vm, rowIndex);
+                        await AdvanceToNextRowProductAsync(vm, rowIndex);
                     break;
 
                 case "whole_sale_pack_price":
@@ -308,7 +418,7 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
                     break;
 
                 case "whole_sale_unit_price":
-                    AdvanceToNextRowProduct(vm, rowIndex);
+                    await AdvanceToNextRowProductAsync(vm, rowIndex);
                     break;
             }
             return;
@@ -326,29 +436,46 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         if (mods == ModifierKeys.None && e.Key == Key.Down)
         {
             e.Handled = true;
-            if (rowIndex + 1 < vm.Lines.Count)
-            {
-                var targetTag = vm.Lines[rowIndex + 1].HasProduct ? fieldTag : "product";
-                FocusLineCell(rowIndex + 1, targetTag);
-            }
-            else
-            {
-                vm.AppendEmptyLine();
-                FocusLineCell(vm.Lines.Count - 1, "product");
-            }
+            await HandleRowArrowDownAsync(vm, rowIndex, fieldTag);
         }
     }
 
-    private void AdvanceToNextRowProduct(PurchaseInvoicesViewModel vm, int currentRowIndex)
+    private async Task HandleRowArrowDownAsync(PurchaseInvoicesViewModel vm, int currentRowIndex, string fieldTag)
     {
         if (currentRowIndex + 1 < vm.Lines.Count)
         {
-            FocusLineCell(currentRowIndex + 1, "product");
+            var nextRow = vm.Lines[currentRowIndex + 1];
+            if (!nextRow.HasProduct)
+            {
+                await vm.OpenProductSearchForLineAsync(nextRow);
+            }
+            else
+            {
+                FocusLineCell(currentRowIndex + 1, fieldTag);
+            }
+        }
+        else
+        {
+            // Requirement #4: ArrowDown on last row appends new row AND opens Add Product Modal!
+            vm.AppendEmptyLine();
+            await vm.OpenProductSearchForLineAsync(vm.Lines[^1]);
+        }
+    }
+
+    private async Task AdvanceToNextRowProductAsync(PurchaseInvoicesViewModel vm, int currentRowIndex)
+    {
+        if (currentRowIndex + 1 < vm.Lines.Count)
+        {
+            var nextRow = vm.Lines[currentRowIndex + 1];
+            if (!nextRow.HasProduct)
+                await vm.OpenProductSearchForLineAsync(nextRow);
+            else
+                FocusLineCell(currentRowIndex + 1, "product");
         }
         else
         {
             vm.AppendEmptyLine();
-            FocusLineCell(vm.Lines.Count - 1, "product");
+            await vm.OpenProductSearchForLineAsync(vm.Lines[^1]);
         }
     }
 
@@ -399,10 +526,13 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         }
     }
 
-    private async void ProductModalResultsListBox_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
+    private async void ProductModalResultsListBox_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        if (DataContext is PurchaseInvoicesViewModel vm &&
-            ProductModalResultsListBox.SelectedItem is PurchaseProductSearchItemDto item)
+        if (DataContext is not PurchaseInvoicesViewModel vm)
+            return;
+
+        if (ItemsControl.ContainerFromElement(ProductModalResultsListBox, e.OriginalSource as DependencyObject) is ListBoxItem lbi &&
+            lbi.DataContext is PurchaseProductSearchItemDto item)
         {
             await vm.CommitProductSelectionAsync(item);
         }
@@ -458,13 +588,13 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
 
         if (mods == ModifierKeys.Alt)
         {
-            if (key == Key.T && vm.IsFormMode)
+            if (key == Key.T && vm.IsFormMode && !vm.HasAnyModalOpen)
             {
                 e.Handled = true;
                 vm.ToggleInvoiceType();
                 return;
             }
-            if (key == Key.H && vm.IsFormMode)
+            if (key == Key.H && vm.IsFormMode && !vm.HasAnyModalOpen)
             {
                 e.Handled = true;
                 await vm.HoldCurrentDraftAsync();
@@ -504,6 +634,12 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
     {
         if (DataContext is not PurchaseInvoicesViewModel vm)
             return false;
+
+        if (vm.IsQuickAddProductModalOpen)
+        {
+            _ = vm.SaveQuickAddProductAsync();
+            return true;
+        }
 
         if (vm.IsReverseModalOpen)
         {
@@ -577,9 +713,10 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
             return true;
         }
 
-        if (vm.IsDirectoryMode && !string.IsNullOrEmpty(vm.DirectorySearchText))
+        if (vm.IsDirectoryMode && (!string.IsNullOrEmpty(vm.DirectorySearchText) || !string.IsNullOrEmpty(vm.DirectorySupplierSearchText)))
         {
             vm.DirectorySearchText = string.Empty;
+            vm.DirectorySupplierSearchText = string.Empty;
             return true;
         }
 
@@ -630,6 +767,17 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
             textBox.Focus();
             Keyboard.Focus(textBox);
             textBox.SelectAll();
+        }, DispatcherPriority.Input);
+    }
+
+    private void FocusAndPlaceCaretAtEnd(TextBox? textBox)
+    {
+        if (textBox == null) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            textBox.Focus();
+            Keyboard.Focus(textBox);
+            textBox.CaretIndex = textBox.Text?.Length ?? 0;
         }, DispatcherPriority.Input);
     }
 
@@ -714,6 +862,30 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         return null;
     }
 
+    private static string? TryMapKeyToSeedChar(Key key, ModifierKeys mods)
+    {
+        if (mods != ModifierKeys.None && mods != ModifierKeys.Shift)
+            return null;
+
+        if (key is >= Key.A and <= Key.Z)
+        {
+            var ch = (char)('a' + (key - Key.A));
+            return mods == ModifierKeys.Shift ? char.ToUpperInvariant(ch).ToString() : ch.ToString();
+        }
+
+        if (mods == ModifierKeys.None && key is >= Key.D0 and <= Key.D9)
+        {
+            return ((char)('0' + (key - Key.D0))).ToString();
+        }
+
+        if (mods == ModifierKeys.None && key is >= Key.NumPad0 and <= Key.NumPad9)
+        {
+            return ((char)('0' + (key - Key.NumPad0))).ToString();
+        }
+
+        return null;
+    }
+
     // =========================================================================
     // 7. NATIVE WINDOWS PRINTING (A4 GRN VOUCHER & 80mm THERMAL RECEIPT)
     // =========================================================================
@@ -771,7 +943,6 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
             Foreground = Brushes.Black
         };
 
-        // Store Title Header
         var headerPara = new Paragraph
         {
             TextAlignment = TextAlignment.Center,
@@ -795,7 +966,6 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
                 : "PURCHASE INVOICE / GRN")));
         doc.Blocks.Add(headerPara);
 
-        // Meta Paragraph
         var metaPara = new Paragraph { Margin = new Thickness(0, 0, 0, 8) };
         metaPara.Inlines.Add(new Bold(new Run("Posted #: ")));
         metaPara.Inlines.Add(new Run($"{detail.PostedNumber}    "));
@@ -813,7 +983,6 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         }
         doc.Blocks.Add(metaPara);
 
-        // Items Table
         var table = new Table { CellSpacing = 0, BorderBrush = Brushes.Gray, BorderThickness = new Thickness(0, 1, 0, 1) };
         if (thermal)
         {
@@ -882,7 +1051,6 @@ public partial class PurchaseInvoicesView : UserControl, IPageKeyboardHandler
         table.RowGroups.Add(rg);
         doc.Blocks.Add(table);
 
-        // Footer Totals
         var totalsPara = new Paragraph
         {
             TextAlignment = TextAlignment.Right,

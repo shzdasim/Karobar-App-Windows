@@ -159,7 +159,7 @@ public partial class MainViewModel : ObservableObject
         Products = new ProductsViewModel(productService, authService, toastService, Navigate);
         ProductBatches = new ProductBatchesViewModel(productService, toastService, Navigate);
         BarcodeStudio = new BarcodeStudioViewModel(barcodeStudioService);
-        PurchaseInvoices = new PurchaseInvoicesViewModel(purchaseInvoiceService, toastService, Navigate);
+        PurchaseInvoices = new PurchaseInvoicesViewModel(purchaseInvoiceService, toastService, Navigate, productService);
 
         BuildSidebarNavigation();
         UpdateActiveNavigationState("/dashboard");

@@ -3,6 +3,7 @@ namespace Karobar.Application.Interfaces;
 public sealed class PurchaseInvoiceFilterQuery
 {
     public string? Search { get; set; }
+    public string? SupplierSearch { get; set; }
     public long? SupplierId { get; set; }
     public string InvoiceType { get; set; } = "all"; // all | debit | credit
     public string Status { get; set; } = "all";      // all | posted | reversed
@@ -14,6 +15,7 @@ public sealed class PurchaseInvoiceFilterQuery
 
 public sealed class PurchaseInvoiceDirectoryRowDto
 {
+    public int RowIndex { get; set; }
     public long Id { get; set; }
     public string PostedNumber { get; set; } = string.Empty;
     public string InvoiceNumber { get; set; } = string.Empty;
@@ -41,6 +43,7 @@ public sealed class PurchaseInvoiceDirectoryRowDto
     public bool IsCredit => string.Equals(InvoiceType, "credit", StringComparison.OrdinalIgnoreCase);
     public string InvoiceTypeBadge => IsCredit ? "Credit" : "Debit";
     public string FormattedDate => PostedDate.ToString("dd-MM-yyyy");
+    public string FormattedDisplayDate => PostedDate.ToString("d MMM yyyy");
 }
 
 public sealed class PurchaseInvoiceDirectoryPageDto
@@ -69,6 +72,7 @@ public sealed class PurchaseStoreSettingsDto
     public string ShopType { get; set; } = "pharmacy";           // pharmacy | general_store
     public string CurrencySymbol { get; set; } = "Rs.";
     public string PrinterType { get; set; } = "a4";              // thermal | a4
+    public bool IsPharmacy => string.Equals(ShopType, "pharmacy", StringComparison.OrdinalIgnoreCase);
     public bool HasWholesale =>
         string.Equals(SaleSystem, "retail_wholesale", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(SaleSystem, "wholesale", StringComparison.OrdinalIgnoreCase);
@@ -78,6 +82,7 @@ public sealed class PurchaseSupplierLookupDto
 {
     public long Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public int CreditDays { get; set; } = 30;
     public decimal CreditLimit { get; set; }
@@ -90,6 +95,8 @@ public sealed class PurchaseSupplierLookupDto
     public string ExpiryPolicyLabel { get; set; } = "3 months before expiry";
     public List<long> SavedProductOrderIds { get; set; } = [];
 
+    public bool HasAddress => !string.IsNullOrWhiteSpace(Address);
+    public bool HasPhone => !string.IsNullOrWhiteSpace(Phone);
     public string DisplayLabel => string.IsNullOrWhiteSpace(Phone) ? Name : $"{Name} ({Phone})";
 }
 
@@ -154,6 +161,7 @@ public sealed class PurchaseProductSearchItemDto
     public long? BrandId { get; set; }
     public string BrandName { get; set; } = string.Empty;
     public string CategoryName { get; set; } = string.Empty;
+    public string SupplierName { get; set; } = string.Empty;
     public string Rack { get; set; } = string.Empty;
     public long? StorageLocationId { get; set; }
     public int PackSize { get; set; } = 1;
@@ -169,6 +177,14 @@ public sealed class PurchaseProductSearchItemDto
     public decimal? WholeSaleMargin { get; set; }
     public decimal? LastSupplierUnitCost { get; set; }
     public bool IsLowStock => Quantity < Math.Max(1, PackSize);
+    public bool HasBrand => !string.IsNullOrWhiteSpace(BrandName);
+    public bool HasFormulation => !string.IsNullOrWhiteSpace(Formulation);
+    public bool HasSupplier => !string.IsNullOrWhiteSpace(SupplierName);
+    public bool HasRack => !string.IsNullOrWhiteSpace(Rack);
+    public string SupplierBulletText => HasSupplier ? $"• {SupplierName}" : string.Empty;
+    public string RackBadgeText => HasRack ? $"Rack: {Rack}" : string.Empty;
+    public string StockTrendArrow => IsLowStock ? "▼" : "▲";
+    public string MarginBadgeText => Margin.HasValue ? $"{Margin.Value:0.##}%" : "—";
     public List<PurchaseProductBatchOptionDto> Batches { get; set; } = [];
 }
 
@@ -388,7 +404,7 @@ public interface IPurchaseInvoiceService
     Task<List<PurchaseProductSearchItemDto>> SearchProductsForPurchaseAsync(
         string? search = null,
         long? supplierId = null,
-        int limit = 60,
+        int limit = 200,
         CancellationToken cancellationToken = default);
     Task<PurchaseProductSearchItemDto?> ScanProductByCodeOrBarcodeAsync(
         string codeOrBarcode,

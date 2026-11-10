@@ -919,10 +919,16 @@ public sealed class Phase1FoundationTests
                 await setupDb.SaveChangesAsync();
             }
 
-            // Prepare PO Receipt & Verify Bootstrap
+            // Prepare PO Receipt & Verify Bootstrap + Name Prefix Search (StartsWith, not Contains)
             var poPrep = await purchases.PreparePurchaseOrderReceiptAsync(poId);
             poPrep.OrderNumber.Should().Be("PO-0001");
             poPrep.Lines.Should().ContainSingle(l => l.ProductId == prodId && l.UnitQuantity == 30);
+
+            var prefixMatches = await purchases.SearchProductsForPurchaseAsync("Aug", sup.Id);
+            prefixMatches.Should().ContainSingle(p => p.Id == prodId && p.SupplierName == "Premier Pharma");
+
+            var midWordMatches = await purchases.SearchProductsForPurchaseAsync("mentin", sup.Id);
+            midWordMatches.Should().BeEmpty();
 
             // Hold Purchase Draft -> DRF-PUR-0001
             var draftPayload = new PurchaseInvoiceUpsertRequest

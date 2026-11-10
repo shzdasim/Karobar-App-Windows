@@ -37,9 +37,7 @@ public sealed class PurchaseBatchSelectOption
 
     public string DisplayLabel => IsUnassigned
         ? UnassignedLabel
-        : ExpiryDate.HasValue
-            ? $"{BatchNumber} (Exp: {ExpiryDate.Value:dd-MM-yyyy} • Stock: {Quantity})"
-            : $"{BatchNumber} (Stock: {Quantity})";
+        : BatchNumber;
 
     public override string ToString() => DisplayLabel;
 }
@@ -105,7 +103,7 @@ public partial class PurchaseInvoiceLineRowViewModel : ObservableObject
 
     public string ProductDisplayText => HasProduct
         ? ProductName
-        : "Click or press Enter to select product...";
+        : "Search product…";
 
     public string ProductMetaText
     {
@@ -643,6 +641,7 @@ public partial class PurchaseInvoiceLineRowViewModel : ObservableObject
 public partial class PurchaseInvoicesViewModel : ObservableObject
 {
     private readonly IPurchaseInvoiceService _purchaseService;
+    private readonly IProductService? _productService;
     private readonly IToastNotificationService _toast;
     private readonly Action<string>? _navigate;
 
@@ -656,10 +655,12 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
     // Focus & Printing callbacks wired by PurchaseInvoicesView.xaml.cs
     public Action? RequestFocusSupplierSelect { get; set; }
+    public Action? RequestFocusSupplierModalSearch { get; set; }
     public Action? RequestFocusInvoiceNumber { get; set; }
     public Action? RequestFocusBillAmount { get; set; }
     public Action? RequestFocusDirectorySearch { get; set; }
     public Action? RequestFocusProductModalSearch { get; set; }
+    public Action? RequestFocusQuickAddProductName { get; set; }
     public Action<int, string>? RequestFocusLineCell { get; set; }
     public Action<string>? RequestFocusFooterField { get; set; }
     public Action<PurchaseInvoiceDetailDto, bool>? RequestPrintDocument { get; set; }
@@ -667,9 +668,11 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     public PurchaseInvoicesViewModel(
         IPurchaseInvoiceService purchaseService,
         IToastNotificationService toast,
-        Action<string>? navigate = null)
+        Action<string>? navigate = null,
+        IProductService? productService = null)
     {
         _purchaseService = purchaseService;
+        _productService = productService;
         _toast = toast;
         _navigate = navigate;
 
@@ -695,10 +698,20 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasWholesale))]
+    [NotifyPropertyChangedFor(nameof(IsPharmacyShop))]
+    [NotifyPropertyChangedFor(nameof(WholesaleEditColWidth))]
+    [NotifyPropertyChangedFor(nameof(WholesaleReadOnlyColWidth))]
     private PurchaseStoreSettingsDto _storeSettings = new();
 
     public bool HasWholesale => StoreSettings.HasWholesale;
+    public bool IsPharmacyShop => StoreSettings.IsPharmacy;
     public string CurrencySymbol => StoreSettings.CurrencySymbol;
+    public System.Windows.GridLength WholesaleEditColWidth => HasWholesale
+        ? new System.Windows.GridLength(0.90, System.Windows.GridUnitType.Star)
+        : new System.Windows.GridLength(0);
+    public System.Windows.GridLength WholesaleReadOnlyColWidth => HasWholesale
+        ? new System.Windows.GridLength(0.76, System.Windows.GridUnitType.Star)
+        : new System.Windows.GridLength(0);
 
     // =========================================================================
     // 2. DIRECTORY MODE STATE & FILTERS
@@ -712,6 +725,9 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
     [ObservableProperty]
     private string _directorySearchText = string.Empty;
+
+    [ObservableProperty]
+    private string _directorySupplierSearchText = string.Empty;
 
     [ObservableProperty]
     private PurchaseSupplierFilterOption? _selectedDirectorySupplierOption;
@@ -735,6 +751,7 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanPrevPage))]
     [NotifyPropertyChangedFor(nameof(CanNextPage))]
     [NotifyPropertyChangedFor(nameof(PaginationSummaryText))]
+    [NotifyPropertyChangedFor(nameof(DirectoryRangeSubtitleText))]
     private int _currentPage = 1;
 
     [ObservableProperty]
@@ -745,6 +762,8 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PaginationSummaryText))]
+    [NotifyPropertyChangedFor(nameof(DirectoryRangeSubtitleText))]
+    [NotifyPropertyChangedFor(nameof(DirectoryTotalSubtitleText))]
     [NotifyPropertyChangedFor(nameof(HasDirectoryItems))]
     [NotifyPropertyChangedFor(nameof(ShowEmptyDirectoryState))]
     private int _totalDirectoryCount;
@@ -753,7 +772,20 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     public bool ShowEmptyDirectoryState => !IsBusy && DirectoryItems.Count == 0;
     public bool CanPrevPage => CurrentPage > 1;
     public bool CanNextPage => CurrentPage < TotalPages;
-    public string PaginationSummaryText => $"Page {CurrentPage} of {TotalPages} ({TotalDirectoryCount:N0} invoices)";
+    public string PaginationSummaryText => $"Page {CurrentPage} of {TotalPages} ({TotalDirectoryCount:N0} total)";
+    public string DirectoryTotalSubtitleText => $"{TotalDirectoryCount:N0} invoices";
+    public string DirectoryRangeSubtitleText
+    {
+        get
+        {
+            if (TotalDirectoryCount <= 0 || DirectoryItems.Count == 0)
+                return "0 of 0";
+            var ps = int.TryParse(SelectedPageSizeOption?.Key, out var n) ? n : 10;
+            var start = ((CurrentPage - 1) * ps) + 1;
+            var end = Math.Min(TotalDirectoryCount, start + DirectoryItems.Count - 1);
+            return $"{start}-{end} of {TotalDirectoryCount}";
+        }
+    }
 
     // KPI Cards
     [ObservableProperty] private int _kpiPostedCount;
@@ -769,6 +801,12 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     public string HeldDraftsBadgeText => HeldDraftsCount > 0 ? $"Held Drafts ({HeldDraftsCount})" : "Held Drafts";
 
     partial void OnDirectorySearchTextChanged(string value)
+    {
+        if (_suppressDirectoryReload) return;
+        DebounceReloadDirectory();
+    }
+
+    partial void OnDirectorySupplierSearchTextChanged(string value)
     {
         if (_suppressDirectoryReload) return;
         DebounceReloadDirectory();
@@ -829,10 +867,10 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     public bool IsEditFormMode => EditingInvoiceId is > 0;
     public string FormHeaderTitle => IsEditFormMode
         ? $"Edit Purchase Invoice ({PostedNumber})"
-        : "Create Purchase Invoice (GRN)";
+        : "Purchase Invoice";
     public string SaveButtonLabel => IsEditFormMode
-        ? "Update Purchase Invoice (Alt+S)"
-        : "Save & Post Purchase Invoice (Alt+S)";
+        ? "Update Invoice"
+        : "Save Purchase Invoice";
 
     [ObservableProperty]
     private long? _activeDraftId;
@@ -870,7 +908,14 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     private DateTime _postedDate = DateTime.Today;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelectedSupplier))]
+    [NotifyPropertyChangedFor(nameof(SelectedSupplierButtonText))]
     private PurchaseSupplierLookupDto? _selectedSupplierOption;
+
+    public bool HasSelectedSupplier => SelectedSupplierOption != null;
+    public string SelectedSupplierButtonText => SelectedSupplierOption != null
+        ? SelectedSupplierOption.Name
+        : "Click to search supplier...";
 
     [ObservableProperty]
     private ReceivablePurchaseOrderLookupDto? _selectedReceivableOrderOption;
@@ -881,15 +926,20 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BillAmount))]
     [NotifyPropertyChangedFor(nameof(BillDifference))]
+    [NotifyPropertyChangedFor(nameof(FormattedBillDifference))]
     [NotifyPropertyChangedFor(nameof(IsBillDifferenceZero))]
     [NotifyPropertyChangedFor(nameof(HasBillDiffWarning))]
     [NotifyPropertyChangedFor(nameof(IsBillDiffExceedingTolerance))]
-    private string _billAmountText = "0.00";
+    private string _billAmountText = string.Empty;
 
     public decimal BillAmount => ParseDecimalSafe(BillAmountText);
     public decimal BillDifference => Math.Round(BillAmount - TotalAmount, 2, MidpointRounding.AwayFromZero);
+    public string FormattedBillDifference =>
+        (!string.IsNullOrWhiteSpace(BillAmountText) || TotalAmount > 0m)
+            ? BillDifference.ToString("0.00", CultureInfo.InvariantCulture)
+            : "—";
     public bool IsBillDifferenceZero => Math.Abs(BillDifference) < 0.009m;
-    public bool HasBillDiffWarning => !IsBillDifferenceZero;
+    public bool HasBillDiffWarning => (!string.IsNullOrWhiteSpace(BillAmountText) || TotalAmount > 0m) && !IsBillDifferenceZero;
     public bool IsBillDiffExceedingTolerance => Math.Abs(BillDifference) > 5m;
 
     [ObservableProperty]
@@ -957,10 +1007,12 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BillDifference))]
+    [NotifyPropertyChangedFor(nameof(FormattedBillDifference))]
     [NotifyPropertyChangedFor(nameof(IsBillDifferenceZero))]
     [NotifyPropertyChangedFor(nameof(HasBillDiffWarning))]
     [NotifyPropertyChangedFor(nameof(IsBillDiffExceedingTolerance))]
     [NotifyPropertyChangedFor(nameof(RemainingPayableAmount))]
+    [NotifyPropertyChangedFor(nameof(IsRemainingPositive))]
     [NotifyPropertyChangedFor(nameof(LedgerCreditExcessAmount))]
     [NotifyPropertyChangedFor(nameof(HasLedgerCreditExcess))]
     [NotifyPropertyChangedFor(nameof(ProjectedSupplierPayable))]
@@ -970,6 +1022,7 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalPaid))]
     [NotifyPropertyChangedFor(nameof(RemainingPayableAmount))]
+    [NotifyPropertyChangedFor(nameof(IsRemainingPositive))]
     [NotifyPropertyChangedFor(nameof(LedgerCreditExcessAmount))]
     [NotifyPropertyChangedFor(nameof(HasLedgerCreditExcess))]
     [NotifyPropertyChangedFor(nameof(ProjectedSupplierPayable))]
@@ -984,9 +1037,10 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
     public bool ShowRelinkPaidButton => IsDebitInvoice && _paidTouched && Math.Abs(TotalPaid - TotalAmount) > 0.009m;
 
-    public decimal RemainingPayableAmount => IsCreditInvoice
-        ? Math.Max(0m, Math.Round(TotalAmount - TotalPaid, 2))
-        : 0m;
+    public decimal RemainingPayableAmount => Math.Max(0m, Math.Round(TotalAmount - TotalPaid, 2));
+    public bool IsRemainingPositive => RemainingPayableAmount > 0.009m;
+    public bool HasDiscountSummary => DiscountAmount > 0.009m;
+    public bool HasTaxSummary => TaxAmount > 0.009m;
 
     public decimal LedgerCreditExcessAmount => IsCreditInvoice && TotalPaid > TotalAmount
         ? Math.Round(TotalPaid - TotalAmount, 2)
@@ -1101,10 +1155,36 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
         !string.Equals(CurrentDetail.Status, "reversed", StringComparison.OrdinalIgnoreCase);
 
     // =========================================================================
-    // 5. MODALS STATE (Product Search, Drafts, Pre-Shift, History, Reverse, Delete)
+    // 5. MODALS STATE (Supplier Search, Product Search, Quick Add Product, Drafts, Pre-Shift, History, Reverse, Delete)
     // =========================================================================
 
-    // A. Fast Product Search & Barcode Scanner Modal
+    // A0. Select Supplier Modal (SupplierSearch.jsx parity)
+    [ObservableProperty]
+    private bool _isSupplierSearchModalOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSupplierSearchQuery))]
+    [NotifyPropertyChangedFor(nameof(SupplierModalFooterCountText))]
+    private string _supplierSearchQuery = string.Empty;
+
+    public ObservableCollection<PurchaseSupplierLookupDto> FilteredSupplierModalResults { get; } = [];
+
+    [ObservableProperty]
+    private PurchaseSupplierLookupDto? _highlightedModalSupplier;
+
+    public bool HasSupplierSearchQuery => !string.IsNullOrWhiteSpace(SupplierSearchQuery);
+    public bool ShowEmptySupplierResults => FilteredSupplierModalResults.Count == 0;
+    public string SupplierModalFooterCountText => HasSupplierSearchQuery
+        ? $"{FilteredSupplierModalResults.Count} results for \"{SupplierSearchQuery.Trim()}\""
+        : "All suppliers";
+
+    partial void OnSupplierSearchQueryChanged(string value)
+    {
+        if (!IsSupplierSearchModalOpen) return;
+        RefreshSupplierModalResults(value);
+    }
+
+    // A. Fast Product Search Modal (ProductSearchInput.jsx parity)
     [ObservableProperty]
     private bool _isProductSearchModalOpen;
 
@@ -1112,6 +1192,8 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     private int _activeSearchLineIndex;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasProductSearchQuery))]
+    [NotifyPropertyChangedFor(nameof(ProductSearchFooterCountText))]
     private string _productSearchQuery = string.Empty;
 
     public ObservableCollection<PurchaseProductSearchItemDto> ProductSearchResults { get; } = [];
@@ -1119,10 +1201,47 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     [ObservableProperty]
     private PurchaseProductSearchItemDto? _highlightedSearchProduct;
 
+    public bool HasProductSearchQuery => !string.IsNullOrWhiteSpace(ProductSearchQuery);
+    public bool ShowEmptyProductSearchState => ProductSearchResults.Count == 0;
+    public string ProductSearchFooterCountText => HasProductSearchQuery
+        ? $"{ProductSearchResults.Count} results for \"{ProductSearchQuery.Trim()}\""
+        : "All products";
+
     partial void OnProductSearchQueryChanged(string value)
     {
         if (!IsProductSearchModalOpen) return;
         DebounceProductSearch(value);
+    }
+
+    // A2. Quick "+ Add Product" Catalog Creation Modal (ProductFormModal.jsx parity)
+    [ObservableProperty]
+    private bool _isQuickAddProductModalOpen;
+
+    [ObservableProperty] private string _newProdCode = string.Empty;
+    [ObservableProperty] private string _newProdBarcode = string.Empty;
+    [ObservableProperty] private string _newProdRack = string.Empty;
+    [ObservableProperty] private string _newProdName = string.Empty;
+    [ObservableProperty] private string _newProdFormulation = string.Empty;
+    [ObservableProperty] private string _newProdPackSizeText = "1";
+    [ObservableProperty] private LookupOptionDto? _selectedNewProdCategory;
+    [ObservableProperty] private LookupOptionDto? _selectedNewProdBrand;
+    [ObservableProperty] private LookupOptionDto? _selectedNewProdSupplier;
+    [ObservableProperty] private FormulationOptionDto? _selectedNewProdFormulationOption;
+    [ObservableProperty] private string _newProdDescription = string.Empty;
+    [ObservableProperty] private bool _newProdIsNarcotic;
+    [ObservableProperty] private string _newProdError = string.Empty;
+
+    public ObservableCollection<LookupOptionDto> QuickProductCategories { get; } = [];
+    public ObservableCollection<LookupOptionDto> QuickProductBrands { get; } = [];
+    public ObservableCollection<LookupOptionDto> QuickProductSuppliers { get; } = [];
+    public ObservableCollection<FormulationOptionDto> QuickProductFormulations { get; } = [];
+
+    partial void OnSelectedNewProdFormulationOptionChanged(FormulationOptionDto? value)
+    {
+        if (value != null && !string.IsNullOrWhiteSpace(value.Name))
+        {
+            NewProdFormulation = value.Name;
+        }
     }
 
     // B. Held Drafts Modal
@@ -1188,7 +1307,9 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     private string _deleteModalError = string.Empty;
 
     public bool HasAnyModalOpen =>
+        IsSupplierSearchModalOpen ||
         IsProductSearchModalOpen ||
+        IsQuickAddProductModalOpen ||
         IsDraftsModalOpen ||
         IsPreShiftPromptOpen ||
         IsHistoryModalOpen ||
@@ -1229,7 +1350,7 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
             SelectedSupplierOption = null;
             ActiveSupplierCredit = null;
             InvoiceNumber = string.Empty;
-            BillAmountText = "0.00";
+            BillAmountText = string.Empty;
             Remarks = string.Empty;
             EditReason = string.Empty;
             InvoiceType = "debit";
@@ -1414,10 +1535,11 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var pageSize = int.TryParse(SelectedPageSizeOption?.Key, out var ps) ? ps : 25;
+            var pageSize = int.TryParse(SelectedPageSizeOption?.Key, out var ps) ? ps : 10;
             var query = new PurchaseInvoiceFilterQuery
             {
                 Search = DirectorySearchText,
+                SupplierSearch = DirectorySupplierSearchText,
                 SupplierId = SelectedDirectorySupplierOption?.SupplierId,
                 InvoiceType = SelectedDirectoryTypeOption?.Key ?? "all",
                 Status = SelectedDirectoryStatusOption?.Key ?? "all",
@@ -1447,6 +1569,7 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
             OnPropertyChanged(nameof(HasDirectoryItems));
             OnPropertyChanged(nameof(ShowEmptyDirectoryState));
+            OnPropertyChanged(nameof(DirectoryRangeSubtitleText));
         }
         catch (Exception ex)
         {
@@ -1463,6 +1586,7 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     {
         _suppressDirectoryReload = true;
         DirectorySearchText = string.Empty;
+        DirectorySupplierSearchText = string.Empty;
         SelectedDirectorySupplierOption = DirectorySupplierOptions.FirstOrDefault();
         SelectedDirectoryTypeOption = DirectoryTypeOptions.FirstOrDefault();
         SelectedDirectoryStatusOption = DirectoryStatusOptions.FirstOrDefault();
@@ -1471,6 +1595,14 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
         CurrentPage = 1;
         _suppressDirectoryReload = false;
 
+        _ = RefreshDirectoryAsync();
+    }
+
+    [RelayCommand]
+    public void FirstPage()
+    {
+        if (!CanPrevPage) return;
+        CurrentPage = 1;
         _ = RefreshDirectoryAsync();
     }
 
@@ -1487,6 +1619,14 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     {
         if (!CanNextPage) return;
         CurrentPage++;
+        _ = RefreshDirectoryAsync();
+    }
+
+    [RelayCommand]
+    public void LastPage()
+    {
+        if (!CanNextPage) return;
+        CurrentPage = TotalPages;
         _ = RefreshDirectoryAsync();
     }
 
@@ -1810,21 +1950,136 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
         SelectedReceivableOrderOption = null;
     }
 
+    [RelayCommand]
+    public void ApplyCurrentArrangement()
+    {
+        if (SelectedArrangementOption != null)
+        {
+            ApplyRowArrangement(SelectedArrangementOption.Key);
+        }
+    }
+
+    [RelayCommand]
+    public async Task AppendRowAndOpenProductModalAsync()
+    {
+        AppendEmptyLine();
+        await OpenProductSearchForLineAsync(Lines[^1]);
+    }
+
     // =========================================================================
-    // 9. PRODUCT SEARCH MODAL & BARCODE SCANNING
+    // 8B. SELECT SUPPLIER MODAL (SupplierSearch.jsx PARITY)
+    // =========================================================================
+
+    [RelayCommand]
+    public void OpenSupplierSearchModal(string? seedText = null)
+    {
+        SupplierSearchQuery = seedText ?? string.Empty;
+        RefreshSupplierModalResults(SupplierSearchQuery);
+        IsSupplierSearchModalOpen = true;
+        RequestFocusSupplierModalSearch?.Invoke();
+    }
+
+    [RelayCommand]
+    public void ClearSupplierSearchQuery()
+    {
+        SupplierSearchQuery = string.Empty;
+        RequestFocusSupplierModalSearch?.Invoke();
+    }
+
+    [RelayCommand]
+    public void CloseSupplierSearchModal()
+    {
+        IsSupplierSearchModalOpen = false;
+    }
+
+    public void MoveSupplierModalHighlight(int delta)
+    {
+        if (FilteredSupplierModalResults.Count == 0)
+            return;
+
+        var curIdx = HighlightedModalSupplier != null
+            ? FilteredSupplierModalResults.IndexOf(HighlightedModalSupplier)
+            : -1;
+        var nextIdx = Math.Clamp(curIdx + delta, 0, FilteredSupplierModalResults.Count - 1);
+        HighlightedModalSupplier = FilteredSupplierModalResults[nextIdx];
+    }
+
+    [RelayCommand]
+    public void CommitSupplierModalSelection(PurchaseSupplierLookupDto? explicitSupplier = null)
+    {
+        var chosen = explicitSupplier ?? HighlightedModalSupplier;
+        if (chosen == null)
+            return;
+
+        SelectedSupplierOption = chosen;
+        IsSupplierSearchModalOpen = false;
+        RequestFocusInvoiceNumber?.Invoke();
+    }
+
+    private void RefreshSupplierModalResults(string? query)
+    {
+        var clean = (query ?? string.Empty).Trim();
+        List<PurchaseSupplierLookupDto> matches;
+
+        if (string.IsNullOrEmpty(clean))
+        {
+            matches = SupplierOptions.ToList();
+        }
+        else
+        {
+            // Prefix matches first in typing order, then any remaining name matches
+            var prefixMatches = SupplierOptions
+                .Where(s => s.Name.StartsWith(clean, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var otherMatches = SupplierOptions
+                .Where(s => !s.Name.StartsWith(clean, StringComparison.OrdinalIgnoreCase) &&
+                            s.Name.Contains(clean, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            matches = prefixMatches.Concat(otherMatches).ToList();
+        }
+
+        FilteredSupplierModalResults.Clear();
+        foreach (var item in matches)
+            FilteredSupplierModalResults.Add(item);
+
+        HighlightedModalSupplier = FilteredSupplierModalResults.FirstOrDefault();
+        OnPropertyChanged(nameof(ShowEmptySupplierResults));
+        OnPropertyChanged(nameof(SupplierModalFooterCountText));
+    }
+
+    // =========================================================================
+    // 9. PRODUCT SEARCH MODAL & QUICK ADD PRODUCT MODAL
     // =========================================================================
 
     [RelayCommand]
     public async Task OpenProductSearchForLineAsync(PurchaseInvoiceLineRowViewModel? row)
     {
+        await OpenProductSearchWithSeedAsync(row, null);
+    }
+
+    public async Task OpenProductSearchWithSeedAsync(PurchaseInvoiceLineRowViewModel? row, string? seedChar)
+    {
         var lineIdx = row != null ? Lines.IndexOf(row) : 0;
         if (lineIdx < 0) lineIdx = 0;
 
         ActiveSearchLineIndex = lineIdx;
-        ProductSearchQuery = string.Empty;
-        IsProductSearchModalOpen = true;
+        var targetRow = lineIdx < Lines.Count ? Lines[lineIdx] : null;
+        var initialQuery = !string.IsNullOrEmpty(seedChar)
+            ? seedChar
+            : (targetRow is { HasProduct: true } ? targetRow.ProductName : string.Empty);
 
-        await ExecuteProductSearchAsync(string.Empty);
+        IsProductSearchModalOpen = true;
+        ProductSearchQuery = initialQuery;
+        _productSearchDebounceCts?.Cancel();
+
+        await ExecuteProductSearchAsync(initialQuery);
+        RequestFocusProductModalSearch?.Invoke();
+    }
+
+    [RelayCommand]
+    public void ClearProductSearchQuery()
+    {
+        ProductSearchQuery = string.Empty;
         RequestFocusProductModalSearch?.Invoke();
     }
 
@@ -1832,6 +2087,137 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
     public void CloseProductSearchModal()
     {
         IsProductSearchModalOpen = false;
+    }
+
+    // Quick "+ Add Product" Modal (ProductFormModal.jsx parity)
+    [RelayCommand]
+    public async Task OpenQuickAddProductModalAsync()
+    {
+        NewProdError = string.Empty;
+        NewProdName = string.Empty;
+        NewProdRack = string.Empty;
+        NewProdFormulation = string.Empty;
+        NewProdPackSizeText = "1";
+        NewProdDescription = string.Empty;
+        NewProdIsNarcotic = false;
+        SelectedNewProdFormulationOption = null;
+
+        try
+        {
+            if (_productService != null)
+            {
+                var lookups = await _productService.GetProductFormLookupsAsync();
+                var codes = await _productService.GenerateNewCodeAndBarcodeAsync();
+
+                NewProdCode = codes.ProductCode;
+                NewProdBarcode = codes.Barcode;
+
+                QuickProductCategories.Clear();
+                foreach (var c in lookups.Categories) QuickProductCategories.Add(c);
+
+                QuickProductBrands.Clear();
+                foreach (var b in lookups.Brands) QuickProductBrands.Add(b);
+
+                QuickProductSuppliers.Clear();
+                foreach (var s in lookups.Suppliers) QuickProductSuppliers.Add(s);
+
+                QuickProductFormulations.Clear();
+                foreach (var f in lookups.Formulations) QuickProductFormulations.Add(f);
+
+                SelectedNewProdCategory = QuickProductCategories.FirstOrDefault();
+                SelectedNewProdBrand = QuickProductBrands.FirstOrDefault();
+                SelectedNewProdSupplier = SelectedSupplierOption != null
+                    ? QuickProductSuppliers.FirstOrDefault(s => s.Id == SelectedSupplierOption.Id) ?? QuickProductSuppliers.FirstOrDefault()
+                    : QuickProductSuppliers.FirstOrDefault();
+            }
+        }
+        catch (Exception ex)
+        {
+            NewProdError = ex.Message;
+        }
+
+        IsQuickAddProductModalOpen = true;
+        RequestFocusQuickAddProductName?.Invoke();
+    }
+
+    [RelayCommand]
+    public async Task RegenerateQuickProductBarcodeAsync()
+    {
+        if (_productService == null) return;
+        try
+        {
+            var codes = await _productService.GenerateNewCodeAndBarcodeAsync();
+            if (!string.IsNullOrWhiteSpace(codes.Barcode))
+            {
+                NewProdBarcode = codes.Barcode;
+            }
+        }
+        catch (Exception ex)
+        {
+            _toast.ShowError(ex.Message, "Barcode Generation Failed");
+        }
+    }
+
+    [RelayCommand]
+    public void CloseQuickAddProductModal()
+    {
+        IsQuickAddProductModalOpen = false;
+        NewProdError = string.Empty;
+    }
+
+    [RelayCommand]
+    public async Task SaveQuickAddProductAsync()
+    {
+        if (_productService == null)
+        {
+            NewProdError = "Product service is unavailable.";
+            return;
+        }
+
+        var cleanName = (NewProdName ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(cleanName))
+        {
+            NewProdError = "Product Name is required.";
+            return;
+        }
+
+        var packSize = int.TryParse(NewProdPackSizeText?.Trim(), out var ps) && ps > 0 ? ps : 1;
+
+        try
+        {
+            var res = await _productService.CreateProductAsync(new ProductUpsertRequest
+            {
+                ProductCode = NewProdCode,
+                Barcode = (NewProdBarcode ?? string.Empty).Trim(),
+                Name = cleanName,
+                Formulation = string.IsNullOrWhiteSpace(NewProdFormulation) ? null : NewProdFormulation.Trim(),
+                Rack = string.IsNullOrWhiteSpace(NewProdRack) ? null : NewProdRack.Trim(),
+                PackSize = packSize,
+                CategoryId = SelectedNewProdCategory?.Id,
+                BrandId = SelectedNewProdBrand?.Id,
+                SupplierId = SelectedNewProdSupplier?.Id ?? SelectedSupplierOption?.Id,
+                Description = string.IsNullOrWhiteSpace(NewProdDescription) ? null : NewProdDescription.Trim(),
+                Narcotic = NewProdIsNarcotic ? "yes" : "no"
+            });
+
+            if (!res.Succeeded)
+            {
+                NewProdError = res.Message;
+                return;
+            }
+
+            IsQuickAddProductModalOpen = false;
+            _toast.ShowSuccess($"Product '{cleanName}' created.", "Product Added");
+
+            if (IsProductSearchModalOpen)
+            {
+                await ExecuteProductSearchAsync(ProductSearchQuery);
+            }
+        }
+        catch (Exception ex)
+        {
+            NewProdError = ex.Message;
+        }
     }
 
     public void MoveProductSearchHighlight(int delta)
@@ -2408,11 +2794,11 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
         DirectoryStatusOptions.Add(new PurchaseSelectOption { Key = "reversed", Label = "Reversed (Void)" });
         _selectedDirectoryStatusOption = DirectoryStatusOptions[0];
 
-        PageSizeOptions.Add(new PurchaseSelectOption { Key = "10", Label = "10 / page" });
-        PageSizeOptions.Add(new PurchaseSelectOption { Key = "25", Label = "25 / page" });
-        PageSizeOptions.Add(new PurchaseSelectOption { Key = "50", Label = "50 / page" });
-        PageSizeOptions.Add(new PurchaseSelectOption { Key = "100", Label = "100 / page" });
-        _selectedPageSizeOption = PageSizeOptions[1];
+        PageSizeOptions.Add(new PurchaseSelectOption { Key = "10", Label = "10" });
+        PageSizeOptions.Add(new PurchaseSelectOption { Key = "25", Label = "25" });
+        PageSizeOptions.Add(new PurchaseSelectOption { Key = "50", Label = "50" });
+        PageSizeOptions.Add(new PurchaseSelectOption { Key = "100", Label = "100" });
+        _selectedPageSizeOption = PageSizeOptions[0];
 
         PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "cash", Label = "Cash" });
         PaymentMethodOptions.Add(new PurchaseSelectOption { Key = "bank_transfer", Label = "Bank Transfer" });
@@ -2594,6 +2980,9 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
         OnPropertyChanged(nameof(ShowRelinkPaidButton));
         OnPropertyChanged(nameof(RemainingPayableAmount));
+        OnPropertyChanged(nameof(IsRemainingPositive));
+        OnPropertyChanged(nameof(HasDiscountSummary));
+        OnPropertyChanged(nameof(HasTaxSummary));
         OnPropertyChanged(nameof(LedgerCreditExcessAmount));
         OnPropertyChanged(nameof(HasLedgerCreditExcess));
         OnPropertyChanged(nameof(ProjectedSupplierPayable));
@@ -2673,7 +3062,9 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
 
     public void CloseAllModals()
     {
+        IsSupplierSearchModalOpen = false;
         IsProductSearchModalOpen = false;
+        IsQuickAddProductModalOpen = false;
         IsDraftsModalOpen = false;
         IsPreShiftPromptOpen = false;
         IsHistoryModalOpen = false;
@@ -2720,7 +3111,7 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
                 var results = await _purchaseService.SearchProductsForPurchaseAsync(
                     query,
                     SelectedSupplierOption?.Id,
-                    80,
+                    200,
                     cts.Token);
 
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
@@ -2730,6 +3121,8 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
                     foreach (var item in results)
                         ProductSearchResults.Add(item);
                     HighlightedSearchProduct = ProductSearchResults.FirstOrDefault();
+                    OnPropertyChanged(nameof(ShowEmptyProductSearchState));
+                    OnPropertyChanged(nameof(ProductSearchFooterCountText));
                 });
             }
             catch (TaskCanceledException) { }
@@ -2741,12 +3134,14 @@ public partial class PurchaseInvoicesViewModel : ObservableObject
         var results = await _purchaseService.SearchProductsForPurchaseAsync(
             query,
             SelectedSupplierOption?.Id,
-            80);
+            200);
 
         ProductSearchResults.Clear();
         foreach (var item in results)
             ProductSearchResults.Add(item);
         HighlightedSearchProduct = ProductSearchResults.FirstOrDefault();
+        OnPropertyChanged(nameof(ShowEmptyProductSearchState));
+        OnPropertyChanged(nameof(ProductSearchFooterCountText));
     }
 
     private static decimal ParseDecimalSafe(string? raw)
