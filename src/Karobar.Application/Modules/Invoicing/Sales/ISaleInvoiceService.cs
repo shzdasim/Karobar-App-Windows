@@ -425,6 +425,9 @@ public sealed class SaleInvoiceDetailDto
     public decimal EstimatedTotalCost => TotalEstimatedCost;
     public decimal EstimatedTotalProfit => TotalEstimatedProfit;
     public decimal OverallMarginPercentage => OverallMarginPct;
+    public int TotalItemsCount => Items.Count;
+    public int TotalBilledUnits => Items.Sum(i => i.Quantity);
+    public int TotalBonusUnits => Items.Sum(i => i.Bonus);
 
     public List<SaleInvoiceLineItemDto> Items { get; set; } = [];
     public List<SaleDocumentHistoryEntryDto> Histories { get; set; } = [];

@@ -639,7 +639,6 @@ public partial class SaleInvoicesViewModel : ObservableObject
     private readonly Action<string> _navigate;
     private bool _suppressFooterRecalc;
     private bool _isBootstrapLoaded;
-    private bool _drawerPromptDismissedInSession;
 
     // View Focus & Print Callbacks wired by SaleInvoicesView.xaml.cs
     public Action? RequestFocusCustomerSelect { get; set; }
@@ -2839,7 +2838,6 @@ public partial class SaleInvoicesViewModel : ObservableObject
         var openAmt = ParseDecimal(OpeningFloatAmountText);
         await _saleService.OpenCashDrawerSessionAsync(openAmt, "Opened from Sale Invoice POS");
         IsPreShiftDrawerModalOpen = false;
-        _drawerPromptDismissedInSession = true;
         _toastService.ShowSuccess($"Cash drawer shift opened with float Rs. {openAmt:N0}.", "Cash Drawer Open");
     }
 
@@ -2847,7 +2845,6 @@ public partial class SaleInvoicesViewModel : ObservableObject
     public void SkipPreShiftDrawerPrompt()
     {
         IsPreShiftDrawerModalOpen = false;
-        _drawerPromptDismissedInSession = true;
     }
 
     // Show Page Modals: Search Invoice (Ctrl+F), Audit History, Receive Payment, Reverse & 3-Step Delete
