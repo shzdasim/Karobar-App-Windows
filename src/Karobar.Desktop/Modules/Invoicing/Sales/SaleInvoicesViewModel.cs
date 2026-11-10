@@ -2235,8 +2235,13 @@ public partial class SaleInvoicesViewModel : ObservableObject
         decimal wsPack = ParseDecimal(QuickAddProductWholesalePackPrice);
         if (wsPack <= 0m) wsPack = packSale;
 
+        var lookups = await _productService.GetProductFormLookupsAsync();
+        var codes = await _productService.GenerateNewCodeAndBarcodeAsync();
+
         var res = await _productService.CreateProductAsync(new ProductUpsertRequest
         {
+            ProductCode = codes.ProductCode,
+            Barcode = codes.Barcode,
             Name = cleanName,
             Formulation = QuickAddProductFormulation?.Trim(),
             PackSize = packSize,
@@ -2246,7 +2251,10 @@ public partial class SaleInvoicesViewModel : ObservableObject
             UnitSalePrice = Math.Round(packSale / packSize, 2),
             WholeSalePackPrice = wsPack,
             WholeSaleUnitPrice = Math.Round(wsPack / packSize, 2),
-            Rack = QuickAddProductRack?.Trim()
+            Rack = QuickAddProductRack?.Trim(),
+            CategoryId = lookups.Categories.FirstOrDefault()?.Id,
+            BrandId = lookups.Brands.FirstOrDefault()?.Id,
+            SupplierId = lookups.Suppliers.FirstOrDefault()?.Id
         });
 
         if (!res.Succeeded)

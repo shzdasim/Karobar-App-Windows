@@ -1160,6 +1160,9 @@ public sealed class Phase1FoundationTests
             await using var provider = services.BuildServiceProvider();
             var dbInit = provider.GetRequiredService<IDatabaseInitializerService>();
             var auth = provider.GetRequiredService<IAuthService>();
+            var categories = provider.GetRequiredService<ICategoryService>();
+            var brands = provider.GetRequiredService<IBrandService>();
+            var suppliers = provider.GetRequiredService<ISupplierService>();
             var products = provider.GetRequiredService<IProductService>();
             var sales = provider.GetRequiredService<ISaleInvoiceService>();
             var dbFactory = provider.GetRequiredService<IDbContextFactory<KarobarDbContext>>();
@@ -1167,7 +1170,16 @@ public sealed class Phase1FoundationTests
             await dbInit.InitializeAndSeedAsync();
             var session = await auth.LoginAsync("admin", "password");
 
-            // 1. Create Product with PackSize = 10, Cost = 10/unit (100/pack), Retail = 20/unit (200/pack), Wholesale = 16/unit (160/pack)
+            var cat = await categories.CreateAsync("Analgesics");
+            var br = await brands.CreateAsync(new BrandUpsertRequest { Name = "Haleon" });
+            var sup = await suppliers.CreateAsync(new SupplierUpsertRequest
+            {
+                Name = "Haleon Distributors",
+                Phone = "0300-1112233",
+                CreditDays = 30
+            });
+
+            // 1. Create Product with PackSize = 10, Quantity = 50 (30 for B-LATE + 20 for B-EARLY), Cost = 10/unit, Retail = 20/unit, Wholesale = 16/unit
             var prodCreate = await products.CreateProductAsync(new ProductUpsertRequest
             {
                 ProductCode = "PRD-PAN500",
@@ -1175,7 +1187,7 @@ public sealed class Phase1FoundationTests
                 Name = "Panadol Extra 500mg",
                 Formulation = "Paracetamol + Caffeine",
                 PackSize = 10,
-                Quantity = 0,
+                Quantity = 50,
                 PackPurchasePrice = 100m,
                 UnitPurchasePrice = 10m,
                 PackSalePrice = 200m,
@@ -1183,7 +1195,10 @@ public sealed class Phase1FoundationTests
                 WholeSalePackPrice = 160m,
                 WholeSaleUnitPrice = 16m,
                 AvgPrice = 10m,
-                MaxDiscount = 15m
+                MaxDiscount = 15m,
+                CategoryId = cat.Id,
+                BrandId = br.Id,
+                SupplierId = sup.Id
             });
             prodCreate.Succeeded.Should().BeTrue(prodCreate.Message);
             var prodId = prodCreate.EntityId!.Value;
