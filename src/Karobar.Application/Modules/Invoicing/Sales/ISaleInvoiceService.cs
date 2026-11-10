@@ -157,6 +157,7 @@ public sealed class SaleFormBootstrapDto
     public List<SaleCustomerLookupDto> Customers { get; set; } = [];
     public long WalkInCustomerId { get; set; }
     public List<SaleAccountLookupDto> Accounts { get; set; } = [];
+    public List<SaleAccountLookupDto> PaymentAccounts => Accounts;
     public bool HasOpenCashDrawer { get; set; }
     public DateTime? OpenCashDrawerOpenedAt { get; set; }
     public decimal OpenCashDrawerExpectedBalance { get; set; }
@@ -297,6 +298,7 @@ public sealed class SaleInvoiceLineItemDto
     public string BatchDisplay => string.IsNullOrWhiteSpace(BatchNumber) ? "—" : BatchNumber;
     public string AvailPackUnitBadge => SaleProductBatchOptionDto.FormatPackUnitBadge(CurrentQuantity, PackSize);
     public string FormattedExpiry => Expiry.HasValue ? Expiry.Value.ToString("MM/yyyy") : "—";
+    public string ExpiryFormatted => FormattedExpiry;
     public string TotalUnitsDisplay => Bonus > 0 ? $"{Quantity}+{Bonus}" : $"{Quantity}";
     public string FormattedMargin => Margin.HasValue ? $"{Margin.Value:0.00}%" : "0.00%";
     public bool IsNegativeMargin => (Margin ?? 0m) < 0m;

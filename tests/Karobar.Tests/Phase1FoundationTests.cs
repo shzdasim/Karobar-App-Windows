@@ -1325,7 +1325,7 @@ public sealed class Phase1FoundationTests
             var payRes = await sales.RecordInvoicePaymentAsync(
                 wsRes.InvoiceId.Value,
                 40m,
-                boot.PaymentAccounts.FirstOrDefault()?.Id,
+                boot.Accounts.FirstOrDefault()?.Id,
                 "CHQ-9988",
                 session.UserId);
             payRes.Succeeded.Should().BeTrue(payRes.Message);

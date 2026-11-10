@@ -1247,7 +1247,7 @@ public partial class SaleInvoicesView : UserControl, IPageKeyboardHandler
                 r.Cells.Add(CreateCell(item.ProductName, false, TextAlignment.Left, false));
                 r.Cells.Add(CreateCell($"1x{item.PackSize}", false, TextAlignment.Center, false));
                 r.Cells.Add(CreateCell(item.BatchDisplay, false, TextAlignment.Left, false));
-                r.Cells.Add(CreateCell(item.ExpiryFormatted, false, TextAlignment.Center, false));
+                r.Cells.Add(CreateCell(item.FormattedExpiry, false, TextAlignment.Center, false));
                 r.Cells.Add(CreateCell(item.TotalUnitsDisplay, true, TextAlignment.Right, false));
                 rg.Rows.Add(r);
             }
