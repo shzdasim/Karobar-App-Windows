@@ -98,6 +98,11 @@ public sealed class PurchaseReturnInvoiceLookupDto
     public decimal RemainingAmount { get; set; }
     public string? Remarks { get; set; }
     public int ItemsCount { get; set; }
+    public bool HasInvoiceNumber => !string.IsNullOrWhiteSpace(InvoiceNumber);
+    public bool HasRemarks => !string.IsNullOrWhiteSpace(Remarks);
+    public bool HasRemainingAmount => RemainingAmount > 0m;
+    public string FormattedTotalAmount => TotalAmount.ToString("N0");
+    public string FormattedRemainingAmount => $"Due: {RemainingAmount:N0}";
 }
 
 public sealed class PurchaseReturnInvoiceItemOptionDto
@@ -134,17 +139,36 @@ public sealed class PurchaseReturnProductSearchDto
     public string? Formulation { get; set; }
     public string CategoryName { get; set; } = "Uncategorized";
     public string BrandName { get; set; } = "—";
+    public long? SupplierId { get; set; }
+    public string SupplierName { get; set; } = string.Empty;
     public string? Rack { get; set; }
     public int PackSize { get; set; } = 1;
     public int QuantityOnHand { get; set; }
     public int? ReturnableUnitsOnInvoice { get; set; }
     public int DisplayAvailableUnits => ReturnableUnitsOnInvoice ?? QuantityOnHand;
+    public int Quantity => DisplayAvailableUnits;
     public decimal PackPurchasePrice { get; set; }
     public decimal UnitPurchasePrice { get; set; }
     public decimal PackSalePrice { get; set; }
     public decimal UnitSalePrice { get; set; }
     public decimal AvgPrice { get; set; }
+    public decimal? Margin { get; set; }
     public int BatchesCount { get; set; }
+
+    public bool IsLowStock => Quantity < Math.Max(1, PackSize);
+    public bool HasBrand => !string.IsNullOrWhiteSpace(BrandName) && BrandName != "—";
+    public bool HasFormulation => !string.IsNullOrWhiteSpace(Formulation);
+    public bool HasSupplier => !string.IsNullOrWhiteSpace(SupplierName);
+    public bool HasRack => !string.IsNullOrWhiteSpace(Rack);
+    public string SupplierBulletText => HasSupplier ? $"• {SupplierName}" : string.Empty;
+    public string RackBadgeText => HasRack ? $"Rack: {Rack}" : string.Empty;
+    public string StockTrendArrow => IsLowStock ? "▼" : "▲";
+    public string MarginBadgeText => Margin.HasValue ? $"{Margin.Value:0.##}%" : "—";
+    public string FormattedPackPurchasePrice => PackPurchasePrice.ToString("#,##0.###");
+    public string FormattedUnitPurchasePrice => UnitPurchasePrice.ToString("#,##0.###");
+    public string FormattedPackSalePrice => PackSalePrice.ToString("#,##0.###");
+    public string FormattedUnitSalePrice => UnitSalePrice.ToString("#,##0.###");
+    public string FormattedAvgPrice => AvgPrice.ToString("#,##0.###");
 }
 
 public sealed class PurchaseReturnBatchOptionDto
@@ -164,6 +188,7 @@ public sealed class PurchaseReturnBatchOptionDto
     public decimal UnitPurchasePrice { get; set; }
     public decimal ItemDiscountPercentage { get; set; }
     public string DisplayBatchNumber => IsUnbatched ? "[Unassigned Stock]" : BatchNumber;
+    public override string ToString() => DisplayBatchNumber;
 }
 
 public sealed class PurchaseReturnLineItemDto
@@ -281,6 +306,14 @@ public sealed class DocumentHistoryEntryDto
 {
     public long Id { get; set; }
     public string Action { get; set; } = string.Empty;
+    public string ActionBadge => Action.ToLowerInvariant() switch
+    {
+        "created" => "Created",
+        "updated" => "Edited",
+        "deleted" => "Deleted",
+        "reversed" => "Reversed",
+        _ => Action
+    };
     public string PostedNumber { get; set; } = string.Empty;
     public string UserName { get; set; } = "System";
     public string? Reason { get; set; }

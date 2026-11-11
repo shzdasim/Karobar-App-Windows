@@ -1383,6 +1383,7 @@ public sealed class PurchaseReturnService : IPurchaseReturnService
         var productIds = products.Select(p => p.Id).ToList();
         var catIds = products.Where(p => p.CategoryId.HasValue).Select(p => p.CategoryId!.Value).Distinct().ToList();
         var brandIds = products.Where(p => p.BrandId.HasValue).Select(p => p.BrandId!.Value).Distinct().ToList();
+        var supIds = products.Where(p => p.SupplierId.HasValue).Select(p => p.SupplierId!.Value).Distinct().ToList();
 
         var catMap = catIds.Count > 0
             ? await db.Categories.AsNoTracking()
@@ -1396,6 +1397,12 @@ public sealed class PurchaseReturnService : IPurchaseReturnService
                 .ToDictionaryAsync(b => b.Id, b => b.Name, cancellationToken)
             : [];
 
+        var supMap = supIds.Count > 0
+            ? await db.Suppliers.AsNoTracking()
+                .Where(s => supIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.Name, cancellationToken)
+            : [];
+
         var batchCounts = await db.Batches.AsNoTracking()
             .Where(b => productIds.Contains(b.ProductId) && b.Quantity > 0)
             .GroupBy(b => b.ProductId)
@@ -1407,12 +1414,20 @@ public sealed class PurchaseReturnService : IPurchaseReturnService
             var packSize = p.PackSize > 0 ? p.PackSize : 1;
             var packCost = p.PackPurchasePrice > 0m ? p.PackPurchasePrice : Math.Round(p.UnitPurchasePrice * packSize, 2);
             var unitCost = p.UnitPurchasePrice > 0m ? p.UnitPurchasePrice : (packSize > 0 ? Math.Round(packCost / packSize, 4) : 0m);
+            var packSale = p.PackSalePrice > 0m ? p.PackSalePrice : Math.Round(p.UnitSalePrice * packSize, 2);
+            var unitSale = p.UnitSalePrice > 0m ? p.UnitSalePrice : (packSize > 0 ? Math.Round(packSale / packSize, 4) : 0m);
 
             if (invoicePriceByProduct != null && invoicePriceByProduct.TryGetValue(p.Id, out var invOpt))
             {
                 packSize = invOpt.PackSize > 0 ? invOpt.PackSize : packSize;
                 if (invOpt.PackPurchasePrice > 0m) packCost = invOpt.PackPurchasePrice;
                 if (invOpt.UnitPurchasePrice > 0m) unitCost = invOpt.UnitPurchasePrice;
+            }
+
+            decimal? margin = p.Margin;
+            if (!margin.HasValue && unitSale > 0m)
+            {
+                margin = Math.Round(((unitSale - unitCost) / unitSale) * 100m, 2);
             }
 
             int? retUnits = null;
@@ -1430,16 +1445,19 @@ public sealed class PurchaseReturnService : IPurchaseReturnService
                 GenericName = p.Formulation,
                 Formulation = p.Formulation,
                 CategoryName = p.CategoryId.HasValue && catMap.TryGetValue(p.CategoryId.Value, out var cName) ? cName : "Uncategorized",
-                BrandName = p.BrandId.HasValue && brandMap.TryGetValue(p.BrandId.Value, out var bName) ? bName : "—",
+                BrandName = p.BrandId.HasValue && brandMap.TryGetValue(p.BrandId.Value, out var bName) ? bName : string.Empty,
+                SupplierId = p.SupplierId,
+                SupplierName = p.SupplierId.HasValue && supMap.TryGetValue(p.SupplierId.Value, out var sName) ? sName : string.Empty,
                 Rack = p.Rack,
                 PackSize = packSize,
                 QuantityOnHand = p.Quantity,
                 ReturnableUnitsOnInvoice = retUnits,
                 PackPurchasePrice = packCost,
                 UnitPurchasePrice = unitCost,
-                PackSalePrice = p.PackSalePrice,
-                UnitSalePrice = p.UnitSalePrice,
-                AvgPrice = p.AvgPrice,
+                PackSalePrice = packSale,
+                UnitSalePrice = unitSale,
+                AvgPrice = p.AvgPrice > 0m ? p.AvgPrice : unitCost,
+                Margin = margin,
                 BatchesCount = batchCounts.TryGetValue(p.Id, out var bc) ? bc : 0
             };
         }).ToList();

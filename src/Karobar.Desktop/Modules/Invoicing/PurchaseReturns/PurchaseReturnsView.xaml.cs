@@ -14,10 +14,20 @@ namespace Karobar.Desktop.Views;
 public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
 {
     private PurchaseReturnsViewModel? _wiredVm;
-    private bool _isDraggingProductModal;
-    private Point _productModalDragStart;
-    private double _productModalStartLeft;
-    private double _productModalStartTop;
+
+    private sealed record ModalResizeState(
+        string Direction,
+        double StartX,
+        double StartY,
+        double StartWidth,
+        double StartHeight,
+        double StartLeft,
+        double StartTop);
+
+    private bool _isDraggingProductSearch;
+    private Point _productSearchDragOffset;
+    private ModalResizeState? _productSearchResizeState;
+    private Point _lastProductModalMousePos;
 
     public PurchaseReturnsView()
     {
@@ -33,6 +43,8 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
         {
             _wiredVm.RequestFocusField -= OnRequestFocusField;
             _wiredVm.RequestPrintDocument -= OnRequestPrintDocument;
+            _wiredVm.RequestApplyProductSearchModalLayout = null;
+            _wiredVm.PropertyChanged -= OnViewModelPropertyChanged;
         }
 
         _wiredVm = e.NewValue as PurchaseReturnsViewModel;
@@ -41,6 +53,8 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
         {
             _wiredVm.RequestFocusField += OnRequestFocusField;
             _wiredVm.RequestPrintDocument += OnRequestPrintDocument;
+            _wiredVm.RequestApplyProductSearchModalLayout = () =>
+                Dispatcher.BeginInvoke(ApplyProductSearchModalLayout, DispatcherPriority.Loaded);
             _wiredVm.PropertyChanged += OnViewModelPropertyChanged;
         }
     }
@@ -51,48 +65,100 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
 
         if (e.PropertyName == nameof(PurchaseReturnsViewModel.IsSupplierSearchModalOpen) && _wiredVm.IsSupplierSearchModalOpen)
         {
-            Dispatcher.BeginInvoke(() =>
-            {
-                SupplierModalSearchBox.Focus();
-                SupplierModalSearchBox.SelectAll();
-            }, DispatcherPriority.Input);
+            FocusAndPlaceCaretAtEnd(SupplierModalSearchTextBox);
         }
         else if (e.PropertyName == nameof(PurchaseReturnsViewModel.IsInvoiceSearchModalOpen) && _wiredVm.IsInvoiceSearchModalOpen)
         {
-            Dispatcher.BeginInvoke(() =>
-            {
-                InvoiceModalSearchBox.Focus();
-                InvoiceModalSearchBox.SelectAll();
-            }, DispatcherPriority.Input);
+            FocusAndPlaceCaretAtEnd(InvoiceModalSearchTextBox);
         }
         else if (e.PropertyName == nameof(PurchaseReturnsViewModel.IsProductSearchModalOpen) && _wiredVm.IsProductSearchModalOpen)
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ProductModalSearchBox.Focus();
-                ProductModalSearchBox.SelectAll();
-            }, DispatcherPriority.Input);
-        }
-        else if (e.PropertyName == nameof(PurchaseReturnsViewModel.IsBatchSearchModalOpen) && _wiredVm.IsBatchSearchModalOpen)
-        {
-            Dispatcher.BeginInvoke(() =>
-            {
-                BatchModalSearchBox.Focus();
-                BatchModalSearchBox.SelectAll();
+                ApplyProductSearchModalLayout();
+                FocusAndPlaceCaretAtEnd(ProductModalSearchTextBox);
             }, DispatcherPriority.Input);
         }
         else if (e.PropertyName == nameof(PurchaseReturnsViewModel.IsDeleteModalOpen) && _wiredVm.IsDeleteModalOpen)
         {
             Dispatcher.BeginInvoke(() =>
             {
+                DeletePasswordBox.Clear();
                 DeletePasswordBox.Focus();
-                DeletePasswordBox.SelectAll();
+                Keyboard.Focus(DeletePasswordBox);
             }, DispatcherPriority.Input);
         }
     }
 
     // =========================================================================
-    // 1. IPageKeyboardHandler IMPLEMENTATION
+    // 1. DATE PICKER dd-MM-yyyy WATERMARK & NUMERIC FOCUS HELPERS
+    // =========================================================================
+
+    private void AnyDatePicker_OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is DatePicker dp)
+        {
+            dp.ApplyTemplate();
+            if (dp.Template?.FindName("PART_TextBox", dp) is DatePickerTextBox dpTextBox)
+            {
+                dpTextBox.ApplyTemplate();
+                if (dpTextBox.Template?.FindName("PART_Watermark", dpTextBox) is ContentControl watermark)
+                {
+                    watermark.Content = "dd-MM-yyyy";
+                }
+            }
+        }
+    }
+
+    private void NumericTextBox_OnGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            var idx = GetRowIndexFromElement(tb);
+            if (idx >= 0 && Vm != null)
+                Vm.ActiveRowIndex = idx;
+            tb.SelectAll();
+        }
+    }
+
+    private void NumericTextBox_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is TextBox tb && !tb.IsKeyboardFocusWithin)
+        {
+            e.Handled = true;
+            tb.Focus();
+            tb.SelectAll();
+        }
+    }
+
+    private void LineCellTextBox_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: PurchaseReturnLineEditorViewModel row })
+        {
+            row.NormalizeDisplayTexts();
+        }
+    }
+
+    private void DeletePasswordBox_OnPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (Vm != null && sender is PasswordBox pb)
+        {
+            Vm.DeletePassword = pb.Password;
+        }
+    }
+
+    private async void DeletePasswordBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None &&
+            Vm is { IsDeleteModalOpen: true })
+        {
+            e.Handled = true;
+            await Vm.ConfirmDeleteReturnAsync();
+        }
+    }
+
+    // =========================================================================
+    // 2. IPageKeyboardHandler IMPLEMENTATION
     // =========================================================================
 
     public bool HandleNewShortcut()
@@ -116,6 +182,12 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
     public bool HandleSaveShortcut()
     {
         if (Vm == null) return false;
+        if (Vm.IsDeleteModalOpen)
+        {
+            _ = Vm.ConfirmDeleteReturnAsync();
+            return true;
+        }
+
         if (Vm.IsFormMode)
         {
             _ = Vm.SaveReturnAsync();
@@ -130,8 +202,7 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
         if (Vm == null) return false;
         if (Vm.IsDirectoryMode)
         {
-            DirectorySearchPostedBox.Focus();
-            DirectorySearchPostedBox.SelectAll();
+            FocusAndSelectTextBox(DirectorySearchPostedBox);
             return true;
         }
 
@@ -193,6 +264,11 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
             _ = Vm.CancelFormAsync();
             return true;
         }
+        if (Vm.IsDirectoryMode && (!string.IsNullOrEmpty(Vm.FilterPostedNumber) || !string.IsNullOrEmpty(Vm.FilterSupplierSearch)))
+        {
+            _ = Vm.ResetDirectoryFiltersAsync();
+            return true;
+        }
 
         return false;
     }
@@ -214,7 +290,7 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
     public bool HandleExportShortcut() => false;
 
     // =========================================================================
-    // 2. PAGE & REPEATER KEYBOARD SHORTCUTS
+    // 3. HEADER & PAGE-LEVEL KEYBOARD NAVIGATION
     // =========================================================================
 
     private void UserControl_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -272,7 +348,7 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
             if (key == Key.F3)
             {
                 e.Handled = true;
-                _ = Vm.OpenBatchSearchForRowAsync(Vm.ActiveRowIndex);
+                OnRequestFocusField("batch", Vm.ActiveRowIndex);
                 return;
             }
         }
@@ -283,22 +359,68 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
         }
     }
 
-    private void DirectoryFilterBox_KeyDown(object sender, KeyEventArgs e)
+    private void SupplierTriggerButton_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && Vm != null)
+        if (Vm == null) return;
+
+        var mods = Keyboard.Modifiers;
+        if (mods == ModifierKeys.None && (e.Key == Key.Enter || e.Key == Key.Space || e.Key == Key.Down))
         {
             e.Handled = true;
-            _ = Vm.SearchDirectoryAsync();
+            Vm.OpenSupplierSearchModal();
+            return;
+        }
+
+        var seed = TryMapKeyToSeedChar(e.Key, mods);
+        if (seed != null)
+        {
+            e.Handled = true;
+            Vm.OpenSupplierSearchModal(seed);
         }
     }
 
-    private void DirectoryGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    private async void InvoiceTriggerButton_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (Vm?.SelectedDirectoryRow != null)
+        if (Vm == null) return;
+
+        var mods = Keyboard.Modifiers;
+        if (mods == ModifierKeys.None && (e.Key == Key.Enter || e.Key == Key.Space || e.Key == Key.Down))
         {
-            _ = Vm.ViewReturnDetailAsync(Vm.SelectedDirectoryRow);
+            e.Handled = true;
+            await Vm.OpenInvoiceSearchModalAsync();
+            return;
+        }
+
+        // Pressing Tab on InvoiceTriggerButton moves to Remarks or Row 0 Product
+        var seed = TryMapKeyToSeedChar(e.Key, mods);
+        if (seed != null)
+        {
+            e.Handled = true;
+            await Vm.OpenInvoiceSearchModalAsync();
+            Vm.InvoiceSearchQuery = seed;
         }
     }
+
+    private async void RemarksTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Vm == null) return;
+
+        if (Keyboard.Modifiers == ModifierKeys.None && (e.Key == Key.Enter || e.Key == Key.Tab))
+        {
+            e.Handled = true;
+            if (Vm.Lines.Count == 0)
+                Vm.AddRow();
+
+            if (!Vm.Lines[0].HasProduct)
+                await Vm.OpenProductSearchForRowAsync(0);
+            else
+                OnRequestFocusField("product", 0);
+        }
+    }
+
+    // =========================================================================
+    // 4. LINE-ITEM REPEATER KEYBOARD CHAIN (Enter & ArrowUp / ArrowDown)
+    // =========================================================================
 
     private int GetRowIndexFromElement(FrameworkElement? el)
     {
@@ -323,75 +445,96 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
         var rowIndex = GetRowIndexFromElement(sender as FrameworkElement);
         if (rowIndex < 0) return;
         Vm.ActiveRowIndex = rowIndex;
+        var row = Vm.Lines[rowIndex];
+        var mods = Keyboard.Modifiers;
 
-        if (e.Key == Key.Enter || e.Key == Key.Space)
+        if (mods == ModifierKeys.None && e.Key == Key.Enter)
         {
             e.Handled = true;
-            await Vm.OpenProductSearchForRowAsync(rowIndex);
-        }
-        else if (e.Key == Key.Down)
-        {
-            e.Handled = true;
-            if (rowIndex == Vm.Lines.Count - 1)
-                Vm.AddRow();
+            if (!row.HasProduct)
+            {
+                await Vm.OpenProductSearchForRowAsync(rowIndex);
+            }
             else
-                OnRequestFocusField("product", rowIndex + 1);
+            {
+                var nextCol = row.RowBatches.Count > 1 ? "batch" : "pack_quantity";
+                OnRequestFocusField(nextCol, rowIndex);
+            }
+            return;
         }
-        else if (e.Key == Key.Up && rowIndex > 0)
+
+        // Pressing Tab on an empty trailing row jumps cleanly to Footer Discount %
+        if (mods == ModifierKeys.None && e.Key == Key.Tab && !row.HasProduct && Vm.ActiveProductLinesCount > 0)
+        {
+            e.Handled = true;
+            FocusAndSelectTextBox(FooterDiscountPctTextBox);
+            return;
+        }
+
+        if (mods == ModifierKeys.None && e.Key == Key.Up && rowIndex > 0)
         {
             e.Handled = true;
             OnRequestFocusField("product", rowIndex - 1);
+            return;
         }
-    }
 
-    private async void BatchCellButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (Vm == null) return;
-        var rowIndex = GetRowIndexFromElement(sender as FrameworkElement);
-        if (rowIndex >= 0)
-        {
-            await Vm.OpenBatchSearchForRowAsync(rowIndex);
-        }
-    }
-
-    private async void BatchCellButton_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (Vm == null) return;
-        var rowIndex = GetRowIndexFromElement(sender as FrameworkElement);
-        if (rowIndex < 0) return;
-        Vm.ActiveRowIndex = rowIndex;
-
-        if (e.Key == Key.Enter || e.Key == Key.Space)
+        if (mods == ModifierKeys.None && e.Key == Key.Down)
         {
             e.Handled = true;
-            await Vm.OpenBatchSearchForRowAsync(rowIndex);
+            if (rowIndex + 1 < Vm.Lines.Count)
+            {
+                var nextRow = Vm.Lines[rowIndex + 1];
+                if (!nextRow.HasProduct)
+                    await Vm.OpenProductSearchForRowAsync(rowIndex + 1);
+                else
+                    OnRequestFocusField("product", rowIndex + 1);
+            }
+            else
+            {
+                Vm.AddRow();
+                await Vm.OpenProductSearchForRowAsync(Vm.Lines.Count - 1);
+            }
+            return;
         }
-    }
 
-    private void LineTextBox_GotFocus(object sender, RoutedEventArgs e)
-    {
-        if (sender is TextBox tb)
+        // Typing any alphanumeric character on the Product trigger opens the Product Search Modal seeded with that character!
+        var seed = TryMapKeyToSeedChar(e.Key, mods);
+        if (seed != null)
         {
-            var idx = GetRowIndexFromElement(tb);
-            if (idx >= 0 && Vm != null)
-                Vm.ActiveRowIndex = idx;
-            tb.SelectAll();
+            e.Handled = true;
+            await Vm.OpenProductSearchForRowAsync(rowIndex, seed);
         }
     }
 
-    private void LineTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void LineBatchSelect_OnEnterCommitted(object? sender, EventArgs e)
+    {
+        if (Vm == null || sender is not FrameworkElement fe)
+            return;
+
+        var rowIndex = GetRowIndexFromElement(fe);
+        if (rowIndex < 0)
+            return;
+
+        OnRequestFocusField("pack_quantity", rowIndex);
+    }
+
+    private async void LineTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (Vm == null || sender is not TextBox tb) return;
         var rowIndex = GetRowIndexFromElement(tb);
         if (rowIndex < 0) return;
-
+        var row = Vm.Lines[rowIndex];
+        var mods = Keyboard.Modifiers;
         var fieldTag = tb.Tag as string ?? string.Empty;
 
         // Sequential Enter Chain matching PurchaseReturnForm.jsx lines 1251-1264:
         // pack_quantity -> pack_purchase_price -> item_discount -> next row product
-        if (e.Key == Key.Enter)
+        if (mods == ModifierKeys.None && e.Key == Key.Enter)
         {
             e.Handled = true;
+            tb.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+            row.NormalizeDisplayTexts();
+
             if (fieldTag == "pack_quantity" || fieldTag == "unit_quantity")
             {
                 OnRequestFocusField("pack_purchase_price", rowIndex);
@@ -402,36 +545,65 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
             }
             else if (fieldTag == "item_discount")
             {
-                if (rowIndex == Vm.Lines.Count - 1)
+                if (rowIndex + 1 < Vm.Lines.Count)
                 {
-                    Vm.AddRow();
+                    var nextRow = Vm.Lines[rowIndex + 1];
+                    if (!nextRow.HasProduct)
+                        await Vm.OpenProductSearchForRowAsync(rowIndex + 1);
+                    else
+                        OnRequestFocusField("product", rowIndex + 1);
                 }
                 else
                 {
-                    OnRequestFocusField("product", rowIndex + 1);
+                    Vm.AddRow();
+                    await Vm.OpenProductSearchForRowAsync(Vm.Lines.Count - 1);
                 }
             }
             return;
         }
 
-        if (e.Key == Key.Down)
+        if (mods == ModifierKeys.None && e.Key == Key.Down)
         {
             e.Handled = true;
-            if (rowIndex == Vm.Lines.Count - 1)
+            if (rowIndex + 1 < Vm.Lines.Count)
             {
-                Vm.AddRow();
+                var nextRow = Vm.Lines[rowIndex + 1];
+                if (!nextRow.HasProduct)
+                    await Vm.OpenProductSearchForRowAsync(rowIndex + 1);
+                else
+                    OnRequestFocusField(fieldTag, rowIndex + 1);
             }
             else
             {
-                OnRequestFocusField(fieldTag, rowIndex + 1);
+                Vm.AddRow();
+                await Vm.OpenProductSearchForRowAsync(Vm.Lines.Count - 1);
             }
             return;
         }
 
-        if (e.Key == Key.Up && rowIndex > 0)
+        if (mods == ModifierKeys.None && e.Key == Key.Up && rowIndex > 0)
         {
             e.Handled = true;
-            OnRequestFocusField(fieldTag, rowIndex - 1);
+            var targetTag = Vm.Lines[rowIndex - 1].HasProduct ? fieldTag : "product";
+            OnRequestFocusField(targetTag, rowIndex - 1);
+        }
+    }
+
+    private void FooterDiscountPctTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            e.Handled = true;
+            FocusAndSelectTextBox(FooterTaxPctTextBox);
+        }
+    }
+
+    private void FooterTaxPctTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            e.Handled = true;
+            SaveReturnFooterButton?.Focus();
         }
     }
 
@@ -439,28 +611,54 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
     {
         Dispatcher.BeginInvoke(() =>
         {
-            if (Vm == null || rowIndex < 0 || rowIndex >= Vm.Lines.Count)
+            if (Vm == null) return;
+
+            if (string.Equals(fieldTag, "supplier_trigger", StringComparison.OrdinalIgnoreCase))
+            {
+                SupplierTriggerButton?.Focus();
+                if (SupplierTriggerButton != null)
+                    Keyboard.Focus(SupplierTriggerButton);
+                return;
+            }
+
+            if (string.Equals(fieldTag, "invoice_trigger", StringComparison.OrdinalIgnoreCase))
+            {
+                InvoiceTriggerButton?.Focus();
+                if (InvoiceTriggerButton != null)
+                    Keyboard.Focus(InvoiceTriggerButton);
+                return;
+            }
+
+            if (LinesItemsControl == null || rowIndex < 0 || rowIndex >= LinesItemsControl.Items.Count)
                 return;
 
-            var container = LinesRepeater.ItemContainerGenerator.ContainerFromIndex(rowIndex) as DependencyObject;
+            LinesItemsControl.UpdateLayout();
+            var container = LinesItemsControl.ItemContainerGenerator.ContainerFromIndex(rowIndex) as DependencyObject;
             if (container == null)
-            {
-                LinesRepeater.UpdateLayout();
-                container = LinesRepeater.ItemContainerGenerator.ContainerFromIndex(rowIndex) as DependencyObject;
-            }
-            if (container == null) return;
+                return;
 
             var target = FindChildByTag(container, fieldTag);
-            if (target is TextBox tb)
+            if (target == null)
+                return;
+
+            target.BringIntoView();
+
+            if (target is SearchableSelect ss)
+            {
+                ss.FocusSearchInput();
+            }
+            else if (target is TextBox tb)
             {
                 tb.Focus();
+                Keyboard.Focus(tb);
                 tb.SelectAll();
             }
             else if (target is UIElement ui)
             {
                 ui.Focus();
+                Keyboard.Focus(ui);
             }
-        }, DispatcherPriority.Loaded);
+        }, DispatcherPriority.Input);
     }
 
     private static FrameworkElement? FindChildByTag(DependencyObject parent, string tag)
@@ -480,25 +678,26 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
     }
 
     // =========================================================================
-    // 3. MODAL KEYBOARD & MOUSE INTERACTIONS
+    // 5. SUPPLIER & INVOICE SEARCH MODAL HANDLERS
     // =========================================================================
 
-    private void SupplierModalSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void SupplierModalSearchTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (Vm == null) return;
-        if (e.Key == Key.Down && Vm.FilteredSuppliers.Count > 0)
+
+        if (e.Key == Key.Down)
         {
             e.Handled = true;
-            var idx = Vm.SelectedSupplierInModal != null ? Vm.FilteredSuppliers.IndexOf(Vm.SelectedSupplierInModal) : -1;
-            Vm.SelectedSupplierInModal = Vm.FilteredSuppliers[Math.Min(Vm.FilteredSuppliers.Count - 1, idx + 1)];
-            SupplierModalGrid.ScrollIntoView(Vm.SelectedSupplierInModal);
+            Vm.MoveSupplierModalHighlight(1);
+            if (Vm.SelectedSupplierInModal != null)
+                SupplierModalResultsListBox.ScrollIntoView(Vm.SelectedSupplierInModal);
         }
-        else if (e.Key == Key.Up && Vm.FilteredSuppliers.Count > 0)
+        else if (e.Key == Key.Up)
         {
             e.Handled = true;
-            var idx = Vm.SelectedSupplierInModal != null ? Vm.FilteredSuppliers.IndexOf(Vm.SelectedSupplierInModal) : 0;
-            Vm.SelectedSupplierInModal = Vm.FilteredSuppliers[Math.Max(0, idx - 1)];
-            SupplierModalGrid.ScrollIntoView(Vm.SelectedSupplierInModal);
+            Vm.MoveSupplierModalHighlight(-1);
+            if (Vm.SelectedSupplierInModal != null)
+                SupplierModalResultsListBox.ScrollIntoView(Vm.SelectedSupplierInModal);
         }
         else if (e.Key == Key.Enter)
         {
@@ -509,33 +708,38 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
         {
             e.Handled = true;
             Vm.CloseSupplierSearchModal();
+            Dispatcher.BeginInvoke(() => SupplierTriggerButton?.Focus(), DispatcherPriority.Input);
         }
     }
 
-    private void SupplierModalGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        if (Vm?.SelectedSupplierInModal != null)
-        {
-            Vm.SelectSupplierFromModal(Vm.SelectedSupplierInModal);
-        }
-    }
-
-    private async void InvoiceModalSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void SupplierModalResultsListBox_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (Vm == null) return;
-        if (e.Key == Key.Down && Vm.InvoiceSearchResults.Count > 0)
+
+        if (ItemsControl.ContainerFromElement(SupplierModalResultsListBox, e.OriginalSource as DependencyObject) is ListBoxItem lbi &&
+            lbi.DataContext is PurchaseSupplierLookupDto sup)
         {
-            e.Handled = true;
-            var idx = Vm.SelectedInvoiceInModal != null ? Vm.InvoiceSearchResults.IndexOf(Vm.SelectedInvoiceInModal) : -1;
-            Vm.SelectedInvoiceInModal = Vm.InvoiceSearchResults[Math.Min(Vm.InvoiceSearchResults.Count - 1, idx + 1)];
-            InvoiceModalGrid.ScrollIntoView(Vm.SelectedInvoiceInModal);
+            Vm.SelectSupplierFromModal(sup);
         }
-        else if (e.Key == Key.Up && Vm.InvoiceSearchResults.Count > 0)
+    }
+
+    private async void InvoiceModalSearchTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Vm == null) return;
+
+        if (e.Key == Key.Down)
         {
             e.Handled = true;
-            var idx = Vm.SelectedInvoiceInModal != null ? Vm.InvoiceSearchResults.IndexOf(Vm.SelectedInvoiceInModal) : 0;
-            Vm.SelectedInvoiceInModal = Vm.InvoiceSearchResults[Math.Max(0, idx - 1)];
-            InvoiceModalGrid.ScrollIntoView(Vm.SelectedInvoiceInModal);
+            Vm.MoveInvoiceModalHighlight(1);
+            if (Vm.SelectedInvoiceInModal != null)
+                InvoiceModalResultsListBox.ScrollIntoView(Vm.SelectedInvoiceInModal);
+        }
+        else if (e.Key == Key.Up)
+        {
+            e.Handled = true;
+            Vm.MoveInvoiceModalHighlight(-1);
+            if (Vm.SelectedInvoiceInModal != null)
+                InvoiceModalResultsListBox.ScrollIntoView(Vm.SelectedInvoiceInModal);
         }
         else if (e.Key == Key.Enter)
         {
@@ -546,33 +750,43 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
         {
             e.Handled = true;
             Vm.CloseInvoiceSearchModal();
+            Dispatcher.BeginInvoke(() => InvoiceTriggerButton?.Focus(), DispatcherPriority.Input);
         }
     }
 
-    private async void InvoiceModalGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        if (Vm?.SelectedInvoiceInModal != null)
-        {
-            await Vm.SelectInvoiceFromModalAsync(Vm.SelectedInvoiceInModal);
-        }
-    }
-
-    private async void ProductModalSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private async void InvoiceModalResultsListBox_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (Vm == null) return;
-        if (e.Key == Key.Down && Vm.ProductSearchResults.Count > 0)
+
+        if (ItemsControl.ContainerFromElement(InvoiceModalResultsListBox, e.OriginalSource as DependencyObject) is ListBoxItem lbi &&
+            lbi.DataContext is PurchaseReturnInvoiceLookupDto inv)
         {
-            e.Handled = true;
-            var idx = Vm.SelectedProductInModal != null ? Vm.ProductSearchResults.IndexOf(Vm.SelectedProductInModal) : -1;
-            Vm.SelectedProductInModal = Vm.ProductSearchResults[Math.Min(Vm.ProductSearchResults.Count - 1, idx + 1)];
-            ProductModalGrid.ScrollIntoView(Vm.SelectedProductInModal);
+            await Vm.SelectInvoiceFromModalAsync(inv);
         }
-        else if (e.Key == Key.Up && Vm.ProductSearchResults.Count > 0)
+    }
+
+    // =========================================================================
+    // 6. DRAGGABLE & 8-WAY RESIZABLE PRODUCT SEARCH MODAL HANDLERS
+    //    (Exact ProductSearchInput.jsx parity)
+    // =========================================================================
+
+    private async void ProductModalSearchTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (Vm == null) return;
+
+        if (e.Key == Key.Down)
         {
             e.Handled = true;
-            var idx = Vm.SelectedProductInModal != null ? Vm.ProductSearchResults.IndexOf(Vm.SelectedProductInModal) : 0;
-            Vm.SelectedProductInModal = Vm.ProductSearchResults[Math.Max(0, idx - 1)];
-            ProductModalGrid.ScrollIntoView(Vm.SelectedProductInModal);
+            Vm.MoveProductSearchHighlight(1);
+            if (Vm.SelectedProductInModal != null)
+                ProductModalResultsListBox.ScrollIntoView(Vm.SelectedProductInModal);
+        }
+        else if (e.Key == Key.Up)
+        {
+            e.Handled = true;
+            Vm.MoveProductSearchHighlight(-1);
+            if (Vm.SelectedProductInModal != null)
+                ProductModalResultsListBox.ScrollIntoView(Vm.SelectedProductInModal);
         }
         else if (e.Key == Key.Enter)
         {
@@ -580,99 +794,383 @@ public partial class PurchaseReturnsView : UserControl, IPageKeyboardHandler
             await Vm.SelectProductFromModalAsync(Vm.SelectedProductInModal);
         }
         else if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            var targetRowIdx = Vm.ProductSearchTargetRowIndex;
+            var wasTrailingEmpty = targetRowIdx >= 0 &&
+                                   targetRowIdx < Vm.Lines.Count &&
+                                   !Vm.Lines[targetRowIdx].HasProduct &&
+                                   Vm.ActiveProductLinesCount > 0;
+            Vm.CloseProductSearchModal();
+            if (wasTrailingEmpty)
+            {
+                FocusAndSelectTextBox(FooterDiscountPctTextBox);
+            }
+            else
+            {
+                OnRequestFocusField("product", targetRowIdx);
+            }
+        }
+    }
+
+    private void ProductModalResultsListBox_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (Vm == null) return;
+
+        var pos = e.GetPosition(ProductModalResultsListBox);
+        if (Math.Abs(pos.X - _lastProductModalMousePos.X) < 1.0 &&
+            Math.Abs(pos.Y - _lastProductModalMousePos.Y) < 1.0)
+        {
+            return;
+        }
+        _lastProductModalMousePos = pos;
+
+        if (ItemsControl.ContainerFromElement(ProductModalResultsListBox, e.OriginalSource as DependencyObject) is ListBoxItem lbi &&
+            lbi.DataContext is PurchaseReturnProductSearchDto hovered &&
+            !ReferenceEquals(Vm.SelectedProductInModal, hovered))
+        {
+            Vm.SelectedProductInModal = hovered;
+        }
+    }
+
+    private async void ProductModalResultsListBox_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (Vm == null) return;
+
+        if (ItemsControl.ContainerFromElement(ProductModalResultsListBox, e.OriginalSource as DependencyObject) is ListBoxItem lbi &&
+            lbi.DataContext is PurchaseReturnProductSearchDto item)
+        {
+            await Vm.SelectProductFromModalAsync(item);
+        }
+    }
+
+    private void ProductSearchOverlay_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (Vm == null) return;
+
+        if (ReferenceEquals(e.OriginalSource, ProductSearchOverlayGrid) ||
+            ReferenceEquals(e.OriginalSource, ProductSearchOverlayCanvas))
         {
             e.Handled = true;
             Vm.CloseProductSearchModal();
         }
     }
 
-    private async void ProductModalGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    private void ProductSearchOverlayCanvas_OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (Vm?.SelectedProductInModal != null)
+        if (Vm is { IsProductSearchModalOpen: true })
         {
-            await Vm.SelectProductFromModalAsync(Vm.SelectedProductInModal);
+            ApplyProductSearchModalLayout();
         }
     }
 
-    private void BatchModalSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void ApplyProductSearchModalLayout()
     {
-        if (Vm == null) return;
-        if (e.Key == Key.Down && Vm.BatchSearchResults.Count > 0)
+        if (Vm == null || ProductSearchDialogBorder == null || ProductSearchOverlayCanvas == null)
+            return;
+
+        const double minW = 640d;
+        const double minH = 420d;
+
+        double canvasW = ProductSearchOverlayCanvas.ActualWidth > 100
+            ? ProductSearchOverlayCanvas.ActualWidth
+            : (ActualWidth > 100 ? ActualWidth : 1280d);
+        double canvasH = ProductSearchOverlayCanvas.ActualHeight > 100
+            ? ProductSearchOverlayCanvas.ActualHeight
+            : (ActualHeight > 100 ? ActualHeight : 800d);
+
+        var layout = Vm.ProductSearchModalLayout;
+        double maxW = Math.Max(minW, canvasW - 16d);
+        double maxH = Math.Max(minH, canvasH - 24d);
+
+        double width = Math.Clamp(layout.Width > 0 ? layout.Width : 960d, minW, maxW);
+        double height = Math.Clamp(layout.Height > 0 ? layout.Height : 600d, minH, maxH);
+
+        double left;
+        double top;
+        if (layout.HasSavedPosition && double.IsFinite(layout.X!.Value) && double.IsFinite(layout.Y!.Value))
         {
-            e.Handled = true;
-            var idx = Vm.SelectedBatchInModal != null ? Vm.BatchSearchResults.IndexOf(Vm.SelectedBatchInModal) : -1;
-            Vm.SelectedBatchInModal = Vm.BatchSearchResults[Math.Min(Vm.BatchSearchResults.Count - 1, idx + 1)];
-            BatchModalGrid.ScrollIntoView(Vm.SelectedBatchInModal);
+            left = Math.Clamp(layout.X.Value, 8d, Math.Max(8d, canvasW - width - 8d));
+            top = Math.Clamp(layout.Y.Value, 8d, Math.Max(8d, canvasH - height - 8d));
         }
-        else if (e.Key == Key.Up && Vm.BatchSearchResults.Count > 0)
+        else
         {
-            e.Handled = true;
-            var idx = Vm.SelectedBatchInModal != null ? Vm.BatchSearchResults.IndexOf(Vm.SelectedBatchInModal) : 0;
-            Vm.SelectedBatchInModal = Vm.BatchSearchResults[Math.Max(0, idx - 1)];
-            BatchModalGrid.ScrollIntoView(Vm.SelectedBatchInModal);
+            left = Math.Max(8d, (canvasW - width) / 2d);
+            top = Math.Max(8d, (canvasH - height) / 2d);
         }
-        else if (e.Key == Key.Enter)
+
+        ProductSearchDialogBorder.Width = width;
+        ProductSearchDialogBorder.Height = height;
+        Canvas.SetLeft(ProductSearchDialogBorder, left);
+        Canvas.SetTop(ProductSearchDialogBorder, top);
+    }
+
+    private void ProductSearchHeader_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ProductSearchDialogBorder == null || ProductSearchOverlayCanvas == null)
+            return;
+
+        if (IsInteractiveHeaderChild(e.OriginalSource as DependencyObject, ProductSearchHeaderBorder))
+            return;
+
+        var pos = e.GetPosition(ProductSearchOverlayCanvas);
+        var curLeft = Canvas.GetLeft(ProductSearchDialogBorder);
+        var curTop = Canvas.GetTop(ProductSearchDialogBorder);
+        if (double.IsNaN(curLeft)) curLeft = 120d;
+        if (double.IsNaN(curTop)) curTop = 60d;
+
+        _productSearchDragOffset = new Point(pos.X - curLeft, pos.Y - curTop);
+        _isDraggingProductSearch = true;
+        (sender as UIElement)?.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void ProductSearchHeader_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingProductSearch || ProductSearchDialogBorder == null || ProductSearchOverlayCanvas == null)
+            return;
+
+        var pos = e.GetPosition(ProductSearchOverlayCanvas);
+        double canvasW = Math.Max(ProductSearchDialogBorder.Width + 16d, ProductSearchOverlayCanvas.ActualWidth);
+        double canvasH = Math.Max(ProductSearchDialogBorder.Height + 16d, ProductSearchOverlayCanvas.ActualHeight);
+
+        double nextLeft = Math.Clamp(
+            pos.X - _productSearchDragOffset.X,
+            0d,
+            Math.Max(0d, canvasW - ProductSearchDialogBorder.Width));
+        double nextTop = Math.Clamp(
+            pos.Y - _productSearchDragOffset.Y,
+            0d,
+            Math.Max(0d, canvasH - ProductSearchDialogBorder.Height));
+
+        Canvas.SetLeft(ProductSearchDialogBorder, nextLeft);
+        Canvas.SetTop(ProductSearchDialogBorder, nextTop);
+    }
+
+    private void ProductSearchHeader_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndProductSearchDrag(sender as UIElement);
+        e.Handled = true;
+    }
+
+    private void ProductSearchHeader_OnLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        EndProductSearchDrag(sender as UIElement);
+    }
+
+    private void EndProductSearchDrag(UIElement? senderElement)
+    {
+        if (!_isDraggingProductSearch)
+            return;
+
+        _isDraggingProductSearch = false;
+        if (senderElement?.IsMouseCaptured == true)
+            senderElement.ReleaseMouseCapture();
+
+        PersistCurrentProductSearchLayout();
+        FocusAndPlaceCaretAtEnd(ProductModalSearchTextBox);
+    }
+
+    private void ProductSearchResizeHandle_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ProductSearchDialogBorder == null || ProductSearchOverlayCanvas == null || sender is not FrameworkElement handle)
+            return;
+
+        var dir = (handle.Tag as string ?? "se").ToLowerInvariant();
+        var pos = e.GetPosition(ProductSearchOverlayCanvas);
+        var curLeft = Canvas.GetLeft(ProductSearchDialogBorder);
+        var curTop = Canvas.GetTop(ProductSearchDialogBorder);
+        if (double.IsNaN(curLeft)) curLeft = 120d;
+        if (double.IsNaN(curTop)) curTop = 60d;
+
+        _productSearchResizeState = new ModalResizeState(
+            dir,
+            pos.X,
+            pos.Y,
+            ProductSearchDialogBorder.Width,
+            ProductSearchDialogBorder.Height,
+            curLeft,
+            curTop);
+
+        handle.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void ProductSearchResizeHandle_OnMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_productSearchResizeState == null || ProductSearchDialogBorder == null || ProductSearchOverlayCanvas == null)
+            return;
+
+        var r = _productSearchResizeState;
+        var pos = e.GetPosition(ProductSearchOverlayCanvas);
+        ApplyEightWayResize(
+            r,
+            pos.X - r.StartX,
+            pos.Y - r.StartY,
+            minW: 640d,
+            minH: 420d,
+            ProductSearchOverlayCanvas,
+            ProductSearchDialogBorder);
+    }
+
+    private void ProductSearchResizeHandle_OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        EndProductSearchResize(sender as UIElement);
+        e.Handled = true;
+    }
+
+    private void ProductSearchResizeHandle_OnLostMouseCapture(object sender, MouseEventArgs e)
+    {
+        EndProductSearchResize(sender as UIElement);
+    }
+
+    private void EndProductSearchResize(UIElement? handleElement)
+    {
+        if (_productSearchResizeState == null)
+            return;
+
+        _productSearchResizeState = null;
+        if (handleElement?.IsMouseCaptured == true)
+            handleElement.ReleaseMouseCapture();
+
+        PersistCurrentProductSearchLayout();
+        FocusAndPlaceCaretAtEnd(ProductModalSearchTextBox);
+    }
+
+    private void PersistCurrentProductSearchLayout()
+    {
+        if (Vm == null || ProductSearchDialogBorder == null)
+            return;
+
+        var left = Canvas.GetLeft(ProductSearchDialogBorder);
+        var top = Canvas.GetTop(ProductSearchDialogBorder);
+        var width = ProductSearchDialogBorder.Width;
+        var height = ProductSearchDialogBorder.Height;
+
+        if (double.IsFinite(left) && double.IsFinite(top) && double.IsFinite(width) && double.IsFinite(height))
         {
-            e.Handled = true;
-            Vm.SelectBatchFromModal(Vm.SelectedBatchInModal);
-        }
-        else if (e.Key == Key.Escape)
-        {
-            e.Handled = true;
-            Vm.CloseBatchSearchModal();
+            _ = Vm.SaveProductSearchModalLayoutAsync(left, top, width, height);
         }
     }
 
-    private void BatchModalGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    private static void ApplyEightWayResize(
+        ModalResizeState r,
+        double dx,
+        double dy,
+        double minW,
+        double minH,
+        Canvas overlayCanvas,
+        Border dialogBorder)
     {
-        if (Vm?.SelectedBatchInModal != null)
+        double width = r.StartWidth;
+        double height = r.StartHeight;
+        double left = r.StartLeft;
+        double top = r.StartTop;
+
+        double maxCanvasW = overlayCanvas.ActualWidth > minW ? overlayCanvas.ActualWidth : 1920d;
+        double maxCanvasH = overlayCanvas.ActualHeight > minH ? overlayCanvas.ActualHeight : 1080d;
+
+        if (r.Direction.Contains('e'))
         {
-            Vm.SelectBatchFromModal(Vm.SelectedBatchInModal);
+            width = Math.Clamp(r.StartWidth + dx, minW, Math.Max(minW, maxCanvasW - left));
         }
-    }
-
-    // Draggable & Resizable Product Search Modal Handlers
-    private void ProductModalHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is UIElement header)
+        if (r.Direction.Contains('s'))
         {
-            _isDraggingProductModal = true;
-            _productModalDragStart = e.GetPosition(this);
-            _productModalStartLeft = Canvas.GetLeft(ProductModalDialog);
-            _productModalStartTop = Canvas.GetTop(ProductModalDialog);
-            header.CaptureMouse();
-            e.Handled = true;
+            height = Math.Clamp(r.StartHeight + dy, minH, Math.Max(minH, maxCanvasH - top));
         }
-    }
-
-    private void ProductModalHeader_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_isDraggingProductModal) return;
-        var pos = e.GetPosition(this);
-        var dx = pos.X - _productModalDragStart.X;
-        var dy = pos.Y - _productModalDragStart.Y;
-        Canvas.SetLeft(ProductModalDialog, Math.Max(0, _productModalStartLeft + dx));
-        Canvas.SetTop(ProductModalDialog, Math.Max(0, _productModalStartTop + dy));
-    }
-
-    private void ProductModalHeader_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        if (_isDraggingProductModal && sender is UIElement header)
+        if (r.Direction.Contains('w'))
         {
-            _isDraggingProductModal = false;
-            header.ReleaseMouseCapture();
-            e.Handled = true;
+            double targetW = Math.Max(minW, r.StartWidth - dx);
+            double nextLeft = r.StartLeft + (r.StartWidth - targetW);
+            if (nextLeft < 0d)
+            {
+                nextLeft = 0d;
+                targetW = r.StartLeft + r.StartWidth;
+            }
+            width = Math.Max(minW, targetW);
+            left = nextLeft;
         }
+        if (r.Direction.Contains('n'))
+        {
+            double targetH = Math.Max(minH, r.StartHeight - dy);
+            double nextTop = r.StartTop + (r.StartHeight - targetH);
+            if (nextTop < 0d)
+            {
+                nextTop = 0d;
+                targetH = r.StartTop + r.StartHeight;
+            }
+            height = Math.Max(minH, targetH);
+            top = nextTop;
+        }
+
+        dialogBorder.Width = width;
+        dialogBorder.Height = height;
+        Canvas.SetLeft(dialogBorder, left);
+        Canvas.SetTop(dialogBorder, top);
     }
 
-    private void ProductModalResizeThumb_DragDelta(object sender, DragDeltaEventArgs e)
+    private static bool IsInteractiveHeaderChild(DependencyObject? source, DependencyObject? stopAt)
     {
-        ProductModalDialog.Width = Math.Max(ProductModalDialog.MinWidth, ProductModalDialog.Width + e.HorizontalChange);
-        ProductModalDialog.Height = Math.Max(ProductModalDialog.MinHeight, ProductModalDialog.Height + e.VerticalChange);
+        var cur = source;
+        while (cur != null && !ReferenceEquals(cur, stopAt))
+        {
+            if (cur is TextBoxBase or ButtonBase)
+                return true;
+            cur = cur is Visual || cur is System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(cur)
+                : LogicalTreeHelper.GetParent(cur);
+        }
+        return false;
+    }
+
+    private void FocusAndSelectTextBox(TextBox? textBox)
+    {
+        if (textBox == null) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            textBox.Focus();
+            Keyboard.Focus(textBox);
+            textBox.SelectAll();
+        }, DispatcherPriority.Input);
+    }
+
+    private void FocusAndPlaceCaretAtEnd(TextBox? textBox)
+    {
+        if (textBox == null) return;
+        Dispatcher.BeginInvoke(() =>
+        {
+            textBox.Focus();
+            Keyboard.Focus(textBox);
+            textBox.CaretIndex = textBox.Text?.Length ?? 0;
+        }, DispatcherPriority.Input);
+    }
+
+    private static string? TryMapKeyToSeedChar(Key key, ModifierKeys mods)
+    {
+        if (mods != ModifierKeys.None && mods != ModifierKeys.Shift)
+            return null;
+
+        if (key is >= Key.A and <= Key.Z)
+        {
+            var ch = (char)('a' + (key - Key.A));
+            return mods == ModifierKeys.Shift ? char.ToUpperInvariant(ch).ToString() : ch.ToString();
+        }
+
+        if (mods == ModifierKeys.None && key is >= Key.D0 and <= Key.D9)
+        {
+            return ((char)('0' + (key - Key.D0))).ToString();
+        }
+
+        if (mods == ModifierKeys.None && key is >= Key.NumPad0 and <= Key.NumPad9)
+        {
+            return ((char)('0' + (key - Key.NumPad0))).ToString();
+        }
+
+        return null;
     }
 
     // =========================================================================
-    // 4. NATIVE PURCHASE RETURN PRINT / DEBIT NOTE ENGINE
+    // 7. NATIVE PURCHASE RETURN PRINT / DEBIT NOTE ENGINE
     // =========================================================================
 
     private void OnRequestPrintDocument(PurchaseReturnDetailDto detail)

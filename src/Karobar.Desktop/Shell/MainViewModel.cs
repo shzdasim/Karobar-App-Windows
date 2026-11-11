@@ -175,7 +175,7 @@ public partial class MainViewModel : ObservableObject
         ProductBatches = new ProductBatchesViewModel(productService, toastService, Navigate);
         BarcodeStudio = new BarcodeStudioViewModel(barcodeStudioService);
         PurchaseInvoices = new PurchaseInvoicesViewModel(purchaseInvoiceService, toastService, Navigate, productService);
-        PurchaseReturns = new PurchaseReturnsViewModel(purchaseReturnService, authService);
+        PurchaseReturns = new PurchaseReturnsViewModel(purchaseReturnService, authService, toastService, purchaseInvoiceService);
         SaleInvoices = new SaleInvoicesViewModel(saleInvoiceService, toastService, Navigate, productService);
 
         BuildSidebarNavigation();
